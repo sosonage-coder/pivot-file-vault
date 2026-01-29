@@ -160,3 +160,5 @@ export type PivotViewType =
   | 'area-period'
   | 'document-type'
   | 'status-final';
+
+export type AnalysisViewType = 'whats-missing' | 'pbc-requests';

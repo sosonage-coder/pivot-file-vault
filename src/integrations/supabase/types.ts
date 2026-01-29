@@ -400,16 +400,51 @@ export type Database = {
           },
         ]
       }
+      pbc_comments: {
+        Row: {
+          content: string
+          created_at: string | null
+          id: string
+          pbc_item_id: string
+          user_id: string | null
+        }
+        Insert: {
+          content: string
+          created_at?: string | null
+          id?: string
+          pbc_item_id: string
+          user_id?: string | null
+        }
+        Update: {
+          content?: string
+          created_at?: string | null
+          id?: string
+          pbc_item_id?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pbc_comments_pbc_item_id_fkey"
+            columns: ["pbc_item_id"]
+            isOneToOne: false
+            referencedRelation: "pbc_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pbc_items: {
         Row: {
           area_id: string
           assignee_id: string | null
           created_at: string
           document_type_id: string
+          due_date: string | null
           entity_id: string
           id: string
+          notes: string | null
           object_id: string | null
           period_id: string
+          priority: string | null
           process_id: string
           status: Database["public"]["Enums"]["pbc_status"]
           updated_at: string
@@ -419,10 +454,13 @@ export type Database = {
           assignee_id?: string | null
           created_at?: string
           document_type_id: string
+          due_date?: string | null
           entity_id: string
           id?: string
+          notes?: string | null
           object_id?: string | null
           period_id: string
+          priority?: string | null
           process_id: string
           status?: Database["public"]["Enums"]["pbc_status"]
           updated_at?: string
@@ -432,10 +470,13 @@ export type Database = {
           assignee_id?: string | null
           created_at?: string
           document_type_id?: string
+          due_date?: string | null
           entity_id?: string
           id?: string
+          notes?: string | null
           object_id?: string | null
           period_id?: string
+          priority?: string | null
           process_id?: string
           status?: Database["public"]["Enums"]["pbc_status"]
           updated_at?: string

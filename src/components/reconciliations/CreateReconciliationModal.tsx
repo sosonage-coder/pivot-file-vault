@@ -77,7 +77,7 @@ export function CreateReconciliationModal({
         entity_id: entityId,
         object_id: values.object_id,
         period_id: values.period_id,
-        template_id: values.template_id || null,
+        template_id: values.template_id && values.template_id !== 'none' ? values.template_id : null,
         gl_balance: values.gl_balance ?? null,
         sub_balance: values.sub_balance ?? null,
         notes: values.notes || null,
@@ -153,14 +153,14 @@ export function CreateReconciliationModal({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Template (Optional)</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
+                  <Select onValueChange={field.onChange} value={field.value || undefined}>
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select template" />
+                        <SelectValue placeholder="No template" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="">No template</SelectItem>
+                      <SelectItem value="none">No template</SelectItem>
                       {templates.map((template) => (
                         <SelectItem key={template.id} value={template.id}>
                           {template.name}

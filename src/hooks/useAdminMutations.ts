@@ -193,3 +193,36 @@ export function useDeleteObject() {
     },
   });
 }
+
+interface CreateAreaData {
+  name: string;
+  processId: string;
+}
+
+export function useCreateArea() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: CreateAreaData) => {
+      const { data: area, error } = await supabase
+        .from('areas')
+        .insert({
+          name: data.name,
+          process_id: data.processId,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return area as Area;
+    },
+    onSuccess: (area) => {
+      queryClient.invalidateQueries({ queryKey: ['folder-structure'] });
+      queryClient.invalidateQueries({ queryKey: ['areas'] });
+      toast.success(`Area "${area.name}" created successfully`);
+    },
+    onError: (error) => {
+      toast.error(`Failed to create area: ${error.message}`);
+    },
+  });
+}

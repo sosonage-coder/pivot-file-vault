@@ -14,7 +14,8 @@ import {
   ShieldCheck,
   Clock,
   Trash2,
-  Pencil
+  Pencil,
+  Plus
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
@@ -23,6 +24,7 @@ import {
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuTrigger,
+  ContextMenuSeparator,
 } from '@/components/ui/context-menu';
 import {
   AlertDialog,
@@ -35,6 +37,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useDeleteProcess, useDeleteArea, useDeleteObject } from '@/hooks/useAdminMutations';
+import { AddFolderModal } from './AddFolderModal';
 import type { TreeNode, TreeNodeType } from '@/types/filegrid';
 
 interface UnifiedFolderTreeProps {
@@ -94,6 +97,8 @@ const pbcTreeColors: Record<string, string> = {
 function TreeItem({ node, level, selectedId, onSelect, pendingCounts, onEditObject }: TreeItemProps) {
   const [isExpanded, setIsExpanded] = useState(level < 1);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [addModalOpen, setAddModalOpen] = useState(false);
+  const [addType, setAddType] = useState<'area' | 'object'>('area');
   
   const deleteProcess = useDeleteProcess();
   const deleteArea = useDeleteArea();
@@ -112,6 +117,7 @@ function TreeItem({ node, level, selectedId, onSelect, pendingCounts, onEditObje
   // Determine if this node type supports context menu actions
   const canDelete = ['process', 'area', 'object'].includes(node.type);
   const canEdit = node.type === 'object';
+  const canAddChild = node.type === 'process' || node.type === 'area';
 
   const handleClick = () => {
     if (hasChildren) {
@@ -135,6 +141,16 @@ function TreeItem({ node, level, selectedId, onSelect, pendingCounts, onEditObje
       deleteObject.mutate(node.id);
     }
     setDeleteDialogOpen(false);
+  };
+
+  const handleAddChild = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (node.type === 'process') {
+      setAddType('area');
+    } else if (node.type === 'area') {
+      setAddType('object');
+    }
+    setAddModalOpen(true);
   };
 
   const getItemCount = () => {
@@ -192,55 +208,65 @@ function TreeItem({ node, level, selectedId, onSelect, pendingCounts, onEditObje
     }
   };
 
+  const getAddChildLabel = () => {
+    if (node.type === 'process') return 'Add Area';
+    if (node.type === 'area') return 'Add Object';
+    return 'Add';
+  };
+
   const treeButton = (
-    <button
-      onClick={handleClick}
-      onDoubleClick={handleDoubleClick}
+    <div 
       className={cn(
-        'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors',
+        'group flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors',
         'hover:bg-[hsl(var(--tree-hover))]',
         isSelected && 'bg-[hsl(var(--tree-selected))] font-medium',
         isItemNode && 'py-1'
       )}
       style={{ paddingLeft: `${level * 12 + 8}px` }}
     >
-      <span className="flex h-4 w-4 items-center justify-center">
-        {hasChildren ? (
-          isExpanded ? (
-            <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+      <button
+        onClick={handleClick}
+        onDoubleClick={handleDoubleClick}
+        className="flex flex-1 items-center gap-2 min-w-0"
+      >
+        <span className="flex h-4 w-4 items-center justify-center flex-shrink-0">
+          {hasChildren ? (
+            isExpanded ? (
+              <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+            ) : (
+              <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+            )
           ) : (
-            <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
-          )
-        ) : (
-          <span className="w-3.5" />
-        )}
-      </span>
-      <Icon className={cn(
-        'h-4 w-4 flex-shrink-0',
-        isModuleNode ? moduleColors[node.type] : 
-        isPbcTreeNode ? pbcTreeColors[node.type] :
-        node.type === 'area' ? 'text-primary' : 
-        node.type === 'object' ? 'text-accent-foreground' : 
-        isItemNode ? 'text-muted-foreground' :
-        'text-muted-foreground'
-      )} />
-      <span className={cn(
-        'flex-1 truncate',
-        isItemNode && 'text-xs'
-      )}>
-        {node.name}
-      </span>
+            <span className="w-3.5" />
+          )}
+        </span>
+        <Icon className={cn(
+          'h-4 w-4 flex-shrink-0',
+          isModuleNode ? moduleColors[node.type] : 
+          isPbcTreeNode ? pbcTreeColors[node.type] :
+          node.type === 'area' ? 'text-primary' : 
+          node.type === 'object' ? 'text-accent-foreground' : 
+          isItemNode ? 'text-muted-foreground' :
+          'text-muted-foreground'
+        )} />
+        <span className={cn(
+          'flex-1 truncate',
+          isItemNode && 'text-xs'
+        )}>
+          {node.name}
+        </span>
+      </button>
       
       {/* Show approval indicator */}
       {requiresApproval && (
-        <ShieldCheck className="h-3.5 w-3.5 text-primary" />
+        <ShieldCheck className="h-3.5 w-3.5 text-primary flex-shrink-0" />
       )}
       
       {/* Show pending approval count */}
       {pendingCount > 0 && (
         <Badge 
           variant="secondary" 
-          className="h-5 px-1.5 text-xs bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400"
+          className="h-5 px-1.5 text-xs bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400 flex-shrink-0"
         >
           <Clock className="mr-0.5 h-3 w-3" />
           {pendingCount}
@@ -252,21 +278,39 @@ function TreeItem({ node, level, selectedId, onSelect, pendingCounts, onEditObje
       
       {/* Show item/document count */}
       {!isItemNode && pendingCount === 0 && itemCount !== null && itemCount > 0 && (
-        <span className="text-xs text-muted-foreground tabular-nums">
+        <span className="text-xs text-muted-foreground tabular-nums flex-shrink-0">
           {itemCount}
         </span>
       )}
-    </button>
+
+      {/* Plus button to add child - shows on hover */}
+      {canAddChild && (
+        <button
+          onClick={handleAddChild}
+          className="opacity-0 group-hover:opacity-100 h-5 w-5 flex items-center justify-center rounded hover:bg-accent transition-opacity flex-shrink-0"
+          title={getAddChildLabel()}
+        >
+          <Plus className="h-3.5 w-3.5 text-muted-foreground" />
+        </button>
+      )}
+    </div>
   );
 
   return (
     <div>
-      {canDelete || canEdit ? (
+      {canDelete || canEdit || canAddChild ? (
         <ContextMenu>
           <ContextMenuTrigger asChild>
             {treeButton}
           </ContextMenuTrigger>
           <ContextMenuContent>
+            {canAddChild && (
+              <ContextMenuItem onClick={handleAddChild}>
+                <Plus className="mr-2 h-4 w-4" />
+                {getAddChildLabel()}
+              </ContextMenuItem>
+            )}
+            {canAddChild && (canEdit || canDelete) && <ContextMenuSeparator />}
             {canEdit && onEditObject && (
               <ContextMenuItem onClick={() => onEditObject(node)}>
                 <Pencil className="mr-2 h-4 w-4" />
@@ -307,6 +351,13 @@ function TreeItem({ node, level, selectedId, onSelect, pendingCounts, onEditObje
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <AddFolderModal
+        open={addModalOpen}
+        onOpenChange={setAddModalOpen}
+        parentNode={node}
+        type={addType}
+      />
       
       {hasChildren && isExpanded && (
         <div className="relative">

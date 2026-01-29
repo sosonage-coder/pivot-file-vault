@@ -157,12 +157,27 @@ export interface DocumentWithRelations extends Document {
 }
 
 // Tree node structure for folder hierarchy
+export type TreeNodeType = 
+  | 'entity' 
+  | 'department' 
+  | 'process' 
+  | 'area' 
+  | 'object'
+  | 'module-documents'
+  | 'module-pbc'
+  | 'module-tasks'
+  | 'module-reconciliations'
+  | 'pbc-item'
+  | 'task-item'
+  | 'reconciliation-account';
+
 export interface TreeNode {
   id: string;
   name: string;
-  type: 'entity' | 'department' | 'process' | 'area' | 'object';
+  type: TreeNodeType;
   children?: TreeNode[];
   documentCount?: number;
+  itemCount?: number;
   metadata?: Record<string, unknown>;
 }
 

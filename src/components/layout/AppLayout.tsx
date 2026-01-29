@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Outlet, Navigate } from 'react-router-dom';
+import { Navigate } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useModule } from '@/contexts/ModuleContext';
 import { AppHeader } from './AppHeader';
 import { SharedSidebar } from './SharedSidebar';
+import { UnifiedWorkspace } from './UnifiedWorkspace';
 import { CreateEntityModal } from '@/components/filegrid/CreateEntityModal';
 import { CreateProcessModal } from '@/components/filegrid/CreateProcessModal';
 import { EditObjectModal } from '@/components/filegrid/EditObjectModal';
@@ -80,12 +81,11 @@ export function AppLayout() {
           onCreateProcess={() => setCreateProcessModalOpen(true)}
         />
 
-        {/* Module content rendered via Outlet */}
-        <Outlet context={{ 
-          selectedNode, 
-          setSelectedNode,
-          externalReviewMode,
-        }} />
+        {/* Unified Workspace - renders content based on selected node */}
+        <UnifiedWorkspace
+          selectedNode={selectedNode}
+          externalReviewMode={externalReviewMode}
+        />
       </div>
 
       {/* Global Modals */}

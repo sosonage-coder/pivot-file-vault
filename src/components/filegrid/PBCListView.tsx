@@ -8,7 +8,8 @@ import {
   Upload, 
   Eye,
   MoreHorizontal,
-  Trash2
+  Trash2,
+  FileCheck
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -37,6 +38,7 @@ import {
 import { usePeriods } from '@/hooks/usePeriods';
 import { usePBCItems, useUpdatePBCStatus, useDeletePBCItem } from '@/hooks/usePBCItems';
 import { CreatePBCItemModal } from './CreatePBCItemModal';
+import { FulfillPBCModal } from './FulfillPBCModal';
 import { toast } from '@/hooks/use-toast';
 import type { Entity, PbcStatus } from '@/types/filegrid';
 
@@ -56,6 +58,7 @@ const statusFlow: PbcStatus[] = ['Requested', 'Uploaded', 'Reviewed', 'Complete'
 export function PBCListView({ entity }: PBCListViewProps) {
   const [selectedPeriodId, setSelectedPeriodId] = useState<string>('');
   const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [fulfillItem, setFulfillItem] = useState<typeof pbcItems[0] | null>(null);
 
   const { data: periods = [], isLoading: periodsLoading } = usePeriods();
   const { data: pbcItems = [], isLoading: itemsLoading } = usePBCItems({
@@ -158,7 +161,7 @@ export function PBCListView({ entity }: PBCListViewProps) {
                 <TableHead>Object</TableHead>
                 <TableHead>Period</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead className="w-[50px]"></TableHead>
+                <TableHead className="w-[120px]">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -206,22 +209,37 @@ export function PBCListView({ entity }: PBCListViewProps) {
                       </Select>
                     </TableCell>
                     <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="bg-popover">
-                          <DropdownMenuItem
-                            className="text-destructive"
-                            onClick={() => handleDelete(item.id)}
+                      <div className="flex items-center gap-1">
+                        {/* Fulfill button - only for Requested items */}
+                        {item.status === 'Requested' && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 text-primary hover:text-primary"
+                            onClick={() => setFulfillItem(item)}
                           >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                            <FileCheck className="mr-1 h-4 w-4" />
+                            Fulfill
+                          </Button>
+                        )}
+                        
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="bg-popover">
+                            <DropdownMenuItem
+                              className="text-destructive"
+                              onClick={() => handleDelete(item.id)}
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
                     </TableCell>
                   </TableRow>
                 );
@@ -235,6 +253,12 @@ export function PBCListView({ entity }: PBCListViewProps) {
         open={createModalOpen}
         onOpenChange={setCreateModalOpen}
         entity={entity}
+      />
+
+      <FulfillPBCModal
+        open={!!fulfillItem}
+        onOpenChange={(open) => !open && setFulfillItem(null)}
+        pbcItem={fulfillItem}
       />
     </div>
   );

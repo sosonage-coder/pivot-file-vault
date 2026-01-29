@@ -35,15 +35,15 @@ export function usePBCItems({ entityId, periodId }: UsePBCItemsOptions) {
         .from('pbc_items')
         .select(`
           *,
-          areas!inner(
+          areas(
             name,
-            processes!inner(
+            processes(
               name,
-              departments!inner(name)
+              departments(name)
             )
           ),
-          periods!inner(label),
-          document_types!inner(name),
+          periods(label),
+          document_types(name),
           objects(name)
         `)
         .eq('entity_id', entityId)
@@ -55,7 +55,13 @@ export function usePBCItems({ entityId, periodId }: UsePBCItemsOptions) {
 
       const { data, error } = await query;
       if (error) throw error;
-      return data as PbcItemWithRelations[];
+      
+      // Filter out items with missing required relations and type safely
+      return (data || []).filter((item): item is PbcItemWithRelations => 
+        item.areas !== null && 
+        item.periods !== null && 
+        item.document_types !== null
+      );
     },
     enabled: !!entityId
   });

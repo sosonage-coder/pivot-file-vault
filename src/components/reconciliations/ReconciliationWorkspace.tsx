@@ -37,10 +37,13 @@ import { useReconciliationLineItems } from '@/hooks/useReconciliationLineItems';
 import { TemplateRenderer } from './templates/TemplateRenderer';
 import { EvidencePanel } from './EvidencePanel';
 import { ChecklistPanel } from './ChecklistPanel';
+import { ReconciliationDashboard } from './dashboard';
 import type { ReconciliationStatus, ReconciliationTemplate } from '@/types/reconciliations';
 
 interface ReconciliationWorkspaceProps {
   reconciliationId: string | null;
+  entityId?: string | null;
+  periodId?: string | null;
   onClose?: () => void;
 }
 
@@ -97,7 +100,7 @@ const workflowTransitions: Record<ReconciliationStatus, ReconciliationStatus[]> 
   certified: [],
 };
 
-export function ReconciliationWorkspace({ reconciliationId }: ReconciliationWorkspaceProps) {
+export function ReconciliationWorkspace({ reconciliationId, entityId, periodId }: ReconciliationWorkspaceProps) {
   const { data: reconciliation, isLoading, refetch: refetchReconciliation } = useReconciliation(reconciliationId);
   const { data: attachments = [] } = useReconciliationAttachments(reconciliationId);
   const { data: lineItems = [], refetch: refetchLineItems } = useReconciliationLineItems(reconciliationId);
@@ -120,17 +123,17 @@ export function ReconciliationWorkspace({ reconciliationId }: ReconciliationWork
     refetchLineItems();
   }, [refetchLineItems]);
 
+  // Show dashboard when no reconciliation is selected
   if (!reconciliationId) {
     return (
-      <div className="flex flex-1 items-center justify-center p-8">
-        <div className="text-center">
-          <FileText className="mx-auto h-12 w-12 text-muted-foreground/50" />
-          <h3 className="mt-4 text-lg font-medium">Select an Account</h3>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Choose an account from the tree to view its reconciliation
-          </p>
-        </div>
-      </div>
+      <ReconciliationDashboard
+        entityId={entityId || null}
+        periodId={periodId}
+        onSelectReconciliation={(id) => {
+          // This will be handled by parent component through tree selection
+          console.log('Select reconciliation:', id);
+        }}
+      />
     );
   }
 

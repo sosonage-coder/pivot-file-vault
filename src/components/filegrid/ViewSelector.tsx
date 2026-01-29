@@ -13,19 +13,19 @@ import {
   FolderOpen, 
   FileType, 
   CheckCircle,
-  FileQuestion,
-  ClipboardList
+  FileQuestion
 } from 'lucide-react';
 import type { PivotViewType, AnalysisViewType } from '@/types/filegrid';
 
-type ViewType = 'folder' | PivotViewType | AnalysisViewType;
+// Document module view types (PBC is now a separate module)
+type DocumentViewType = 'folder' | PivotViewType | 'whats-missing';
 
 interface ViewSelectorProps {
-  value: ViewType;
-  onChange: (value: ViewType) => void;
+  value: string;
+  onChange: (value: string) => void;
 }
 
-const viewOptions: { value: ViewType; label: string; icon: React.ElementType; group: 'views' | 'analysis' }[] = [
+const viewOptions: { value: DocumentViewType; label: string; icon: React.ElementType; group: 'views' | 'analysis' }[] = [
   { value: 'folder', label: 'Folder View', icon: LayoutGrid, group: 'views' },
   { value: 'period-area-object', label: 'By Period', icon: Calendar, group: 'views' },
   { value: 'object-period', label: 'By Object', icon: Box, group: 'views' },
@@ -33,7 +33,6 @@ const viewOptions: { value: ViewType; label: string; icon: React.ElementType; gr
   { value: 'document-type', label: 'By Document Type', icon: FileType, group: 'views' },
   { value: 'status-final', label: 'Final Only', icon: CheckCircle, group: 'views' },
   { value: 'whats-missing', label: "What's Missing", icon: FileQuestion, group: 'analysis' },
-  { value: 'pbc-requests', label: 'PBC Requests', icon: ClipboardList, group: 'analysis' },
 ];
 
 export function ViewSelector({ value, onChange }: ViewSelectorProps) {
@@ -74,4 +73,4 @@ export function ViewSelector({ value, onChange }: ViewSelectorProps) {
   );
 }
 
-export type { ViewType };
+export type { DocumentViewType };

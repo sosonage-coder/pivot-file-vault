@@ -135,8 +135,8 @@ export const PBC_NODE_CONFIG: Record<PbcNodeType, {
     icon: 'ClipboardCheck',
     colorClass: 'text-green-500',
     label: 'Request',
-    description: 'Actionable PBC request item',
-    canHaveChildren: false,
+    description: 'Actionable PBC request item (can have supporting sub-requests)',
+    canHaveChildren: true,
     canHaveStatus: true,
   },
 };
@@ -161,7 +161,7 @@ export function getAllowedChildTypes(nodeType: PbcNodeType): PbcNodeType[] {
     case 'object':
       return ['request']; // Requests only
     case 'request':
-      return []; // Requests are leaves
+      return ['request']; // Requests can have sub-requests (supporting items)
     default:
       return [];
   }

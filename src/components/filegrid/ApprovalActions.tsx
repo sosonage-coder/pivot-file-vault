@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Check, X, Loader2, Clock } from 'lucide-react';
+import { Check, X, Loader2, Clock, Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -11,13 +11,15 @@ import {
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { useUpdateApproval, useDocumentApproval } from '@/hooks/useApprovals';
+import { useUpdateApproval, useDocumentApproval, useCreateApproval } from '@/hooks/useApprovals';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/hooks/use-toast';
 import type { ApprovalStatus } from '@/types/filegrid';
 
 interface ApprovalActionsProps {
   documentId: string;
+  objectRequiresApproval?: boolean;
+  documentStatus?: string;
 }
 
 const statusConfig: Record<ApprovalStatus, { label: string; className: string; icon: React.ReactNode }> = {
@@ -38,15 +40,58 @@ const statusConfig: Record<ApprovalStatus, { label: string; className: string; i
   },
 };
 
-export function ApprovalActions({ documentId }: ApprovalActionsProps) {
+export function ApprovalActions({ documentId, objectRequiresApproval, documentStatus }: ApprovalActionsProps) {
   const { user } = useAuth();
   const { data: approval, isLoading } = useDocumentApproval(documentId);
   const updateApproval = useUpdateApproval();
+  const createApproval = useCreateApproval();
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [rejectionNotes, setRejectionNotes] = useState('');
 
+  const handleRequestApproval = async () => {
+    if (!user?.id) return;
+
+    try {
+      await createApproval.mutateAsync({
+        documentId,
+        requestedBy: user.id,
+      });
+      toast({
+        title: 'Approval requested',
+        description: 'The document is now pending approval.',
+      });
+    } catch (error) {
+      console.error('Request approval error:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to request approval.',
+        variant: 'destructive',
+      });
+    }
+  };
+
   if (isLoading) {
     return <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />;
+  }
+
+  // Show "Request Approval" button for Draft documents in approval-required Objects with no approval record
+  if (!approval && objectRequiresApproval && documentStatus === 'Draft') {
+    return (
+      <Button
+        size="sm"
+        variant="outline"
+        className="h-7 px-2 text-xs gap-1"
+        onClick={handleRequestApproval}
+        disabled={createApproval.isPending}
+      >
+        {createApproval.isPending ? (
+          <Loader2 className="h-3 w-3 animate-spin" />
+        ) : (
+          <Send className="h-3 w-3" />
+        )}
+        Request
+      </Button>
+    );
   }
 
   if (!approval) {

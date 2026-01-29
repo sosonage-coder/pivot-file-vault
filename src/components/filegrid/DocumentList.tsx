@@ -96,8 +96,12 @@ export function DocumentList({ documents, isLoading }: DocumentListProps) {
                   {doc.status}
                 </Badge>
               </TableCell>
-              <TableCell>
-                <ApprovalActions documentId={doc.id} />
+<TableCell>
+                <ApprovalActions 
+                  documentId={doc.id}
+                  objectRequiresApproval={doc.objects?.requires_approval}
+                  documentStatus={doc.status}
+                />
               </TableCell>
               <TableCell className="text-muted-foreground">
                 {doc.document_types?.name || '—'}

@@ -142,6 +142,47 @@ export type Database = {
         }
         Relationships: []
       }
+      document_approvals: {
+        Row: {
+          created_at: string
+          document_id: string
+          id: string
+          notes: string | null
+          requested_by: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: Database["public"]["Enums"]["approval_status"]
+        }
+        Insert: {
+          created_at?: string
+          document_id: string
+          id?: string
+          notes?: string | null
+          requested_by?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: Database["public"]["Enums"]["approval_status"]
+        }
+        Update: {
+          created_at?: string
+          document_id?: string
+          id?: string
+          notes?: string | null
+          requested_by?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: Database["public"]["Enums"]["approval_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_approvals_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       document_types: {
         Row: {
           created_at: string
@@ -303,6 +344,7 @@ export type Database = {
           id: string
           name: string
           process_id: string
+          requires_approval: boolean
           updated_at: string
         }
         Insert: {
@@ -313,6 +355,7 @@ export type Database = {
           id?: string
           name: string
           process_id: string
+          requires_approval?: boolean
           updated_at?: string
         }
         Update: {
@@ -323,6 +366,7 @@ export type Database = {
           id?: string
           name?: string
           process_id?: string
+          requires_approval?: boolean
           updated_at?: string
         }
         Relationships: [
@@ -621,6 +665,7 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "user" | "external_reviewer"
+      approval_status: "pending" | "approved" | "rejected"
       document_status: "Draft" | "Final" | "Superseded" | "Archived"
       pbc_status: "Requested" | "Uploaded" | "Reviewed" | "Complete"
       period_type: "month" | "quarter" | "year" | "phase"
@@ -752,6 +797,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "user", "external_reviewer"],
+      approval_status: ["pending", "approved", "rejected"],
       document_status: ["Draft", "Final", "Superseded", "Archived"],
       pbc_status: ["Requested", "Uploaded", "Reviewed", "Complete"],
       period_type: ["month", "quarter", "year", "phase"],

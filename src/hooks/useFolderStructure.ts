@@ -138,7 +138,8 @@ export function useFolderStructure(entityId: string | null) {
               department_id: dept.id,
               process_id: process.id,
               area_id: area.id,
-              entity_id: entityId
+              entity_id: entityId,
+              requires_approval: obj.requires_approval || false
             }
           }));
 

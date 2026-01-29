@@ -27,6 +27,25 @@ export function useObjects({ areaId, entityId }: UseObjectsOptions) {
   });
 }
 
+export function useObject(objectId: string | null) {
+  return useQuery({
+    queryKey: ['object', objectId],
+    queryFn: async () => {
+      if (!objectId) return null;
+
+      const { data, error } = await supabase
+        .from('objects')
+        .select('*')
+        .eq('id', objectId)
+        .maybeSingle();
+
+      if (error) throw error;
+      return data as FileObject | null;
+    },
+    enabled: !!objectId
+  });
+}
+
 interface CreateObjectInput {
   name: string;
   entityId: string;
@@ -59,6 +78,39 @@ export function useCreateObject() {
       queryClient.invalidateQueries({ 
         queryKey: ['objects', { areaId: data.area_id, entityId: data.entity_id }] 
       });
+      queryClient.invalidateQueries({ queryKey: ['folder-structure'] });
+    }
+  });
+}
+
+interface UpdateObjectInput {
+  objectId: string;
+  name: string;
+  requiresApproval: boolean;
+}
+
+export function useUpdateObject() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: UpdateObjectInput) => {
+      const { data, error } = await supabase
+        .from('objects')
+        .update({
+          name: input.name,
+          requires_approval: input.requiresApproval,
+        })
+        .eq('id', input.objectId)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data as FileObject;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['objects'] });
+      queryClient.invalidateQueries({ queryKey: ['object', data.id] });
+      queryClient.invalidateQueries({ queryKey: ['folder-structure'] });
     }
   });
 }

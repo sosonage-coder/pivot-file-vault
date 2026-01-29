@@ -4,6 +4,7 @@ export type DocumentStatus = 'Draft' | 'Final' | 'Superseded' | 'Archived';
 export type PeriodType = 'month' | 'quarter' | 'year' | 'phase';
 export type PbcStatus = 'Requested' | 'Uploaded' | 'Reviewed' | 'Complete';
 export type AppRole = 'admin' | 'user' | 'external_reviewer';
+export type ApprovalStatus = 'pending' | 'approved' | 'rejected';
 
 export interface Entity {
   id: string;
@@ -76,8 +77,20 @@ export interface FileObject {
   department_id: string;
   process_id: string;
   area_id: string;
+  requires_approval: boolean;
   created_at: string;
   updated_at: string;
+}
+
+export interface DocumentApproval {
+  id: string;
+  document_id: string;
+  status: ApprovalStatus;
+  requested_by: string | null;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  notes: string | null;
+  created_at: string;
 }
 
 export interface Document {

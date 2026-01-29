@@ -1,12 +1,15 @@
 import { useState } from 'react';
-import { ChevronRight, ChevronDown, Building2, Briefcase, FolderOpen, Folder, FileBox } from 'lucide-react';
+import { ChevronRight, ChevronDown, Building2, Briefcase, FolderOpen, Folder, FileBox, ShieldCheck, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
 import type { TreeNode } from '@/types/filegrid';
 
 interface FolderTreeProps {
   nodes: TreeNode[];
   selectedId: string | null;
   onSelect: (node: TreeNode) => void;
+  pendingCounts?: Record<string, number>;
+  onEditObject?: (node: TreeNode) => void;
 }
 
 interface TreeItemProps {
@@ -14,6 +17,8 @@ interface TreeItemProps {
   level: number;
   selectedId: string | null;
   onSelect: (node: TreeNode) => void;
+  pendingCounts?: Record<string, number>;
+  onEditObject?: (node: TreeNode) => void;
 }
 
 const iconMap = {
@@ -24,11 +29,14 @@ const iconMap = {
   object: FileBox
 };
 
-function TreeItem({ node, level, selectedId, onSelect }: TreeItemProps) {
+function TreeItem({ node, level, selectedId, onSelect, pendingCounts, onEditObject }: TreeItemProps) {
   const [isExpanded, setIsExpanded] = useState(level < 2);
   const hasChildren = node.children && node.children.length > 0;
   const isSelected = selectedId === node.id;
   const Icon = iconMap[node.type];
+  
+  const pendingCount = node.type === 'object' ? (pendingCounts?.[node.id] || 0) : 0;
+  const requiresApproval = node.type === 'object' && node.metadata?.requires_approval;
 
   const handleClick = () => {
     if (hasChildren) {
@@ -37,10 +45,17 @@ function TreeItem({ node, level, selectedId, onSelect }: TreeItemProps) {
     onSelect(node);
   };
 
+  const handleDoubleClick = () => {
+    if (node.type === 'object' && onEditObject) {
+      onEditObject(node);
+    }
+  };
+
   return (
     <div>
       <button
         onClick={handleClick}
+        onDoubleClick={handleDoubleClick}
         className={cn(
           'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors',
           'hover:bg-[hsl(var(--tree-hover))]',
@@ -65,7 +80,25 @@ function TreeItem({ node, level, selectedId, onSelect }: TreeItemProps) {
           node.type === 'object' ? 'text-accent-foreground' : 'text-muted-foreground'
         )} />
         <span className="flex-1 truncate">{node.name}</span>
-        {typeof node.documentCount === 'number' && node.documentCount > 0 && (
+        
+        {/* Show approval indicator */}
+        {requiresApproval && (
+          <ShieldCheck className="h-3.5 w-3.5 text-primary" />
+        )}
+        
+        {/* Show pending approval count */}
+        {pendingCount > 0 && (
+          <Badge 
+            variant="secondary" 
+            className="h-5 bg-amber-100 px-1.5 text-xs text-amber-800 dark:bg-amber-900/30 dark:text-amber-400"
+          >
+            <Clock className="mr-0.5 h-3 w-3" />
+            {pendingCount}
+          </Badge>
+        )}
+        
+        {/* Show document count if no pending */}
+        {pendingCount === 0 && typeof node.documentCount === 'number' && node.documentCount > 0 && (
           <span className="text-xs text-muted-foreground tabular-nums">
             {node.documentCount}
           </span>
@@ -85,6 +118,8 @@ function TreeItem({ node, level, selectedId, onSelect }: TreeItemProps) {
               level={level + 1}
               selectedId={selectedId}
               onSelect={onSelect}
+              pendingCounts={pendingCounts}
+              onEditObject={onEditObject}
             />
           ))}
         </div>
@@ -93,7 +128,7 @@ function TreeItem({ node, level, selectedId, onSelect }: TreeItemProps) {
   );
 }
 
-export function FolderTree({ nodes, selectedId, onSelect }: FolderTreeProps) {
+export function FolderTree({ nodes, selectedId, onSelect, pendingCounts, onEditObject }: FolderTreeProps) {
   if (nodes.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-8 text-center">
@@ -117,6 +152,8 @@ export function FolderTree({ nodes, selectedId, onSelect }: FolderTreeProps) {
           level={0}
           selectedId={selectedId}
           onSelect={onSelect}
+          pendingCounts={pendingCounts}
+          onEditObject={onEditObject}
         />
       ))}
     </div>

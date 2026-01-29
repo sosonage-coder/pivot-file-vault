@@ -12,6 +12,8 @@ import { DocumentList } from '@/components/filegrid/DocumentList';
 import { UploadDocumentModal } from '@/components/filegrid/UploadDocumentModal';
 import { ViewSelector, type ViewType } from '@/components/filegrid/ViewSelector';
 import { PivotView } from '@/components/filegrid/PivotView';
+import { WhatsMissingView } from '@/components/filegrid/WhatsMissingView';
+import { PBCListView } from '@/components/filegrid/PBCListView';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { Loader2, Plus } from 'lucide-react';
@@ -30,6 +32,10 @@ export default function Index() {
     selectedEntity?.id ?? null
   );
   
+  // Determine if we need documents (not for analysis views)
+  const isAnalysisView = currentView === 'whats-missing' || currentView === 'pbc-requests';
+  const isPivotView = !['folder', 'whats-missing', 'pbc-requests'].includes(currentView);
+
   // For folder view, filter by area; for pivot views, get all entity documents
   const { data: documents, isLoading: documentsLoading } = useDocuments({
     areaId: currentView === 'folder' && selectedNode?.type === 'area' ? selectedNode.id : null,
@@ -40,7 +46,7 @@ export default function Index() {
   // Group documents for pivot views
   const pivotGroups = usePivotDocuments(
     documents || [],
-    currentView !== 'folder' ? currentView as PivotViewType : 'period-area-object'
+    isPivotView ? currentView as PivotViewType : 'period-area-object'
   );
 
   // Auto-select first entity
@@ -86,6 +92,8 @@ export default function Index() {
         'area-period': 'By Area',
         'document-type': 'By Document Type',
         'status-final': 'Final Documents',
+        'whats-missing': "What's Missing",
+        'pbc-requests': 'PBC Requests',
       };
       return `${selectedEntity?.name} — ${viewLabels[currentView]}`;
     }
@@ -96,7 +104,32 @@ export default function Index() {
     return selectedNode.name;
   };
 
-  const isPivotView = currentView !== 'folder';
+  const renderMainContent = () => {
+    if (isAnalysisView && selectedEntity) {
+      if (currentView === 'whats-missing') {
+        return <WhatsMissingView entity={selectedEntity} />;
+      }
+      if (currentView === 'pbc-requests') {
+        return <PBCListView entity={selectedEntity} />;
+      }
+    }
+
+    if (isPivotView) {
+      return (
+        <PivotView
+          groups={pivotGroups}
+          isLoading={documentsLoading || entitiesLoading}
+        />
+      );
+    }
+
+    return (
+      <DocumentList
+        documents={documents || []}
+        isLoading={documentsLoading || entitiesLoading}
+      />
+    );
+  };
 
   return (
     <div className="flex h-screen flex-col bg-background">
@@ -132,7 +165,7 @@ export default function Index() {
           </ScrollArea>
         </aside>
 
-        {/* Main Content - Document List or Pivot View */}
+        {/* Main Content */}
         <main className="flex flex-1 flex-col overflow-hidden">
           <div className="flex items-center justify-between border-b px-6 py-4">
             <div className="flex items-center gap-4">
@@ -160,17 +193,7 @@ export default function Index() {
           </div>
 
           <ScrollArea className="flex-1 p-6">
-            {isPivotView ? (
-              <PivotView
-                groups={pivotGroups}
-                isLoading={documentsLoading || entitiesLoading}
-              />
-            ) : (
-              <DocumentList
-                documents={documents || []}
-                isLoading={documentsLoading || entitiesLoading}
-              />
-            )}
+            {renderMainContent()}
           </ScrollArea>
         </main>
       </div>

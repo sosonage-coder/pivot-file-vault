@@ -29,11 +29,13 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
-import { Loader2, Plus, FileText } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { Loader2, Plus, FileText, Sparkles } from 'lucide-react';
 import { useObjects, useCreateObject } from '@/hooks/useObjects';
 import { useAreaDocumentTypes } from '@/hooks/useDocumentTypes';
 import { usePeriods } from '@/hooks/usePeriods';
 import { useCreateDocument } from '@/hooks/useCreateDocument';
+import { checkAndUpdatePBCItem } from '@/hooks/usePBCItems';
 import { toast } from '@/hooks/use-toast';
 import type { TreeNode, Entity, DocumentStatus } from '@/types/filegrid';
 
@@ -67,6 +69,7 @@ export function UploadDocumentModal({
   processId,
 }: UploadDocumentModalProps) {
   const [isCreatingObject, setIsCreatingObject] = useState(false);
+  const [aiAssistEnabled, setAiAssistEnabled] = useState(false);
 
   // Fetch data
   const { data: objects = [], isLoading: objectsLoading } = useObjects({
@@ -163,6 +166,15 @@ export function UploadDocumentModal({
         notes: values.notes || null,
       });
 
+      // Auto-complete any matching PBC requests
+      await checkAndUpdatePBCItem(
+        selectedEntity.id,
+        selectedNode.id,
+        values.documentTypeId,
+        values.periodId,
+        objectId
+      );
+
       toast({
         title: 'Document added',
         description: `${filenamePreview} has been created`,
@@ -170,6 +182,7 @@ export function UploadDocumentModal({
 
       form.reset();
       setIsCreatingObject(false);
+      setAiAssistEnabled(false);
       onOpenChange(false);
     } catch (error) {
       console.error('Error creating document:', error);
@@ -201,6 +214,33 @@ export function UploadDocumentModal({
         ) : (
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              {/* AI Assist Toggle */}
+              <div className="flex items-center justify-between rounded-md border border-dashed p-3">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-primary" />
+                  <div>
+                    <Label htmlFor="ai-assist" className="text-sm font-medium">
+                      AI Metadata Assist
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      Suggest metadata from URL
+                    </p>
+                  </div>
+                </div>
+                <Switch
+                  id="ai-assist"
+                  checked={aiAssistEnabled}
+                  onCheckedChange={setAiAssistEnabled}
+                />
+              </div>
+
+              {aiAssistEnabled && (
+                <div className="rounded-md bg-muted/50 p-3 text-center text-sm text-muted-foreground">
+                  <Sparkles className="mx-auto mb-2 h-5 w-5" />
+                  AI analysis coming soon
+                </div>
+              )}
+
               {/* Read-only location context */}
               <div className="rounded-md bg-muted p-3 text-sm">
                 <div className="grid grid-cols-2 gap-2">

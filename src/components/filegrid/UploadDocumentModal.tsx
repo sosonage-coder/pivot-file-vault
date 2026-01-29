@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -36,6 +36,7 @@ import { useAreaDocumentTypes } from '@/hooks/useDocumentTypes';
 import { usePeriods } from '@/hooks/usePeriods';
 import { useCreateDocument } from '@/hooks/useCreateDocument';
 import { checkAndUpdatePBCItem } from '@/hooks/usePBCItems';
+import { useRecentSelections } from '@/hooks/useRecentSelections';
 import { toast } from '@/hooks/use-toast';
 import type { TreeNode, Entity, DocumentStatus } from '@/types/filegrid';
 
@@ -71,6 +72,10 @@ export function UploadDocumentModal({
   const [isCreatingObject, setIsCreatingObject] = useState(false);
   const [aiAssistEnabled, setAiAssistEnabled] = useState(false);
 
+  // Smart defaults
+  const { saveSelection, getDefaultPeriodId, getDefaultObjectId, getDefaultDocumentTypeId } = 
+    useRecentSelections(selectedEntity.id);
+
   // Fetch data
   const { data: objects = [], isLoading: objectsLoading } = useObjects({
     areaId: selectedNode.id,
@@ -97,6 +102,34 @@ export function UploadDocumentModal({
       notes: '',
     },
   });
+
+  // Apply smart defaults when data loads
+  useEffect(() => {
+    if (periods.length > 0 && !form.getValues('periodId')) {
+      const defaultPeriod = getDefaultPeriodId(periods);
+      if (defaultPeriod) {
+        form.setValue('periodId', defaultPeriod);
+      }
+    }
+  }, [periods, form, getDefaultPeriodId]);
+
+  useEffect(() => {
+    if (objects.length > 0 && !form.getValues('objectId')) {
+      const defaultObject = getDefaultObjectId(objects);
+      if (defaultObject) {
+        form.setValue('objectId', defaultObject);
+      }
+    }
+  }, [objects, form, getDefaultObjectId]);
+
+  useEffect(() => {
+    if (documentTypes.length > 0 && !form.getValues('documentTypeId')) {
+      const defaultDocType = getDefaultDocumentTypeId(documentTypes);
+      if (defaultDocType) {
+        form.setValue('documentTypeId', defaultDocType);
+      }
+    }
+  }, [documentTypes, form, getDefaultDocumentTypeId]);
 
   const watchedValues = form.watch();
 
@@ -174,6 +207,11 @@ export function UploadDocumentModal({
         values.periodId,
         objectId
       );
+
+      // Save selections for smart defaults
+      saveSelection('periodId', values.periodId);
+      if (objectId) saveSelection('objectId', objectId);
+      saveSelection('documentTypeId', values.documentTypeId);
 
       toast({
         title: 'Document added',

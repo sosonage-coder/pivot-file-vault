@@ -12,13 +12,14 @@ import { DocumentList } from '@/components/filegrid/DocumentList';
 import { UploadDocumentModal } from '@/components/filegrid/UploadDocumentModal';
 import { CreateEntityModal } from '@/components/filegrid/CreateEntityModal';
 import { CreateProcessModal } from '@/components/filegrid/CreateProcessModal';
+import { ClonePeriodModal } from '@/components/filegrid/ClonePeriodModal';
 import { ViewSelector, type ViewType } from '@/components/filegrid/ViewSelector';
 import { PivotView } from '@/components/filegrid/PivotView';
 import { WhatsMissingView } from '@/components/filegrid/WhatsMissingView';
 import { PBCListView } from '@/components/filegrid/PBCListView';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
-import { Loader2, Plus } from 'lucide-react';
+import { Loader2, Plus, Copy } from 'lucide-react';
 import type { Entity, TreeNode, PivotViewType } from '@/types/filegrid';
 
 export default function Index() {
@@ -29,6 +30,7 @@ export default function Index() {
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [createEntityModalOpen, setCreateEntityModalOpen] = useState(false);
   const [createProcessModalOpen, setCreateProcessModalOpen] = useState(false);
+  const [clonePeriodModalOpen, setClonePeriodModalOpen] = useState(false);
   const [currentView, setCurrentView] = useState<ViewType>('folder');
 
   const { data: entities, isLoading: entitiesLoading } = useEntities();
@@ -188,6 +190,14 @@ export default function Index() {
             <div className="flex items-center gap-3">
               <ViewSelector value={currentView} onChange={setCurrentView} />
               
+              {/* Clone Period button - show for admins/users on pivot views */}
+              {selectedEntity && !isExternalReviewer && isPivotView && (
+                <Button variant="outline" onClick={() => setClonePeriodModalOpen(true)}>
+                  <Copy className="mr-2 h-4 w-4" />
+                  Clone Period
+                </Button>
+              )}
+              
               {/* Add Document button - only show when Area is selected in folder view */}
               {currentView === 'folder' && selectedNode?.type === 'area' && selectedEntity && !isExternalReviewer && (
                 <Button onClick={() => setUploadModalOpen(true)}>
@@ -227,6 +237,15 @@ export default function Index() {
         <CreateProcessModal
           open={createProcessModalOpen}
           onOpenChange={setCreateProcessModalOpen}
+          entity={selectedEntity}
+        />
+      )}
+
+      {/* Clone Period Modal */}
+      {selectedEntity && (
+        <ClonePeriodModal
+          open={clonePeriodModalOpen}
+          onOpenChange={setClonePeriodModalOpen}
           entity={selectedEntity}
         />
       )}

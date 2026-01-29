@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import type { TreeNode, Department, Process, Area, FileObject } from '@/types/filegrid';
+import type { TreeNode, Department, Process, Area, FileObject, TreeNodeType } from '@/types/filegrid';
+import type { Tables } from '@/integrations/supabase/types';
 
 interface ProcessWithDepartment extends Process {
   departments: Department;
@@ -8,6 +9,77 @@ interface ProcessWithDepartment extends Process {
 
 interface AreaWithProcess extends Area {
   processes: ProcessWithDepartment;
+}
+
+type PbcNodeRow = Tables<'pbc_nodes'>;
+
+// Map PBC node types to sidebar TreeNodeType
+const pbcNodeTypeMap: Record<string, TreeNodeType> = {
+  'department': 'pbc-department',
+  'process': 'pbc-process',
+  'area': 'pbc-area',
+  'object': 'pbc-object',
+  'request': 'pbc-request',
+};
+
+// Build hierarchical tree from flat pbc_nodes
+function buildPbcTreeNodes(nodes: PbcNodeRow[]): TreeNode[] {
+  const nodeMap = new Map<string, TreeNode>();
+  const rootNodes: TreeNode[] = [];
+
+  // First pass: create all TreeNode objects
+  for (const node of nodes) {
+    const treeNode: TreeNode = {
+      id: node.id,
+      name: node.label,
+      type: pbcNodeTypeMap[node.node_type] || 'pbc-request',
+      children: [],
+      metadata: {
+        status: node.status,
+        priority: node.priority,
+        due_date: node.due_date,
+        node_type: node.node_type,
+        parent_id: node.parent_id,
+      },
+    };
+    nodeMap.set(node.id, treeNode);
+  }
+
+  // Second pass: build parent-child relationships
+  for (const node of nodes) {
+    const treeNode = nodeMap.get(node.id)!;
+    if (node.parent_id && nodeMap.has(node.parent_id)) {
+      const parent = nodeMap.get(node.parent_id)!;
+      parent.children = parent.children || [];
+      parent.children.push(treeNode);
+    } else {
+      rootNodes.push(treeNode);
+    }
+  }
+
+  // Clean up empty children arrays
+  for (const node of nodeMap.values()) {
+    if (node.children?.length === 0) {
+      node.children = undefined;
+    }
+  }
+
+  // Count requests in each node
+  function countRequests(node: TreeNode): number {
+    if (node.type === 'pbc-request') return 1;
+    let count = 0;
+    if (node.children) {
+      for (const child of node.children) {
+        count += countRequests(child);
+      }
+    }
+    node.itemCount = count > 0 ? count : undefined;
+    return count;
+  }
+
+  rootNodes.forEach(countRequests);
+
+  return rootNodes;
 }
 
 export function useUnifiedFolderStructure(entityId: string | null, periodId: string | null) {
@@ -92,17 +164,18 @@ export function useUnifiedFolderStructure(entityId: string | null, periodId: str
         }
       }
 
-      // Fetch PBC items grouped by department
-      const pbcQuery = supabase
-        .from('pbc_items')
-        .select('*, processes!inner(department_id)')
-        .eq('entity_id', entityId);
+      // Fetch PBC nodes (hierarchical tree) instead of flat pbc_items
+      const pbcNodesQuery = supabase
+        .from('pbc_nodes')
+        .select('*')
+        .eq('entity_id', entityId)
+        .order('sort_order');
       
       if (periodId) {
-        pbcQuery.eq('period_id', periodId);
+        pbcNodesQuery.eq('period_id', periodId);
       }
       
-      const { data: pbcItems = [] } = await pbcQuery;
+      const { data: pbcNodes = [] } = await pbcNodesQuery;
 
       // Fetch Tasks grouped by department
       const tasksQuery = supabase
@@ -128,16 +201,7 @@ export function useUnifiedFolderStructure(entityId: string | null, periodId: str
       
       const { data: reconciliations = [] } = await reconQuery;
 
-      // Group module items by department
-      const pbcByDept: Record<string, typeof pbcItems> = {};
-      pbcItems?.forEach((item: any) => {
-        const deptId = item.processes?.department_id;
-        if (deptId) {
-          if (!pbcByDept[deptId]) pbcByDept[deptId] = [];
-          pbcByDept[deptId].push(item);
-        }
-      });
-
+      // Group tasks by department
       const tasksByDept: Record<string, typeof tasks> = {};
       tasks?.forEach((item: any) => {
         const deptId = item.processes?.department_id || item.department_id;
@@ -155,6 +219,9 @@ export function useUnifiedFolderStructure(entityId: string | null, periodId: str
           reconByDept[deptId].push(item);
         }
       });
+
+      // Build PBC tree from nodes
+      const pbcTreeNodes = buildPbcTreeNodes(pbcNodes as PbcNodeRow[]);
 
       // Build tree structure: Department → Modules (Documents, PBC, Tasks, Recon)
       const departmentMap = new Map<string, TreeNode>();
@@ -246,27 +313,13 @@ export function useUnifiedFolderStructure(entityId: string | null, periodId: str
           metadata: { department_id: deptId, entity_id: entityId }
         };
 
-        // 2. PBC Module Node
-        const deptPbcItems = pbcByDept[deptId] || [];
-        const pbcChildren: TreeNode[] = deptPbcItems.map((item: any) => ({
-          id: item.id,
-          name: `PBC Request ${item.id.slice(0, 8)}`,
-          type: 'pbc-item' as const,
-          metadata: {
-            status: item.status,
-            priority: item.priority,
-            due_date: item.due_date,
-            department_id: deptId,
-            entity_id: entityId
-          }
-        }));
-
+        // 2. PBC Module Node - now uses hierarchical tree
         const pbcModule: TreeNode = {
           id: `${deptId}-pbc`,
           name: 'PBC Requests',
           type: 'module-pbc',
-          children: pbcChildren.length > 0 ? pbcChildren : undefined,
-          itemCount: deptPbcItems.length,
+          children: pbcTreeNodes.length > 0 ? pbcTreeNodes : undefined,
+          itemCount: pbcNodes.length,
           metadata: { department_id: deptId, entity_id: entityId }
         };
 

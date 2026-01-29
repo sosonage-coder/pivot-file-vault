@@ -99,7 +99,8 @@ export function UnifiedWorkspace({ selectedNode, externalReviewMode }: UnifiedWo
     if (type === 'module-documents' || type === 'process' || type === 'area' || type === 'object') {
       return 'documents';
     }
-    if (type === 'module-pbc' || type === 'pbc-item') {
+    // Handle PBC tree node types from sidebar
+    if (type === 'module-pbc' || type === 'pbc-item' || type.startsWith('pbc-')) {
       return 'pbc';
     }
     if (type === 'module-tasks' || type === 'task-item') {

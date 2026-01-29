@@ -4,15 +4,18 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useEntities } from '@/hooks/useEntities';
 import { useFolderStructure } from '@/hooks/useFolderStructure';
 import { useDocuments } from '@/hooks/useDocuments';
+import { usePivotDocuments } from '@/hooks/usePivotDocuments';
 import { Header } from '@/components/filegrid/Header';
 import { EntitySelector } from '@/components/filegrid/EntitySelector';
 import { FolderTree } from '@/components/filegrid/FolderTree';
 import { DocumentList } from '@/components/filegrid/DocumentList';
 import { UploadDocumentModal } from '@/components/filegrid/UploadDocumentModal';
+import { ViewSelector, type ViewType } from '@/components/filegrid/ViewSelector';
+import { PivotView } from '@/components/filegrid/PivotView';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { Loader2, Plus } from 'lucide-react';
-import type { Entity, TreeNode } from '@/types/filegrid';
+import type { Entity, TreeNode, PivotViewType } from '@/types/filegrid';
 
 export default function Index() {
   const { user, loading: authLoading, isExternalReviewer } = useAuth();
@@ -20,16 +23,25 @@ export default function Index() {
   const [selectedNode, setSelectedNode] = useState<TreeNode | null>(null);
   const [externalReviewMode, setExternalReviewMode] = useState(false);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
+  const [currentView, setCurrentView] = useState<ViewType>('folder');
 
   const { data: entities, isLoading: entitiesLoading } = useEntities();
   const { data: folderStructure, isLoading: foldersLoading } = useFolderStructure(
     selectedEntity?.id ?? null
   );
+  
+  // For folder view, filter by area; for pivot views, get all entity documents
   const { data: documents, isLoading: documentsLoading } = useDocuments({
-    areaId: selectedNode?.type === 'area' ? selectedNode.id : null,
+    areaId: currentView === 'folder' && selectedNode?.type === 'area' ? selectedNode.id : null,
     entityId: selectedEntity?.id ?? null,
-    statusFilter: (externalReviewMode || isExternalReviewer) ? 'Final' : null
+    statusFilter: (externalReviewMode || isExternalReviewer || currentView === 'status-final') ? 'Final' : null
   });
+
+  // Group documents for pivot views
+  const pivotGroups = usePivotDocuments(
+    documents || [],
+    currentView !== 'folder' ? currentView as PivotViewType : 'period-area-object'
+  );
 
   // Auto-select first entity
   useEffect(() => {
@@ -59,15 +71,32 @@ export default function Index() {
 
   const handleNodeSelect = (node: TreeNode) => {
     setSelectedNode(node);
+    // Switch to folder view when selecting a node
+    if (currentView !== 'folder') {
+      setCurrentView('folder');
+    }
   };
 
   const getSelectedPath = (): string => {
+    if (currentView !== 'folder') {
+      const viewLabels: Record<ViewType, string> = {
+        'folder': 'All Documents',
+        'period-area-object': 'By Period',
+        'object-period': 'By Object',
+        'area-period': 'By Area',
+        'document-type': 'By Document Type',
+        'status-final': 'Final Documents',
+      };
+      return `${selectedEntity?.name} — ${viewLabels[currentView]}`;
+    }
     if (!selectedNode) return 'All Documents';
     if (selectedNode.type === 'area') {
       return `${selectedEntity?.name} / ${selectedNode.name}`;
     }
     return selectedNode.name;
   };
+
+  const isPivotView = currentView !== 'folder';
 
   return (
     <div className="flex h-screen flex-col bg-background">
@@ -96,39 +125,52 @@ export default function Index() {
             ) : (
               <FolderTree
                 nodes={folderStructure || []}
-                selectedId={selectedNode?.id ?? null}
+                selectedId={currentView === 'folder' ? (selectedNode?.id ?? null) : null}
                 onSelect={handleNodeSelect}
               />
             )}
           </ScrollArea>
         </aside>
 
-        {/* Main Content - Document List */}
+        {/* Main Content - Document List or Pivot View */}
         <main className="flex flex-1 flex-col overflow-hidden">
           <div className="flex items-center justify-between border-b px-6 py-4">
-            <div>
-              <h2 className="text-lg font-medium">{getSelectedPath()}</h2>
-              {(externalReviewMode || isExternalReviewer) && (
-                <p className="text-sm text-muted-foreground">
-                  Viewing finalized documents only
-                </p>
-              )}
+            <div className="flex items-center gap-4">
+              <div>
+                <h2 className="text-lg font-medium">{getSelectedPath()}</h2>
+                {(externalReviewMode || isExternalReviewer) && currentView === 'folder' && (
+                  <p className="text-sm text-muted-foreground">
+                    Viewing finalized documents only
+                  </p>
+                )}
+              </div>
             </div>
             
-            {/* Add Document button - only show when Area is selected */}
-            {selectedNode?.type === 'area' && selectedEntity && !isExternalReviewer && (
-              <Button onClick={() => setUploadModalOpen(true)}>
-                <Plus className="mr-2 h-4 w-4" />
-                Add Document
-              </Button>
-            )}
+            <div className="flex items-center gap-3">
+              <ViewSelector value={currentView} onChange={setCurrentView} />
+              
+              {/* Add Document button - only show when Area is selected in folder view */}
+              {currentView === 'folder' && selectedNode?.type === 'area' && selectedEntity && !isExternalReviewer && (
+                <Button onClick={() => setUploadModalOpen(true)}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Document
+                </Button>
+              )}
+            </div>
           </div>
 
           <ScrollArea className="flex-1 p-6">
-            <DocumentList
-              documents={documents || []}
-              isLoading={documentsLoading || entitiesLoading}
-            />
+            {isPivotView ? (
+              <PivotView
+                groups={pivotGroups}
+                isLoading={documentsLoading || entitiesLoading}
+              />
+            ) : (
+              <DocumentList
+                documents={documents || []}
+                isLoading={documentsLoading || entitiesLoading}
+              />
+            )}
           </ScrollArea>
         </main>
       </div>

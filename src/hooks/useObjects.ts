@@ -27,6 +27,30 @@ export function useObjects({ areaId, entityId }: UseObjectsOptions) {
   });
 }
 
+// Fetch all objects for an entity (used in reconciliations)
+export function useAllObjectsForEntity(entityId: string | null) {
+  return useQuery({
+    queryKey: ['objects', 'all', entityId],
+    queryFn: async () => {
+      if (!entityId) return [];
+
+      const { data, error } = await supabase
+        .from('objects')
+        .select(`
+          *,
+          areas (name),
+          processes (name)
+        `)
+        .eq('entity_id', entityId)
+        .order('name');
+
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!entityId
+  });
+}
+
 export function useObject(objectId: string | null) {
   return useQuery({
     queryKey: ['object', objectId],

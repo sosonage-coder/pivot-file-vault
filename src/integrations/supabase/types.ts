@@ -637,6 +637,185 @@ export type Database = {
           },
         ]
       }
+      reconciliation_attachments: {
+        Row: {
+          attachment_type: string
+          created_at: string
+          created_by: string | null
+          document_id: string
+          id: string
+          notes: string | null
+          reconciliation_id: string
+        }
+        Insert: {
+          attachment_type?: string
+          created_at?: string
+          created_by?: string | null
+          document_id: string
+          id?: string
+          notes?: string | null
+          reconciliation_id: string
+        }
+        Update: {
+          attachment_type?: string
+          created_at?: string
+          created_by?: string | null
+          document_id?: string
+          id?: string
+          notes?: string | null
+          reconciliation_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reconciliation_attachments_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reconciliation_attachments_reconciliation_id_fkey"
+            columns: ["reconciliation_id"]
+            isOneToOne: false
+            referencedRelation: "reconciliations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reconciliation_templates: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          template_content: Json | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          template_content?: Json | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          template_content?: Json | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      reconciliations: {
+        Row: {
+          approved_at: string | null
+          certified_at: string | null
+          certified_by: string | null
+          created_at: string
+          entity_id: string
+          gl_balance: number | null
+          id: string
+          notes: string | null
+          object_id: string
+          period_id: string
+          prepared_at: string | null
+          preparer_id: string | null
+          rejected_at: string | null
+          rejection_notes: string | null
+          reviewed_at: string | null
+          reviewer_id: string | null
+          status: Database["public"]["Enums"]["reconciliation_status"]
+          sub_balance: number | null
+          submitted_at: string | null
+          template_id: string | null
+          updated_at: string
+          variance: number | null
+          variance_explanation: string | null
+        }
+        Insert: {
+          approved_at?: string | null
+          certified_at?: string | null
+          certified_by?: string | null
+          created_at?: string
+          entity_id: string
+          gl_balance?: number | null
+          id?: string
+          notes?: string | null
+          object_id: string
+          period_id: string
+          prepared_at?: string | null
+          preparer_id?: string | null
+          rejected_at?: string | null
+          rejection_notes?: string | null
+          reviewed_at?: string | null
+          reviewer_id?: string | null
+          status?: Database["public"]["Enums"]["reconciliation_status"]
+          sub_balance?: number | null
+          submitted_at?: string | null
+          template_id?: string | null
+          updated_at?: string
+          variance?: number | null
+          variance_explanation?: string | null
+        }
+        Update: {
+          approved_at?: string | null
+          certified_at?: string | null
+          certified_by?: string | null
+          created_at?: string
+          entity_id?: string
+          gl_balance?: number | null
+          id?: string
+          notes?: string | null
+          object_id?: string
+          period_id?: string
+          prepared_at?: string | null
+          preparer_id?: string | null
+          rejected_at?: string | null
+          rejection_notes?: string | null
+          reviewed_at?: string | null
+          reviewer_id?: string | null
+          status?: Database["public"]["Enums"]["reconciliation_status"]
+          sub_balance?: number | null
+          submitted_at?: string | null
+          template_id?: string | null
+          updated_at?: string
+          variance?: number | null
+          variance_explanation?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reconciliations_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reconciliations_object_id_fkey"
+            columns: ["object_id"]
+            isOneToOne: false
+            referencedRelation: "objects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reconciliations_period_id_fkey"
+            columns: ["period_id"]
+            isOneToOne: false
+            referencedRelation: "periods"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reconciliations_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "reconciliation_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tasks: {
         Row: {
           area_id: string | null
@@ -833,6 +1012,13 @@ export type Database = {
       document_status: "Draft" | "Final" | "Superseded" | "Archived"
       pbc_status: "Requested" | "Uploaded" | "Reviewed" | "Complete"
       period_type: "month" | "quarter" | "year" | "phase"
+      reconciliation_status:
+        | "not_started"
+        | "in_progress"
+        | "pending_review"
+        | "rejected"
+        | "approved"
+        | "certified"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -965,6 +1151,14 @@ export const Constants = {
       document_status: ["Draft", "Final", "Superseded", "Archived"],
       pbc_status: ["Requested", "Uploaded", "Reviewed", "Complete"],
       period_type: ["month", "quarter", "year", "phase"],
+      reconciliation_status: [
+        "not_started",
+        "in_progress",
+        "pending_review",
+        "rejected",
+        "approved",
+        "certified",
+      ],
     },
   },
 } as const

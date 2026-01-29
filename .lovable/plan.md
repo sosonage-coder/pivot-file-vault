@@ -1,172 +1,194 @@
 
-# Plan: Show PBC Tree in the Sidebar
+# Plan: Enable Request Children + Add Sample PBC Data
 
-## Overview
+## Summary
 
-This plan integrates the new hierarchical PBC tree (Department/Process/Area/Object/Request) into the SharedSidebar, replacing the flat list of PBC items. The sidebar will now display the full PBC tree structure matching the same terminology as the Documents module.
+This plan addresses two requests:
+1. **Allow Request nodes to have children** (like supporting documents)
+2. **Add sample data** using financial statement classification (Assets → Current Assets → Cash → Request items)
 
-## Current State
+---
+
+## Part 1: Current vs Proposed Structure
+
+### Current PBC Hierarchy (5 levels, flexible depth)
 
 ```text
-Sidebar Structure Now:
-[Department]
-├── Documents
-│   └── Process → Area → Object (hierarchical)
-├── PBC Requests
-│   └── PBC Request abc123... (flat list - old pbc_items table)
-├── Tasks
-└── Reconciliations
+[Department] Finance           ← Can be root
+  └── [Process] Monthly Close  ← Can be root  
+      └── [Area] Banking       ← Can be root
+          └── [Object] BofA Checking
+              └── [Request] Bank Statement  ← LEAF (no children)
 ```
 
-## Proposed Structure
+**Flexibility today:**
+- Can start tree at Department, Process, or Area (skipping higher levels)
+- Example: Area → Request (minimal depth)
+
+### Proposed Change: Request Can Have Children (6 levels max)
 
 ```text
-Sidebar Structure After:
-[Department]
-├── Documents
-│   └── Process → Area → Object
-├── PBC Requests
-│   ├── [Department] Finance (if present)
-│   │   └── [Process] Fixed Assets
-│   │       └── [Area] Additions
-│   │           └── [Request] Additions Listing
-│   └── [Area] Equity (minimal depth example)
-│       └── [Request] Equity Schedule
-├── Tasks
-└── Reconciliations
+[Process] Assets
+  └── [Area] Current Assets
+      └── [Object] Cash
+          └── [Request] Bank Reconciliation      ← Now can have children
+              └── [Request] Bank Statement       ← Supporting item
+              └── [Request] Outstanding Checks   ← Supporting item
 ```
 
 ---
 
-## Technical Changes
+## Part 2: Database Changes
 
-### Phase 1: Update useUnifiedFolderStructure Hook
+### Update pbc_node_type Enum Constraint
 
-**File: `src/hooks/useUnifiedFolderStructure.ts`**
-
-Replace the fetch from `pbc_items` with `pbc_nodes` and build a nested tree structure:
+The current code already defines `request` as allowing no children:
 
 ```typescript
-// Current (fetches flat pbc_items):
-const pbcQuery = supabase
-  .from('pbc_items')
-  .select('*, processes!inner(department_id)')
-  ...
-
-// Updated (fetches hierarchical pbc_nodes):
-const { data: pbcNodes = [] } = await supabase
-  .from('pbc_nodes')
-  .select('*')
-  .eq('entity_id', entityId)
-  .eq('period_id', periodId)
-  .order('sort_order');
-
-// Then build tree and group by department (from node metadata or parent chain)
+// src/types/pbc-tree.ts
+case 'request':
+  return []; // Currently: no children
 ```
 
-The hook will:
-1. Fetch all `pbc_nodes` for the entity/period
-2. Build a hierarchical tree structure (reusing the `buildPbcTree` logic)
-3. Convert `PbcTreeNode` objects into sidebar-compatible `TreeNode` objects
-4. Nest these under the "PBC Requests" module node
-
-### Phase 2: Add New TreeNode Types
-
-**File: `src/types/filegrid.ts`**
-
-Add PBC-specific node types to the `TreeNodeType` union:
+**Change to:**
 
 ```typescript
-export type TreeNodeType = 
-  | 'entity' | 'department' | 'process' | 'area' | 'object'
-  | 'module-documents' | 'module-pbc' | 'module-tasks' | 'module-reconciliations'
-  | 'pbc-item' | 'task-item' | 'reconciliation-account'
-  // New PBC tree types for sidebar:
-  | 'pbc-department' | 'pbc-process' | 'pbc-area' | 'pbc-object' | 'pbc-request';
+case 'request':
+  return ['request']; // Requests can contain sub-requests (supporting items)
 ```
 
-### Phase 3: Update UnifiedFolderTree Component
+No database migration needed - this is purely a TypeScript logic change.
 
-**File: `src/components/filegrid/UnifiedFolderTree.tsx`**
-
-Add icons and styling for the new PBC tree node types:
+### Update UI Config
 
 ```typescript
-const iconMap: Record<TreeNodeType, typeof Briefcase> = {
-  // ... existing icons
-  'pbc-department': Briefcase,
-  'pbc-process': FolderOpen,
-  'pbc-area': Folder,
-  'pbc-object': FileBox,
-  'pbc-request': ClipboardCheck,
-};
-
-const pbcColors: Record<string, string> = {
-  'pbc-department': 'text-slate-500',
-  'pbc-process': 'text-blue-500',
-  'pbc-area': 'text-amber-500',
-  'pbc-object': 'text-purple-500',
-  'pbc-request': 'text-green-500',
-};
+// src/types/pbc-tree.ts - Update PBC_NODE_CONFIG
+request: {
+  // ... existing
+  canHaveChildren: true,  // Changed from false
+}
 ```
-
-### Phase 4: Update UnifiedWorkspace to Handle Sidebar Selection
-
-**File: `src/components/layout/UnifiedWorkspace.tsx`**
-
-Update the `getActiveModule` function to recognize PBC tree node types:
-
-```typescript
-const getActiveModule = (): string | null => {
-  const type = selectedNode?.type;
-  if (type?.startsWith('pbc-')) {
-    return 'pbc';
-  }
-  // ... existing logic
-};
-```
-
-When a sidebar PBC node is selected, sync it with the PBC tree in the main panel.
 
 ---
 
-## Files to Modify
+## Part 3: Sample Data Structure (Asset Classification)
+
+Following financial statement presentation order:
+
+```text
+Finance (Department - optional, can skip)
+└── Assets (Process)
+    ├── Current Assets (Area)
+    │   ├── Cash (Object)
+    │   │   ├── Bank Reconciliation [Request - Requested]
+    │   │   │   └── Bank Statement [Request - child]
+    │   │   │   └── Outstanding Checks [Request - child]
+    │   │   └── Petty Cash Count [Request]
+    │   ├── Accounts Receivable (Object)
+    │   │   ├── AR Aging Schedule [Request]
+    │   │   └── Credit Memo Support [Request]
+    │   └── Inventory (Object)
+    │       └── Inventory Count [Request]
+    │
+    └── Non-Current Assets (Area)
+        ├── Fixed Assets (Object)
+        │   ├── FA Rollforward [Request]
+        │   └── Depreciation Schedule [Request]
+        └── Intangibles (Object)
+            └── Amortization Schedule [Request]
+
+└── Liabilities (Process)
+    ├── Current Liabilities (Area)
+    │   ├── Accounts Payable (Object)
+    │   │   └── AP Aging Schedule [Request]
+    │   └── Accrued Expenses (Object)
+    │       └── Accrual Rollforward [Request]
+    └── Long-term Liabilities (Area)
+        └── Debt (Object)
+            └── Debt Schedule [Request]
+
+└── Equity (Process)
+    └── Retained Earnings (Area)
+        └── Equity Rollforward [Request]
+```
+
+---
+
+## Part 4: Technical Implementation
+
+### Files to Modify
 
 | File | Change |
 |------|--------|
-| `src/types/filegrid.ts` | Add `pbc-department`, `pbc-process`, `pbc-area`, `pbc-object`, `pbc-request` to `TreeNodeType` |
-| `src/hooks/useUnifiedFolderStructure.ts` | Replace `pbc_items` fetch with `pbc_nodes`, build hierarchical tree |
-| `src/components/filegrid/UnifiedFolderTree.tsx` | Add icons and styling for PBC tree node types |
-| `src/components/layout/UnifiedWorkspace.tsx` | Update module detection to handle PBC tree types |
+| `src/types/pbc-tree.ts` | Update `getAllowedChildTypes` for request, set `canHaveChildren: true` |
+| `src/components/pbc/PbcNodeItem.tsx` | Allow "Add child" action on request nodes |
+| `supabase/migrations/NEW` | Insert sample PBC nodes with hierarchical structure |
+
+### Migration SQL Structure
+
+```sql
+-- Insert sample PBC nodes for first entity and period
+WITH context AS (
+  SELECT 
+    e.id AS entity_id,
+    p.id AS period_id
+  FROM entities e
+  CROSS JOIN periods p
+  WHERE p.label = '2025-01'
+  LIMIT 1
+),
+-- Root level: Assets process
+assets AS (
+  INSERT INTO pbc_nodes (entity_id, period_id, node_type, label, sort_order)
+  SELECT entity_id, period_id, 'process', 'Assets', 1
+  FROM context
+  RETURNING id, entity_id, period_id
+),
+-- Area: Current Assets
+current_assets AS (
+  INSERT INTO pbc_nodes (entity_id, period_id, parent_id, node_type, label, sort_order)
+  SELECT entity_id, period_id, id, 'area', 'Current Assets', 1
+  FROM assets
+  RETURNING id, entity_id, period_id
+),
+-- Object: Cash
+cash AS (
+  INSERT INTO pbc_nodes (entity_id, period_id, parent_id, node_type, label, sort_order)
+  SELECT entity_id, period_id, id, 'object', 'Cash', 1
+  FROM current_assets
+  RETURNING id, entity_id, period_id
+),
+-- Request: Bank Reconciliation
+bank_recon AS (
+  INSERT INTO pbc_nodes (entity_id, period_id, parent_id, node_type, label, status, sort_order)
+  SELECT entity_id, period_id, id, 'request', 'Bank Reconciliation', 'Requested', 1
+  FROM cash
+  RETURNING id, entity_id, period_id
+)
+-- Sub-request: Bank Statement (child of Bank Reconciliation)
+INSERT INTO pbc_nodes (entity_id, period_id, parent_id, node_type, label, status, sort_order)
+SELECT entity_id, period_id, id, 'request', 'Bank Statement', 'Requested', 1
+FROM bank_recon;
+-- ... continue for all sample items
+```
 
 ---
 
-## Visual Result
+## Part 5: Comparison Summary
 
-After implementation, clicking on "PBC Requests" in the sidebar will expand to show the full tree structure:
+| Feature | Documents | PBC Tree |
+|---------|-----------|----------|
+| Levels | Dept → Process → Area → Object → Document | Dept → Process → Area → Object → Request (→ Sub-request) |
+| Flexible root | Yes (any level) | Yes (dept, process, or area) |
+| Leaf can have children | Documents can have versions | Requests can have sub-requests |
+| Max depth | 5 | 6 (with nested requests) |
+| Sample data | Monthly Close process | Asset/Liability classification |
 
-```text
-[Finance]
-├── Documents
-│   └── Fixed Assets
-│       └── Additions (3 docs)
-├── PBC Requests
-│   ├── Fixed Assets (process)
-│   │   ├── Additions (area)
-│   │   │   ├── Additions Listing [Complete]
-│   │   │   └── Supporting Invoices [Requested]
-│   │   └── Disposals (area)
-│   │       └── Disposal Schedule [Uploaded]
-│   └── Equity (area - minimal depth)
-│       └── Equity Schedule [Complete]
-├── Tasks (5)
-└── Reconciliations (3)
-```
+---
 
 ## Implementation Order
 
-1. Add new node types to `TreeNodeType`
-2. Update `useUnifiedFolderStructure` to fetch and build PBC tree
-3. Add icons and colors to `UnifiedFolderTree`
-4. Update workspace module detection
-5. Test tree rendering and selection
+1. Update `src/types/pbc-tree.ts` - Allow requests to have children
+2. Update `src/components/pbc/PbcNodeItem.tsx` - Show "Add child" on requests
+3. Create database migration with sample data following asset classification
+4. Test that nested requests appear correctly in sidebar and main tree

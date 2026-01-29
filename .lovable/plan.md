@@ -1,194 +1,104 @@
 
-# Plan: Enable Request Children + Add Sample PBC Data
+# Fix: Connect PBC Sample Data to Department Structure
 
-## Summary
+## Problem Identified
 
-This plan addresses two requests:
-1. **Allow Request nodes to have children** (like supporting documents)
-2. **Add sample data** using financial statement classification (Assets → Current Assets → Cash → Request items)
+The PBC sample data exists in the database but isn't appearing in the sidebar because:
+
+1. **Sidebar is department-first**: Each department shows its own "PBC Requests" module
+2. **PBC nodes have no department link**: The `pbc_nodes` table lacks a `department_id` column
+3. **Current code shows same PBC tree to all departments**: Line 321 uses global `pbcTreeNodes` instead of filtering by department
+
+## Solution Options
+
+### Option A: Add department_id to pbc_nodes (Recommended)
+
+Add a `department_id` column to `pbc_nodes` table and update the sidebar to filter PBC nodes by department.
+
+**Pros:**
+- Matches how Documents/Tasks/Reconciliations work
+- Each department shows only its PBC requests
+- Clean data model
+
+**Cons:**
+- Requires database migration
+- Needs to update seed data
+
+### Option B: Show all PBC nodes under first department only
+
+Quick fix without database changes - show PBC tree only once.
+
+**Pros:**
+- No database changes
+- Quick to implement
+
+**Cons:**
+- PBC requests would all appear under one department
+- Doesn't scale well for multi-department organizations
 
 ---
 
-## Part 1: Current vs Proposed Structure
+## Recommended Implementation (Option A)
 
-### Current PBC Hierarchy (5 levels, flexible depth)
+### Step 1: Add department_id column to pbc_nodes
 
-```text
-[Department] Finance           ← Can be root
-  └── [Process] Monthly Close  ← Can be root  
-      └── [Area] Banking       ← Can be root
-          └── [Object] BofA Checking
-              └── [Request] Bank Statement  ← LEAF (no children)
+```sql
+ALTER TABLE pbc_nodes ADD COLUMN department_id UUID REFERENCES departments(id);
+
+-- Create index for performance
+CREATE INDEX idx_pbc_nodes_department ON pbc_nodes(department_id);
 ```
 
-**Flexibility today:**
-- Can start tree at Department, Process, or Area (skipping higher levels)
-- Example: Area → Request (minimal depth)
+### Step 2: Update seed data with department linkage
 
-### Proposed Change: Request Can Have Children (6 levels max)
-
-```text
-[Process] Assets
-  └── [Area] Current Assets
-      └── [Object] Cash
-          └── [Request] Bank Reconciliation      ← Now can have children
-              └── [Request] Bank Statement       ← Supporting item
-              └── [Request] Outstanding Checks   ← Supporting item
+```sql
+-- Get the Finance department ID
+UPDATE pbc_nodes 
+SET department_id = (SELECT id FROM departments WHERE name = 'Finance' LIMIT 1)
+WHERE entity_id = '11111111-1111-1111-1111-111111111111';
 ```
 
----
+### Step 3: Update useUnifiedFolderStructure.ts
 
-## Part 2: Database Changes
-
-### Update pbc_node_type Enum Constraint
-
-The current code already defines `request` as allowing no children:
+Filter PBC nodes by department when building each department's tree:
 
 ```typescript
-// src/types/pbc-tree.ts
-case 'request':
-  return []; // Currently: no children
+// Group PBC nodes by department
+const pbcByDept: Record<string, PbcNodeRow[]> = {};
+(pbcNodes as PbcNodeRow[])?.forEach((node: any) => {
+  if (node.department_id) {
+    if (!pbcByDept[node.department_id]) pbcByDept[node.department_id] = [];
+    pbcByDept[node.department_id].push(node);
+  }
+});
+
+// Inside the department loop:
+const deptPbcNodes = pbcByDept[deptId] || [];
+const pbcTreeNodes = buildPbcTreeNodes(deptPbcNodes);
 ```
 
-**Change to:**
+### Step 4: Update CreatePbcNodeModal to require department selection
 
-```typescript
-case 'request':
-  return ['request']; // Requests can contain sub-requests (supporting items)
-```
-
-No database migration needed - this is purely a TypeScript logic change.
-
-### Update UI Config
-
-```typescript
-// src/types/pbc-tree.ts - Update PBC_NODE_CONFIG
-request: {
-  // ... existing
-  canHaveChildren: true,  // Changed from false
-}
-```
+When creating new PBC nodes, capture department_id.
 
 ---
 
-## Part 3: Sample Data Structure (Asset Classification)
-
-Following financial statement presentation order:
-
-```text
-Finance (Department - optional, can skip)
-└── Assets (Process)
-    ├── Current Assets (Area)
-    │   ├── Cash (Object)
-    │   │   ├── Bank Reconciliation [Request - Requested]
-    │   │   │   └── Bank Statement [Request - child]
-    │   │   │   └── Outstanding Checks [Request - child]
-    │   │   └── Petty Cash Count [Request]
-    │   ├── Accounts Receivable (Object)
-    │   │   ├── AR Aging Schedule [Request]
-    │   │   └── Credit Memo Support [Request]
-    │   └── Inventory (Object)
-    │       └── Inventory Count [Request]
-    │
-    └── Non-Current Assets (Area)
-        ├── Fixed Assets (Object)
-        │   ├── FA Rollforward [Request]
-        │   └── Depreciation Schedule [Request]
-        └── Intangibles (Object)
-            └── Amortization Schedule [Request]
-
-└── Liabilities (Process)
-    ├── Current Liabilities (Area)
-    │   ├── Accounts Payable (Object)
-    │   │   └── AP Aging Schedule [Request]
-    │   └── Accrued Expenses (Object)
-    │       └── Accrual Rollforward [Request]
-    └── Long-term Liabilities (Area)
-        └── Debt (Object)
-            └── Debt Schedule [Request]
-
-└── Equity (Process)
-    └── Retained Earnings (Area)
-        └── Equity Rollforward [Request]
-```
-
----
-
-## Part 4: Technical Implementation
-
-### Files to Modify
+## Files to Modify
 
 | File | Change |
 |------|--------|
-| `src/types/pbc-tree.ts` | Update `getAllowedChildTypes` for request, set `canHaveChildren: true` |
-| `src/components/pbc/PbcNodeItem.tsx` | Allow "Add child" action on request nodes |
-| `supabase/migrations/NEW` | Insert sample PBC nodes with hierarchical structure |
-
-### Migration SQL Structure
-
-```sql
--- Insert sample PBC nodes for first entity and period
-WITH context AS (
-  SELECT 
-    e.id AS entity_id,
-    p.id AS period_id
-  FROM entities e
-  CROSS JOIN periods p
-  WHERE p.label = '2025-01'
-  LIMIT 1
-),
--- Root level: Assets process
-assets AS (
-  INSERT INTO pbc_nodes (entity_id, period_id, node_type, label, sort_order)
-  SELECT entity_id, period_id, 'process', 'Assets', 1
-  FROM context
-  RETURNING id, entity_id, period_id
-),
--- Area: Current Assets
-current_assets AS (
-  INSERT INTO pbc_nodes (entity_id, period_id, parent_id, node_type, label, sort_order)
-  SELECT entity_id, period_id, id, 'area', 'Current Assets', 1
-  FROM assets
-  RETURNING id, entity_id, period_id
-),
--- Object: Cash
-cash AS (
-  INSERT INTO pbc_nodes (entity_id, period_id, parent_id, node_type, label, sort_order)
-  SELECT entity_id, period_id, id, 'object', 'Cash', 1
-  FROM current_assets
-  RETURNING id, entity_id, period_id
-),
--- Request: Bank Reconciliation
-bank_recon AS (
-  INSERT INTO pbc_nodes (entity_id, period_id, parent_id, node_type, label, status, sort_order)
-  SELECT entity_id, period_id, id, 'request', 'Bank Reconciliation', 'Requested', 1
-  FROM cash
-  RETURNING id, entity_id, period_id
-)
--- Sub-request: Bank Statement (child of Bank Reconciliation)
-INSERT INTO pbc_nodes (entity_id, period_id, parent_id, node_type, label, status, sort_order)
-SELECT entity_id, period_id, id, 'request', 'Bank Statement', 'Requested', 1
-FROM bank_recon;
--- ... continue for all sample items
-```
+| `supabase/migrations/NEW` | Add department_id column, update seed data |
+| `src/hooks/useUnifiedFolderStructure.ts` | Filter PBC nodes by department |
+| `src/hooks/usePbcTree.ts` | Include department_id in queries |
+| `src/components/pbc/CreatePbcNodeModal.tsx` | Add department selector for root nodes |
+| `src/types/pbc-tree.ts` | Add department_id to interfaces |
 
 ---
 
-## Part 5: Comparison Summary
+## Expected Result
 
-| Feature | Documents | PBC Tree |
-|---------|-----------|----------|
-| Levels | Dept → Process → Area → Object → Document | Dept → Process → Area → Object → Request (→ Sub-request) |
-| Flexible root | Yes (any level) | Yes (dept, process, or area) |
-| Leaf can have children | Documents can have versions | Requests can have sub-requests |
-| Max depth | 5 | 6 (with nested requests) |
-| Sample data | Monthly Close process | Asset/Liability classification |
-
----
-
-## Implementation Order
-
-1. Update `src/types/pbc-tree.ts` - Allow requests to have children
-2. Update `src/components/pbc/PbcNodeItem.tsx` - Show "Add child" on requests
-3. Create database migration with sample data following asset classification
-4. Test that nested requests appear correctly in sidebar and main tree
+After implementation:
+- Navigate to **Finance** department in sidebar
+- Expand **PBC Requests** under Finance
+- See the full Asset/Liability/Equity hierarchy with all sample requests
+- Each department will only show its own PBC requests

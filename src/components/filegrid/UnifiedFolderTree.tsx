@@ -12,10 +12,29 @@ import {
   CheckSquare,
   Scale,
   ShieldCheck,
-  Clock
+  Clock,
+  Trash2,
+  Pencil
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from '@/components/ui/context-menu';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { useDeleteProcess, useDeleteArea, useDeleteObject } from '@/hooks/useAdminMutations';
 import type { TreeNode, TreeNodeType } from '@/types/filegrid';
 
 interface UnifiedFolderTreeProps {
@@ -74,6 +93,12 @@ const pbcTreeColors: Record<string, string> = {
 
 function TreeItem({ node, level, selectedId, onSelect, pendingCounts, onEditObject }: TreeItemProps) {
   const [isExpanded, setIsExpanded] = useState(level < 1);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  
+  const deleteProcess = useDeleteProcess();
+  const deleteArea = useDeleteArea();
+  const deleteObject = useDeleteObject();
+  
   const hasChildren = node.children && node.children.length > 0;
   const isSelected = selectedId === node.id;
   const Icon = iconMap[node.type] || Folder;
@@ -83,6 +108,10 @@ function TreeItem({ node, level, selectedId, onSelect, pendingCounts, onEditObje
   const isModuleNode = node.type.startsWith('module-');
   const isPbcTreeNode = node.type.startsWith('pbc-') && !node.type.startsWith('pbc-item');
   const isItemNode = ['pbc-item', 'task-item', 'reconciliation-account'].includes(node.type) || node.type === 'pbc-request';
+  
+  // Determine if this node type supports context menu actions
+  const canDelete = ['process', 'area', 'object'].includes(node.type);
+  const canEdit = node.type === 'object';
 
   const handleClick = () => {
     if (hasChildren) {
@@ -95,6 +124,17 @@ function TreeItem({ node, level, selectedId, onSelect, pendingCounts, onEditObje
     if (node.type === 'object' && onEditObject) {
       onEditObject(node);
     }
+  };
+
+  const handleDelete = () => {
+    if (node.type === 'process') {
+      deleteProcess.mutate(node.id);
+    } else if (node.type === 'area') {
+      deleteArea.mutate(node.id);
+    } else if (node.type === 'object') {
+      deleteObject.mutate(node.id);
+    }
+    setDeleteDialogOpen(false);
   };
 
   const getItemCount = () => {
@@ -143,72 +183,130 @@ function TreeItem({ node, level, selectedId, onSelect, pendingCounts, onEditObje
     );
   };
 
+  const getNodeTypeName = () => {
+    switch (node.type) {
+      case 'process': return 'Process';
+      case 'area': return 'Area';
+      case 'object': return 'Object';
+      default: return 'Item';
+    }
+  };
+
+  const treeButton = (
+    <button
+      onClick={handleClick}
+      onDoubleClick={handleDoubleClick}
+      className={cn(
+        'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors',
+        'hover:bg-[hsl(var(--tree-hover))]',
+        isSelected && 'bg-[hsl(var(--tree-selected))] font-medium',
+        isItemNode && 'py-1'
+      )}
+      style={{ paddingLeft: `${level * 12 + 8}px` }}
+    >
+      <span className="flex h-4 w-4 items-center justify-center">
+        {hasChildren ? (
+          isExpanded ? (
+            <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+          ) : (
+            <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+          )
+        ) : (
+          <span className="w-3.5" />
+        )}
+      </span>
+      <Icon className={cn(
+        'h-4 w-4 flex-shrink-0',
+        isModuleNode ? moduleColors[node.type] : 
+        isPbcTreeNode ? pbcTreeColors[node.type] :
+        node.type === 'area' ? 'text-primary' : 
+        node.type === 'object' ? 'text-accent-foreground' : 
+        isItemNode ? 'text-muted-foreground' :
+        'text-muted-foreground'
+      )} />
+      <span className={cn(
+        'flex-1 truncate',
+        isItemNode && 'text-xs'
+      )}>
+        {node.name}
+      </span>
+      
+      {/* Show approval indicator */}
+      {requiresApproval && (
+        <ShieldCheck className="h-3.5 w-3.5 text-primary" />
+      )}
+      
+      {/* Show pending approval count */}
+      {pendingCount > 0 && (
+        <Badge 
+          variant="secondary" 
+          className="h-5 px-1.5 text-xs bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400"
+        >
+          <Clock className="mr-0.5 h-3 w-3" />
+          {pendingCount}
+        </Badge>
+      )}
+      
+      {/* Show status badge for item nodes */}
+      {getStatusBadge()}
+      
+      {/* Show item/document count */}
+      {!isItemNode && pendingCount === 0 && itemCount !== null && itemCount > 0 && (
+        <span className="text-xs text-muted-foreground tabular-nums">
+          {itemCount}
+        </span>
+      )}
+    </button>
+  );
+
   return (
     <div>
-      <button
-        onClick={handleClick}
-        onDoubleClick={handleDoubleClick}
-        className={cn(
-          'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors',
-          'hover:bg-[hsl(var(--tree-hover))]',
-          isSelected && 'bg-[hsl(var(--tree-selected))] font-medium',
-          isItemNode && 'py-1'
-        )}
-        style={{ paddingLeft: `${level * 12 + 8}px` }}
-      >
-        <span className="flex h-4 w-4 items-center justify-center">
-          {hasChildren ? (
-            isExpanded ? (
-              <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-            ) : (
-              <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
-            )
-          ) : (
-            <span className="w-3.5" />
-          )}
-        </span>
-        <Icon className={cn(
-          'h-4 w-4 flex-shrink-0',
-          isModuleNode ? moduleColors[node.type] : 
-          isPbcTreeNode ? pbcTreeColors[node.type] :
-          node.type === 'area' ? 'text-primary' : 
-          node.type === 'object' ? 'text-accent-foreground' : 
-          isItemNode ? 'text-muted-foreground' :
-          'text-muted-foreground'
-        )} />
-        <span className={cn(
-          'flex-1 truncate',
-          isItemNode && 'text-xs'
-        )}>
-          {node.name}
-        </span>
-        
-        {/* Show approval indicator */}
-        {requiresApproval && (
-          <ShieldCheck className="h-3.5 w-3.5 text-primary" />
-        )}
-        
-        {/* Show pending approval count */}
-        {pendingCount > 0 && (
-          <Badge 
-            variant="secondary" 
-            className="h-5 bg-amber-100 px-1.5 text-xs text-amber-800 dark:bg-amber-900/30 dark:text-amber-400"
-          >
-            <Clock className="mr-0.5 h-3 w-3" />
-            {pendingCount}
-          </Badge>
-        )}
-        
-        {/* Show status badge for item nodes */}
-        {getStatusBadge()}
-        
-        {/* Show item/document count */}
-        {!isItemNode && pendingCount === 0 && itemCount !== null && itemCount > 0 && (
-          <span className="text-xs text-muted-foreground tabular-nums">
-            {itemCount}
-          </span>
-        )}
-      </button>
+      {canDelete || canEdit ? (
+        <ContextMenu>
+          <ContextMenuTrigger asChild>
+            {treeButton}
+          </ContextMenuTrigger>
+          <ContextMenuContent>
+            {canEdit && onEditObject && (
+              <ContextMenuItem onClick={() => onEditObject(node)}>
+                <Pencil className="mr-2 h-4 w-4" />
+                Edit {getNodeTypeName()}
+              </ContextMenuItem>
+            )}
+            {canDelete && (
+              <ContextMenuItem 
+                onClick={() => setDeleteDialogOpen(true)}
+                className="text-destructive focus:text-destructive"
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete {getNodeTypeName()}
+              </ContextMenuItem>
+            )}
+          </ContextMenuContent>
+        </ContextMenu>
+      ) : (
+        treeButton
+      )}
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {getNodeTypeName()}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete "{node.name}" and all its contents. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       
       {hasChildren && isExpanded && (
         <div className="relative">

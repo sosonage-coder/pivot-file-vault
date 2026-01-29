@@ -1,4 +1,4 @@
-import { Building2, ChevronDown, Plus } from 'lucide-react';
+import { Building2, ChevronDown, Plus, FolderGit2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -14,7 +14,8 @@ interface EntitySelectorProps {
   selectedEntity: Entity | null;
   onSelect: (entity: Entity) => void;
   isAdmin?: boolean;
-  onCreateNew?: () => void;
+  onCreateEntity?: () => void;
+  onCreateProcess?: () => void;
 }
 
 export function EntitySelector({ 
@@ -22,42 +23,58 @@ export function EntitySelector({
   selectedEntity, 
   onSelect, 
   isAdmin,
-  onCreateNew 
+  onCreateEntity,
+  onCreateProcess,
 }: EntitySelectorProps) {
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="outline" className="w-full justify-between">
-          <div className="flex items-center gap-2">
-            <Building2 className="h-4 w-4 text-muted-foreground" />
-            <span className="truncate">
-              {selectedEntity?.name || 'Select Entity'}
-            </span>
-          </div>
-          <ChevronDown className="h-4 w-4 text-muted-foreground" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-[--radix-dropdown-menu-trigger-width]">
-        {entities.map((entity) => (
-          <DropdownMenuItem 
-            key={entity.id}
-            onClick={() => onSelect(entity)}
-            className="cursor-pointer"
-          >
-            <Building2 className="mr-2 h-4 w-4 text-muted-foreground" />
-            {entity.name}
-          </DropdownMenuItem>
-        ))}
-        {isAdmin && (
-          <>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={onCreateNew} className="cursor-pointer text-primary">
-              <Plus className="mr-2 h-4 w-4" />
-              Create New Entity
+    <div className="space-y-2">
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline" className="w-full justify-between">
+            <div className="flex items-center gap-2">
+              <Building2 className="h-4 w-4 text-muted-foreground" />
+              <span className="truncate">
+                {selectedEntity?.name || 'Select Entity'}
+              </span>
+            </div>
+            <ChevronDown className="h-4 w-4 text-muted-foreground" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="w-[--radix-dropdown-menu-trigger-width]">
+          {entities.map((entity) => (
+            <DropdownMenuItem 
+              key={entity.id}
+              onClick={() => onSelect(entity)}
+              className="cursor-pointer"
+            >
+              <Building2 className="mr-2 h-4 w-4 text-muted-foreground" />
+              {entity.name}
             </DropdownMenuItem>
-          </>
-        )}
-      </DropdownMenuContent>
-    </DropdownMenu>
+          ))}
+          {isAdmin && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={onCreateEntity} className="cursor-pointer text-primary">
+                <Plus className="mr-2 h-4 w-4" />
+                Create New Entity
+              </DropdownMenuItem>
+            </>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      {/* Admin button to create process */}
+      {isAdmin && selectedEntity && (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="w-full justify-start text-muted-foreground hover:text-foreground"
+          onClick={onCreateProcess}
+        >
+          <FolderGit2 className="mr-2 h-4 w-4" />
+          Add Process...
+        </Button>
+      )}
+    </div>
   );
 }

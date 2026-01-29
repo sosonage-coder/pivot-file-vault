@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { PbcStatus } from '@/types/filegrid';
 
-interface PbcItemWithRelations {
+export interface PbcItemWithRelations {
   id: string;
   entity_id: string;
   period_id: string;
@@ -14,7 +14,13 @@ interface PbcItemWithRelations {
   assignee_id: string | null;
   created_at: string;
   updated_at: string;
-  areas: { name: string; processes: { name: string; departments: { name: string } } };
+  areas: { 
+    name: string; 
+    processes: { 
+      name: string; 
+      departments: { name: string } 
+    } 
+  };
   periods: { label: string };
   document_types: { name: string };
   objects: { name: string } | null;

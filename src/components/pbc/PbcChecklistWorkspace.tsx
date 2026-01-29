@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { format } from 'date-fns';
 import { 
   Upload, 
   CheckCircle2, 
@@ -7,15 +8,17 @@ import {
   CalendarDays,
   Plus,
   Loader2,
-  FileText
+  FileText,
+  Circle,
+  Eye,
+  ChevronRight,
+  Paperclip
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { toast } from '@/hooks/use-toast';
+import { Card, CardContent } from '@/components/ui/card';
+import { PbcRequestDetailModal } from './PbcRequestDetailModal';
 import type { PbcStatus } from '@/types/filegrid';
 import type { TreeNode } from '@/types/filegrid';
 
@@ -26,6 +29,7 @@ interface PbcRequest {
   assignee_id: string | null;
   due_date: string | null;
   notes: string | null;
+  priority?: string | null;
 }
 
 interface PbcChecklistWorkspaceProps {
@@ -34,38 +38,29 @@ interface PbcChecklistWorkspaceProps {
   isLoading: boolean;
   onFulfillRequest: (requestId: string, fileUrl: string) => Promise<void>;
   onAddRequest: () => void;
+  entityId: string;
 }
+
+const STATUS_CONFIG: Record<PbcStatus, { icon: React.ElementType; color: string; bgColor: string }> = {
+  Requested: { icon: Circle, color: 'text-muted-foreground', bgColor: 'bg-muted' },
+  Uploaded: { icon: Upload, color: 'text-blue-600', bgColor: 'bg-blue-50' },
+  Reviewed: { icon: Eye, color: 'text-amber-600', bgColor: 'bg-amber-50' },
+  Complete: { icon: CheckCircle2, color: 'text-green-600', bgColor: 'bg-green-50' },
+};
 
 export function PbcChecklistWorkspace({ 
   objectNode, 
   requests, 
   isLoading,
   onFulfillRequest,
-  onAddRequest
+  onAddRequest,
+  entityId
 }: PbcChecklistWorkspaceProps) {
-  const [uploadingId, setUploadingId] = useState<string | null>(null);
-  const [fileUrl, setFileUrl] = useState<string>('');
-
-  const handleFulfill = async (requestId: string) => {
-    if (!fileUrl.trim()) {
-      toast({ title: 'Please enter a file URL', variant: 'destructive' });
-      return;
-    }
-    
-    setUploadingId(requestId);
-    try {
-      await onFulfillRequest(requestId, fileUrl);
-      setFileUrl('');
-      toast({ title: 'Request fulfilled!' });
-    } catch (error) {
-      toast({ title: 'Failed to fulfill request', variant: 'destructive' });
-    } finally {
-      setUploadingId(null);
-    }
-  };
+  const [selectedRequest, setSelectedRequest] = useState<PbcRequest | null>(null);
 
   const completedCount = requests.filter(r => r.status === 'Complete').length;
   const totalCount = requests.length;
+  const progressPercent = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
 
   if (isLoading) {
     return (
@@ -82,7 +77,7 @@ export function PbcChecklistWorkspace({
         <div>
           <h2 className="text-2xl font-semibold">{objectNode.name}</h2>
           <p className="text-muted-foreground">
-            PBC Requests • {completedCount} of {totalCount} completed
+            PBC Requests • {completedCount} of {totalCount} complete
           </p>
         </div>
         <Button onClick={onAddRequest}>
@@ -92,11 +87,17 @@ export function PbcChecklistWorkspace({
       </div>
 
       {/* Progress bar */}
-      <div className="h-2 w-full rounded-full bg-muted">
-        <div 
-          className="h-full rounded-full bg-primary transition-all"
-          style={{ width: totalCount > 0 ? `${(completedCount / totalCount) * 100}%` : '0%' }}
-        />
+      <div className="space-y-2">
+        <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
+          <div 
+            className="h-full rounded-full bg-primary transition-all duration-500"
+            style={{ width: `${progressPercent}%` }}
+          />
+        </div>
+        <div className="flex justify-between text-xs text-muted-foreground">
+          <span>{completedCount} completed</span>
+          <span>{totalCount - completedCount} remaining</span>
+        </div>
       </div>
 
       {/* Request list */}
@@ -112,116 +113,86 @@ export function PbcChecklistWorkspace({
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-2">
           {requests.map((request, index) => {
-            const isComplete = request.status === 'Complete';
-            const isUploading = uploadingId === request.id;
+            const status = request.status || 'Requested';
+            const config = STATUS_CONFIG[status];
+            const StatusIcon = config.icon;
+            const isComplete = status === 'Complete';
             
             return (
               <Card 
                 key={request.id} 
                 className={cn(
-                  "transition-colors",
-                  isComplete && "bg-muted/50 border-muted"
+                  "cursor-pointer transition-all hover:shadow-md hover:border-primary/30",
+                  isComplete && "bg-muted/30"
                 )}
+                onClick={() => setSelectedRequest(request)}
               >
-                <CardContent className="flex items-start gap-4 py-4">
-                  {/* Checkbox */}
-                  <div className="pt-1">
-                    <Checkbox 
-                      checked={isComplete}
-                      disabled
-                      className={cn(
-                        isComplete && "bg-primary border-primary"
-                      )}
-                    />
+                <CardContent className="flex items-center gap-4 py-4">
+                  {/* Status icon */}
+                  <div className={cn(
+                    'p-2 rounded-full shrink-0',
+                    config.bgColor
+                  )}>
+                    <StatusIcon className={cn('h-4 w-4', config.color)} />
                   </div>
                   
                   {/* Content */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-4">
-                      <div className="flex-1">
+                      <div className="flex-1 min-w-0">
                         <p className={cn(
                           "font-medium",
-                          isComplete && "line-through text-muted-foreground"
+                          isComplete && "text-muted-foreground"
                         )}>
                           {index + 1}. {request.label}
                         </p>
                         
-                        {request.notes && (
-                          <p className="text-sm text-muted-foreground mt-1">
-                            {request.notes}
-                          </p>
-                        )}
-                        
                         {/* Meta info */}
-                        <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
+                        <div className="flex items-center gap-4 mt-1 text-xs text-muted-foreground">
                           {request.due_date && (
                             <span className="flex items-center gap-1">
                               <CalendarDays className="h-3 w-3" />
-                              Due: {new Date(request.due_date).toLocaleDateString()}
+                              {format(new Date(request.due_date), 'MMM d')}
                             </span>
                           )}
-                          {request.assignee_id && (
-                            <span className="flex items-center gap-1">
-                              <User className="h-3 w-3" />
-                              Assigned
-                            </span>
+                          {request.priority && request.priority !== 'normal' && (
+                            <Badge variant="outline" className="text-xs h-5">
+                              {request.priority}
+                            </Badge>
                           )}
                         </div>
                       </div>
                       
-                      {/* Status badge */}
-                      <Badge 
-                        variant={isComplete ? "default" : "secondary"}
-                        className="shrink-0"
-                      >
-                        {isComplete ? (
-                          <>
-                            <CheckCircle2 className="mr-1 h-3 w-3" />
-                            Complete
-                          </>
-                        ) : (
-                          <>
-                            <Clock className="mr-1 h-3 w-3" />
-                            Pending
-                          </>
-                        )}
-                      </Badge>
-                    </div>
-                    
-                    {/* Upload action for pending requests */}
-                    {!isComplete && (
-                      <div className="flex items-center gap-2 mt-3 pt-3 border-t">
-                        <Input
-                          placeholder="Enter file URL or upload link..."
-                          value={uploadingId === request.id ? fileUrl : ''}
-                          onChange={(e) => {
-                            setUploadingId(request.id);
-                            setFileUrl(e.target.value);
-                          }}
-                          className="flex-1"
-                        />
-                        <Button
-                          size="sm"
-                          onClick={() => handleFulfill(request.id)}
-                          disabled={isUploading}
+                      {/* Status badge and arrow */}
+                      <div className="flex items-center gap-2 shrink-0">
+                        <Badge 
+                          variant={isComplete ? "default" : "secondary"}
+                          className="text-xs"
                         >
-                          {isUploading ? (
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          ) : (
-                            <Upload className="mr-2 h-4 w-4" />
-                          )}
-                          Fulfill
-                        </Button>
+                          {status}
+                        </Badge>
+                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
                       </div>
-                    )}
+                    </div>
                   </div>
                 </CardContent>
               </Card>
             );
           })}
         </div>
+      )}
+
+      {/* Request Detail Modal */}
+      {selectedRequest && (
+        <PbcRequestDetailModal
+          open={!!selectedRequest}
+          onOpenChange={(open) => !open && setSelectedRequest(null)}
+          request={selectedRequest}
+          entityId={entityId}
+          objectName={objectNode.name}
+        />
       )}
     </div>
   );

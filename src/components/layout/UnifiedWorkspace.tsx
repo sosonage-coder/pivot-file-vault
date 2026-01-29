@@ -4,7 +4,7 @@ import { useModule } from '@/contexts/ModuleContext';
 import { useDocuments } from '@/hooks/useDocuments';
 import { useFolderStructure } from '@/hooks/useFolderStructure';
 import { usePivotDocuments } from '@/hooks/usePivotDocuments';
-import { usePbcTree, findNodeInTree } from '@/hooks/usePbcTree';
+// PBC tree hook no longer used - using simpler object-based requests
 import { useTasks, useUpdateTask, useCreateTask, useDeleteTask } from '@/hooks/useTasks';
 import { useReconciliations } from '@/hooks/useReconciliations';
 import { usePeriods } from '@/hooks/usePeriods';
@@ -18,10 +18,10 @@ import { PivotView } from '@/components/filegrid/PivotView';
 import { PivotFilterBar } from '@/components/filegrid/PivotFilterBar';
 import { WhatsMissingView } from '@/components/filegrid/WhatsMissingView';
 
-// PBC Tree components
-import { PbcTreeView } from '@/components/pbc/PbcTreeView';
-import { PbcRequestDetail } from '@/components/pbc/PbcRequestDetail';
-import { CreatePbcNodeModal } from '@/components/pbc/CreatePbcNodeModal';
+// PBC components
+import { PbcChecklistWorkspace } from '@/components/pbc/PbcChecklistWorkspace';
+import { CreatePbcRequestModal } from '@/components/pbc/CreatePbcRequestModal';
+import { usePbcObjectRequests, useFulfillPbcRequest } from '@/hooks/usePbcObjectRequests';
 
 // Task components
 import { TaskDashboard } from '@/components/tasks/TaskDashboard';
@@ -38,15 +38,15 @@ import { CreateReconciliationModal } from '@/components/reconciliations/CreateRe
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plus, Copy, LayoutDashboard, List, Columns3, Calendar, FileText, Loader2, TreePine } from 'lucide-react';
+import { Plus, Copy, LayoutDashboard, List, Columns3, Calendar, FileText, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import type { TreeNode, PivotViewType, PivotFilters, DocumentStatus, Process, Area } from '@/types/filegrid';
 import type { TaskStatus, TaskWithRelations } from '@/types/tasks';
-import type { PbcTreeNode } from '@/types/pbc-tree';
+// PbcTreeNode type no longer needed
 
 type DocumentViewType = 'folder' | PivotViewType | 'whats-missing';
 type TaskViewMode = 'dashboard' | 'list' | 'kanban' | 'calendar';
-type PbcViewMode = 'tree' | 'detail';
+// PbcViewMode type no longer needed
 type ReconViewMode = 'dashboard' | 'workspace';
 
 const DEFAULT_FILTERS: PivotFilters = {
@@ -74,11 +74,7 @@ export function UnifiedWorkspace({ selectedNode, externalReviewMode }: UnifiedWo
   const [clonePeriodModalOpen, setClonePeriodModalOpen] = useState(false);
 
   // PBC state
-  const [pbcViewMode, setPbcViewMode] = useState<PbcViewMode>('tree');
-  const [createPbcNodeModalOpen, setCreatePbcNodeModalOpen] = useState(false);
-  const [pbcAddParentNode, setPbcAddParentNode] = useState<PbcTreeNode | null>(null);
-  const [pbcDepartmentId, setPbcDepartmentId] = useState<string | null>(null);
-  const [selectedPbcNode, setSelectedPbcNode] = useState<PbcTreeNode | null>(null);
+  const [createPbcRequestModalOpen, setCreatePbcRequestModalOpen] = useState(false);
 
   // Task state
   const [taskViewMode, setTaskViewMode] = useState<TaskViewMode>('dashboard');
@@ -148,16 +144,18 @@ export function UnifiedWorkspace({ selectedNode, externalReviewMode }: UnifiedWo
     isPivotView ? documentView as PivotViewType : 'period-area-object'
   );
 
-  // PBC tree queries
-  const { tree: pbcTree, isLoading: pbcLoading, stats: pbcStats } = usePbcTree({
-    entityId: selectedEntity?.id ?? null,
-    periodId: selectedPeriod?.id,
-  });
-
-  // Find selected PBC node from tree if navigating from sidebar
-  const sidebarSelectedPbcNode = selectedNode?.type === 'pbc-item' 
-    ? findNodeInTree(pbcTree, selectedNode.id) 
+  // PBC queries - get requests for selected object
+  const selectedPbcObjectId = selectedNode?.type === 'pbc-object' 
+    ? (selectedNode.metadata?.object_id as string) 
     : null;
+  
+  const { data: pbcRequests = [], isLoading: pbcLoading } = usePbcObjectRequests({
+    entityId: selectedEntity?.id ?? null,
+    objectId: selectedPbcObjectId,
+    periodId: selectedPeriod?.id ?? null
+  });
+  
+  const fulfillPbcRequest = useFulfillPbcRequest();
 
   // Task queries and mutations
   const { data: tasks = [], isLoading: tasksLoading } = useTasks(
@@ -348,75 +346,34 @@ export function UnifiedWorkspace({ selectedNode, externalReviewMode }: UnifiedWo
         return <DocumentList documents={documents || []} isLoading={documentsLoading} />;
 
       case 'pbc':
-        const activePbcNode = selectedPbcNode || sidebarSelectedPbcNode;
-        
-        if (pbcLoading) {
+        // Show checklist when an object is selected
+        if (selectedNode?.type === 'pbc-object' && selectedPbcObjectId) {
           return (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            </div>
-          );
-        }
-
-        // Show detail view if a node is selected
-        if (activePbcNode && pbcViewMode === 'detail') {
-          return (
-            <PbcRequestDetail
-              node={activePbcNode}
-              entityId={selectedEntity.id}
-              onClose={() => {
-                setSelectedPbcNode(null);
-                setPbcViewMode('tree');
+            <PbcChecklistWorkspace
+              objectNode={selectedNode}
+              requests={pbcRequests}
+              isLoading={pbcLoading}
+              onFulfillRequest={async (requestId, fileUrl) => {
+                await fulfillPbcRequest.mutateAsync({
+                  requestId,
+                  entityId: selectedEntity.id,
+                  objectId: selectedPbcObjectId,
+                  fileUrl
+                });
               }}
+              onAddRequest={() => setCreatePbcRequestModalOpen(true)}
             />
           );
         }
-
-        // Show tree view
+        
+        // Show placeholder for other PBC nodes
         return (
-          <div className="flex h-full gap-4">
-            <div className="w-80 border-r">
-              <PbcTreeView
-                tree={pbcTree}
-                selectedNodeId={activePbcNode?.id || null}
-                onSelectNode={(node) => {
-                  setSelectedPbcNode(node);
-                  if (node?.node_type === 'request') {
-                    setPbcViewMode('detail');
-                  }
-                }}
-                onAddNode={(parentNode) => {
-                  setPbcAddParentNode(parentNode);
-                  // Get department ID from the parentNode's metadata or from selectedNode
-                  const deptId = (parentNode?.department_id || selectedNode?.metadata?.department_id) as string | undefined;
-                  setPbcDepartmentId(deptId || null);
-                  setCreatePbcNodeModalOpen(true);
-                }}
-                onEditNode={(node) => {
-                  setSelectedPbcNode(node);
-                  setPbcViewMode('detail');
-                }}
-                onDeleteNode={(node) => {
-                  // TODO: Add delete confirmation
-                  toast({ title: 'Delete not yet implemented' });
-                }}
-              />
-            </div>
-            <div className="flex-1">
-              {activePbcNode ? (
-                <PbcRequestDetail
-                  node={activePbcNode}
-                  entityId={selectedEntity.id}
-                />
-              ) : (
-                <div className="flex items-center justify-center h-full text-muted-foreground">
-                  <div className="text-center">
-                    <TreePine className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p>Select a node from the tree to view details</p>
-                  </div>
-                </div>
-              )}
-            </div>
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            <FileText className="h-12 w-12 text-muted-foreground/50 mb-4" />
+            <h3 className="text-lg font-medium mb-2">PBC Requests</h3>
+            <p className="text-muted-foreground max-w-md">
+              Select an account (like Cash or Accounts Receivable) from the sidebar to view and manage its PBC requests.
+            </p>
           </div>
         );
 
@@ -533,16 +490,11 @@ export function UnifiedWorkspace({ selectedNode, externalReviewMode }: UnifiedWo
           <>
             {commonHeader}
             <div className="flex items-center gap-3">
-              {!isExternalReviewer && selectedPeriod && (
-                <Button onClick={() => {
-                  setPbcAddParentNode(null);
-                  // Get department_id from the selected node's metadata
-                  const deptId = selectedNode?.metadata?.department_id as string | undefined;
-                  setPbcDepartmentId(deptId || null);
-                  setCreatePbcNodeModalOpen(true);
-                }}>
+              {/* Add Request button shows only when an object is selected */}
+              {!isExternalReviewer && selectedPeriod && selectedPbcObjectId && (
+                <Button onClick={() => setCreatePbcRequestModalOpen(true)}>
                   <Plus className="mr-2 h-4 w-4" />
-                  New Area
+                  Add Request
                 </Button>
               )}
             </div>
@@ -643,21 +595,15 @@ export function UnifiedWorkspace({ selectedNode, externalReviewMode }: UnifiedWo
         />
       )}
 
-      {/* PBC Node Modal */}
-      {selectedEntity && selectedPeriod && (
-        <CreatePbcNodeModal
-          open={createPbcNodeModalOpen}
-          onOpenChange={(open) => {
-            setCreatePbcNodeModalOpen(open);
-            if (!open) {
-              setPbcAddParentNode(null);
-              setPbcDepartmentId(null);
-            }
-          }}
+      {/* PBC Request Modal */}
+      {selectedEntity && selectedPeriod && selectedPbcObjectId && (
+        <CreatePbcRequestModal
+          open={createPbcRequestModalOpen}
+          onOpenChange={setCreatePbcRequestModalOpen}
           entityId={selectedEntity.id}
           periodId={selectedPeriod.id}
-          departmentId={pbcDepartmentId || ''}
-          parentNode={pbcAddParentNode}
+          objectId={selectedPbcObjectId}
+          objectName={selectedNode?.name || 'Item'}
         />
       )}
 

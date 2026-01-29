@@ -77,6 +77,7 @@ export function UnifiedWorkspace({ selectedNode, externalReviewMode }: UnifiedWo
   const [pbcViewMode, setPbcViewMode] = useState<PbcViewMode>('tree');
   const [createPbcNodeModalOpen, setCreatePbcNodeModalOpen] = useState(false);
   const [pbcAddParentNode, setPbcAddParentNode] = useState<PbcTreeNode | null>(null);
+  const [pbcDepartmentId, setPbcDepartmentId] = useState<string | null>(null);
   const [selectedPbcNode, setSelectedPbcNode] = useState<PbcTreeNode | null>(null);
 
   // Task state
@@ -386,6 +387,9 @@ export function UnifiedWorkspace({ selectedNode, externalReviewMode }: UnifiedWo
                 }}
                 onAddNode={(parentNode) => {
                   setPbcAddParentNode(parentNode);
+                  // Get department ID from the parentNode's metadata or from selectedNode
+                  const deptId = (parentNode?.department_id || selectedNode?.metadata?.department_id) as string | undefined;
+                  setPbcDepartmentId(deptId || null);
                   setCreatePbcNodeModalOpen(true);
                 }}
                 onEditNode={(node) => {
@@ -532,6 +536,9 @@ export function UnifiedWorkspace({ selectedNode, externalReviewMode }: UnifiedWo
               {!isExternalReviewer && selectedPeriod && (
                 <Button onClick={() => {
                   setPbcAddParentNode(null);
+                  // Get department_id from the selected node's metadata
+                  const deptId = selectedNode?.metadata?.department_id as string | undefined;
+                  setPbcDepartmentId(deptId || null);
                   setCreatePbcNodeModalOpen(true);
                 }}>
                   <Plus className="mr-2 h-4 w-4" />
@@ -642,10 +649,14 @@ export function UnifiedWorkspace({ selectedNode, externalReviewMode }: UnifiedWo
           open={createPbcNodeModalOpen}
           onOpenChange={(open) => {
             setCreatePbcNodeModalOpen(open);
-            if (!open) setPbcAddParentNode(null);
+            if (!open) {
+              setPbcAddParentNode(null);
+              setPbcDepartmentId(null);
+            }
           }}
           entityId={selectedEntity.id}
           periodId={selectedPeriod.id}
+          departmentId={pbcDepartmentId || ''}
           parentNode={pbcAddParentNode}
         />
       )}

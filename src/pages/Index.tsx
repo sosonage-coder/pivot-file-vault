@@ -10,6 +10,8 @@ import { EntitySelector } from '@/components/filegrid/EntitySelector';
 import { FolderTree } from '@/components/filegrid/FolderTree';
 import { DocumentList } from '@/components/filegrid/DocumentList';
 import { UploadDocumentModal } from '@/components/filegrid/UploadDocumentModal';
+import { CreateEntityModal } from '@/components/filegrid/CreateEntityModal';
+import { CreateProcessModal } from '@/components/filegrid/CreateProcessModal';
 import { ViewSelector, type ViewType } from '@/components/filegrid/ViewSelector';
 import { PivotView } from '@/components/filegrid/PivotView';
 import { WhatsMissingView } from '@/components/filegrid/WhatsMissingView';
@@ -20,11 +22,13 @@ import { Loader2, Plus } from 'lucide-react';
 import type { Entity, TreeNode, PivotViewType } from '@/types/filegrid';
 
 export default function Index() {
-  const { user, loading: authLoading, isExternalReviewer } = useAuth();
+  const { user, loading: authLoading, isExternalReviewer, isAdmin } = useAuth();
   const [selectedEntity, setSelectedEntity] = useState<Entity | null>(null);
   const [selectedNode, setSelectedNode] = useState<TreeNode | null>(null);
   const [externalReviewMode, setExternalReviewMode] = useState(false);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
+  const [createEntityModalOpen, setCreateEntityModalOpen] = useState(false);
+  const [createProcessModalOpen, setCreateProcessModalOpen] = useState(false);
   const [currentView, setCurrentView] = useState<ViewType>('folder');
 
   const { data: entities, isLoading: entitiesLoading } = useEntities();
@@ -146,7 +150,9 @@ export default function Index() {
               entities={entities || []}
               selectedEntity={selectedEntity}
               onSelect={setSelectedEntity}
-              isAdmin={false}
+              isAdmin={isAdmin}
+              onCreateEntity={() => setCreateEntityModalOpen(true)}
+              onCreateProcess={() => setCreateProcessModalOpen(true)}
             />
           </div>
 
@@ -207,6 +213,21 @@ export default function Index() {
           selectedEntity={selectedEntity}
           departmentId={(selectedNode.metadata?.department_id as string) || ''}
           processId={(selectedNode.metadata?.process_id as string) || ''}
+        />
+      )}
+
+      {/* Admin: Create Entity Modal */}
+      <CreateEntityModal
+        open={createEntityModalOpen}
+        onOpenChange={setCreateEntityModalOpen}
+      />
+
+      {/* Admin: Create Process Modal */}
+      {selectedEntity && (
+        <CreateProcessModal
+          open={createProcessModalOpen}
+          onOpenChange={setCreateProcessModalOpen}
+          entity={selectedEntity}
         />
       )}
     </div>

@@ -1,348 +1,218 @@
 
-# Formal PBC Tree Model Implementation
 
-## Status: ✅ Phase 1-4 Complete
+# Plan: Align PBC Tree Levels with Documents Structure
 
-### Completed:
-- ✅ Database schema (pbc_templates, pbc_nodes tables with RLS)
-- ✅ TypeScript types (src/types/pbc-tree.ts)
-- ✅ Data hooks (usePbcTree.ts, usePbcTemplates.ts)
-- ✅ UI Components (PbcTreeView, PbcNodeItem, CreatePbcNodeModal, PbcRequestDetail, PbcCompletionBadge)
-- ✅ UnifiedWorkspace integration
+## Overview
 
-### Remaining:
-┌────────────────────────────────────────┐
-│ pbc_items (flat table)                 │
-│ - entity_id, period_id                 │
-│ - process_id, area_id, object_id       │
-│ - document_type_id, status             │
-│ - assignee_id, due_date, notes         │
-└────────────────────────────────────────┘
-         │
-         ▼
-┌────────────────────────────────────────┐
-│ UI: Simple list grouped by Area        │
-│ - No intermediate dimensions           │
-│ - Fixed depth (Area → Request)         │
-│ - Flat request structure               │
-└────────────────────────────────────────┘
-```
+This plan updates the PBC Tree to use the same level terminology as the Documents/Monthly Close structure, while maintaining the flexible depth capability. The new structure will be:
 
-## Target Architecture
+**Department → Process → Area → Object → Request**
+
+This creates consistency across all modules and makes the PBC tree immediately familiar to users who work with the Documents folder structure.
+
+## Current vs. Proposed Structure Comparison
 
 ```text
-New Tree Model:
-┌─────────────────────────────────────────────────────────────────┐
-│ pbc_templates                                                   │
-│ - name, min_depth, max_depth                                    │
-│ - area_type (Fixed Assets, Cash, Revenue, etc.)                 │
-└─────────────────────────────────────────────────────────────────┘
-         │
-         ▼
-┌─────────────────────────────────────────────────────────────────┐
-│ pbc_nodes (self-referential tree)                               │
-│ - entity_id, period_id, pbc_template_id                         │
-│ - parent_id (FK to self)                                        │
-│ - node_type: 'area' | 'dimension' | 'object' | 'request'        │
-│ - label, sort_order                                             │
-│ - area_id (optional anchor to FileGRID areas)                   │
-│ - object_id (optional anchor to FileGRID objects)               │
-│                                                                 │
-│ Request-only fields:                                            │
-│ - status, assignee_id, due_date, priority, notes                │
-└─────────────────────────────────────────────────────────────────┘
-         │
-         ▼
-┌─────────────────────────────────────────────────────────────────┐
-│ UI: Interactive collapsible tree                                │
-│ - Variable depth per area type                                  │
-│ - Dimension nodes for slicing (Movement Type, Institution)      │
-│ - Completion rolls up from leaves to branches                   │
-│ - Context-aware views for auditors vs clients                   │
-└─────────────────────────────────────────────────────────────────┘
+Current PBC Tree:              Proposed PBC Tree:
+┌─────────────────────┐        ┌─────────────────────┐
+│ Area                │        │ Department          │  Level 1 (optional)
+├─────────────────────┤        ├─────────────────────┤
+│ Dimension           │        │ Process             │  Level 2 (optional)
+├─────────────────────┤        ├─────────────────────┤
+│ Object              │        │ Area                │  Level 3
+├─────────────────────┤        ├─────────────────────┤
+│ Request (leaf)      │        │ Object              │  Level 4 (optional)
+└─────────────────────┘        ├─────────────────────┤
+                               │ Request (leaf)      │  Leaf node
+                               └─────────────────────┘
 ```
 
-## Example Tree Structures
+## Flexible Depth Examples
 
-### Fixed Assets (3-4 levels)
+### Minimal Depth (2 levels): Equity
 ```text
-[Area] Fixed Assets
-├── [Dimension] Additions
+[Area] Equity
+└── [Request] Equity Schedule
+```
+
+### Standard Depth (3 levels): Fixed Assets
+```text
+[Process] Fixed Assets
+├── [Area] Additions
 │   ├── [Request] Additions Listing
 │   └── [Request] Supporting Invoices
-└── [Dimension] Disposals
-    ├── [Request] Disposals Listing
-    └── [Request] Gain/Loss Calculation
+└── [Area] Disposals
+    └── [Request] Disposals Listing
 ```
 
-### Cash (5 levels)
+### Full Depth (5 levels): Cash
 ```text
-[Area] Cash
-└── [Dimension] Bank
-    └── [Object] Bank of America
-        └── [Object] Operating Account
+[Department] Finance
+└── [Process] Banking
+    └── [Area] Cash
+        └── [Object] Bank of America
             ├── [Request] Bank Statements
             └── [Request] Bank Reconciliation
 ```
 
-### Revenue (6 levels)
-```text
-[Area] Revenue
-└── [Dimension] Revenue Stream
-    └── [Object] Subscription Revenue
-        └── [Dimension] Risk Area
-            └── [Dimension] Cut-off Testing
-                └── [Request] Sample Invoices
-```
-
 ---
 
-## Technical Implementation
+## Technical Changes
 
-### Phase 1: Database Schema
+### Phase 1: Database Schema Update
 
-Create new tables with proper RLS policies:
+**Update the enum to align with FileGRID terminology:**
 
-**Table: `pbc_templates`**
-| Column | Type | Description |
-|--------|------|-------------|
-| id | uuid | Primary key |
-| name | text | Template name (e.g., "Fixed Assets", "Cash") |
-| area_type | text | Maps to FileGRID areas |
-| min_depth | int | Minimum tree depth (default: 2) |
-| max_depth | int | Maximum tree depth (default: 6) |
-| allowed_sequences | jsonb | Valid node type paths |
-| description | text | Optional guidance |
-| created_at | timestamptz | Timestamp |
-
-**Table: `pbc_nodes`**
-| Column | Type | Description |
-|--------|------|-------------|
-| id | uuid | Primary key |
-| entity_id | uuid | FK to entities |
-| period_id | uuid | FK to periods |
-| pbc_template_id | uuid | FK to pbc_templates (nullable) |
-| parent_id | uuid | Self-reference (nullable for roots) |
-| node_type | enum | 'area', 'dimension', 'object', 'request' |
-| label | text | Display name |
-| sort_order | int | Ordering within siblings |
-| area_id | uuid | FK to areas (optional anchor) |
-| object_id | uuid | FK to objects (optional anchor) |
-| status | enum | Request status (only for request nodes) |
-| assignee_id | uuid | FK to auth.users (only for requests) |
-| due_date | date | Due date (only for requests) |
-| priority | text | Priority level (only for requests) |
-| notes | text | Notes/description |
-| created_at | timestamptz | Timestamp |
-| updated_at | timestamptz | Timestamp |
-
-**Enum: `pbc_node_type`**
 ```sql
-CREATE TYPE pbc_node_type AS ENUM ('area', 'dimension', 'object', 'request');
+-- Rename the enum values to match Documents structure
+ALTER TYPE pbc_node_type RENAME VALUE 'dimension' TO 'process';
+-- Keep 'area', 'object', 'request' as they already align
+-- Add 'department' as a new option
+ALTER TYPE pbc_node_type ADD VALUE 'department' BEFORE 'area';
+
+-- Update constraint: now department OR area can be root
+ALTER TABLE pbc_nodes DROP CONSTRAINT pbc_nodes_area_is_root;
+ALTER TABLE pbc_nodes ADD CONSTRAINT pbc_nodes_valid_root CHECK (
+  parent_id IS NOT NULL OR node_type IN ('department', 'area')
+);
 ```
 
-### Phase 2: Data Migration Strategy
+### Phase 2: Update Type Definitions
 
-Migrate existing `pbc_items` to `pbc_nodes`:
-1. Each existing item becomes a 2-level tree: Area Node → Request Node
-2. Preserve all status, assignee, due_date, notes data
-3. Keep `pbc_items` table temporarily for backward compatibility
-4. Comments table (`pbc_comments`) can be updated to reference `pbc_nodes`
+**File: `src/types/pbc-tree.ts`**
 
-### Phase 3: New Hooks and Types
-
-**Types (`src/types/pbc-tree.ts`)**
 ```typescript
-export type PbcNodeType = 'area' | 'dimension' | 'object' | 'request';
+// Updated to match Documents structure
+export type PbcNodeType = 'department' | 'process' | 'area' | 'object' | 'request';
 
-export interface PbcNode {
-  id: string;
-  entity_id: string;
-  period_id: string;
-  pbc_template_id: string | null;
-  parent_id: string | null;
-  node_type: PbcNodeType;
-  label: string;
-  sort_order: number;
-  area_id: string | null;
-  object_id: string | null;
-  status: PbcStatus | null;
-  assignee_id: string | null;
-  due_date: string | null;
-  priority: string | null;
-  notes: string | null;
-  created_at: string;
-  updated_at: string;
+export const PBC_NODE_CONFIG: Record<PbcNodeType, {...}> = {
+  department: {
+    icon: 'Briefcase',
+    colorClass: 'text-slate-500',
+    label: 'Department',
+    canHaveChildren: true,
+    canHaveStatus: false,
+  },
+  process: {
+    icon: 'FolderOpen',
+    colorClass: 'text-blue-500',
+    label: 'Process',
+    canHaveChildren: true,
+    canHaveStatus: false,
+  },
+  area: {
+    icon: 'Folder',
+    colorClass: 'text-amber-500',
+    label: 'Area',
+    canHaveChildren: true,
+    canHaveStatus: false,
+  },
+  object: {
+    icon: 'FileBox',
+    colorClass: 'text-purple-500',
+    label: 'Object',
+    canHaveChildren: true,
+    canHaveStatus: false,
+  },
+  request: {
+    icon: 'ClipboardCheck',
+    colorClass: 'text-green-500',
+    label: 'Request',
+    canHaveChildren: false,
+    canHaveStatus: true,
+  },
+};
+```
+
+### Phase 3: Update Allowed Child Types
+
+```typescript
+export function getAllowedChildTypes(nodeType: PbcNodeType): PbcNodeType[] {
+  switch (nodeType) {
+    case 'department':
+      return ['process', 'area', 'request'];  // Skip process if not needed
+    case 'process':
+      return ['area', 'object', 'request'];   // Skip area if not needed
+    case 'area':
+      return ['object', 'request'];           // Object optional
+    case 'object':
+      return ['request'];                     // Requests only
+    case 'request':
+      return [];                              // Leaf node
+  }
 }
 
-export interface PbcTemplate {
-  id: string;
-  name: string;
-  area_type: string;
-  min_depth: number;
-  max_depth: number;
-  description: string | null;
-}
-
-// Tree node for UI rendering
-export interface PbcTreeNode extends PbcNode {
-  children: PbcTreeNode[];
-  depth: number;
-  completion: {
-    total: number;
-    complete: number;
-    percentage: number;
-  };
+export function canBeRoot(nodeType: PbcNodeType): boolean {
+  // Either Department or Area can be root (for minimal depth)
+  return nodeType === 'department' || nodeType === 'area';
 }
 ```
 
-**Hook: `usePbcTree.ts`**
-- Fetch all nodes for entity/period
-- Build tree structure from flat data
-- Calculate completion rollups
-- Support CRUD operations on nodes
+### Phase 4: Template-Based Depth Control
 
-**Hook: `usePbcTemplates.ts`**
-- Fetch available templates
-- Validation helpers for depth/sequence rules
+Templates will define which levels are **required** vs. **optional**:
 
-### Phase 4: UI Components
+| Template | Min Depth | Max Depth | Required Levels | Optional Levels |
+|----------|-----------|-----------|-----------------|-----------------|
+| Equity | 2 | 3 | Area → Request | Department, Object |
+| Fixed Assets | 3 | 4 | Process → Area → Request | Department, Object |
+| Cash | 4 | 5 | Process → Area → Object → Request | Department |
+| Revenue | 3 | 6 | Process → Area → Request | Department, Object, nested Areas |
 
-**New Components:**
+### Phase 5: Update UI Components
 
-| Component | Purpose |
-|-----------|---------|
-| `PbcTreeView.tsx` | Main collapsible tree rendering |
-| `PbcNodeItem.tsx` | Individual node with type-specific icons |
-| `CreatePbcNodeModal.tsx` | Add nodes at any level |
-| `PbcRequestDetail.tsx` | Detailed view for request (leaf) nodes |
-| `PbcTreeHeader.tsx` | Tree-level actions (expand all, collapse all, filter) |
-| `PbcCompletionBadge.tsx` | Shows rollup completion percentage |
-
-**Tree Node Icons by Type:**
-| Node Type | Icon | Color |
-|-----------|------|-------|
-| Area | `Briefcase` | Amber |
-| Dimension | `GitBranch` | Blue |
-| Object | `FileBox` | Purple |
-| Request | `ClipboardCheck` | Green/Status-based |
-
-### Phase 5: Integration with Unified Folder Tree
-
-Update `useUnifiedFolderStructure.ts` to:
-1. Fetch `pbc_nodes` instead of `pbc_items`
-2. Build nested tree for PBC module section
-3. Show completion rollups at each level
-4. Support expanding into the full tree from sidebar
-
-### Phase 6: Template Management (Admin)
-
-Create admin UI for:
-1. Defining new templates (area types)
-2. Setting depth constraints
-3. Defining allowed node sequences
-4. Pre-populating standard trees (Fixed Assets, Cash, Revenue, etc.)
+**Files to update:**
+- `PbcNodeItem.tsx` - Update icons to match Documents icons
+- `CreatePbcNodeModal.tsx` - Update allowed types and labels
+- `usePbcTree.ts` - Update type handling
 
 ---
-
-## Files to Create
-
-| File | Description |
-|------|-------------|
-| `src/types/pbc-tree.ts` | TypeScript types for PBC tree model |
-| `src/hooks/usePbcTree.ts` | Data fetching and tree operations |
-| `src/hooks/usePbcTemplates.ts` | Template management |
-| `src/components/pbc/PbcTreeView.tsx` | Main tree component |
-| `src/components/pbc/PbcNodeItem.tsx` | Individual tree node |
-| `src/components/pbc/CreatePbcNodeModal.tsx` | Node creation modal |
-| `src/components/pbc/PbcRequestDetail.tsx` | Request detail panel |
-| `src/components/pbc/PbcCompletionBadge.tsx` | Completion indicator |
 
 ## Files to Modify
 
 | File | Change |
 |------|--------|
-| `src/types/filegrid.ts` | Add pbc-tree node types |
-| `src/hooks/useUnifiedFolderStructure.ts` | Integrate PBC tree data |
-| `src/components/filegrid/UnifiedFolderTree.tsx` | Handle nested PBC nodes |
-| `src/components/layout/UnifiedWorkspace.tsx` | Render PBC tree workspace |
-| `src/components/pbc/PBCWorkspace.tsx` | Update for tree model |
+| `src/types/pbc-tree.ts` | Update `PbcNodeType` enum, `PBC_NODE_CONFIG`, helper functions |
+| `src/components/pbc/PbcNodeItem.tsx` | Update icons to match Documents tree |
+| `src/components/pbc/CreatePbcNodeModal.tsx` | Update node type labels and descriptions |
+| `src/hooks/usePbcTree.ts` | Update type references |
+| `supabase/migrations/` | New migration to update enum |
 
-## Database Migration
+## Database Migration (New)
 
 ```sql
--- Create enum for node types
-CREATE TYPE pbc_node_type AS ENUM ('area', 'dimension', 'object', 'request');
+-- Add department to enum and rename dimension to process
+ALTER TYPE pbc_node_type ADD VALUE IF NOT EXISTS 'department' BEFORE 'area';
 
--- Create templates table
-CREATE TABLE public.pbc_templates (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  name text NOT NULL,
-  area_type text,
-  min_depth integer NOT NULL DEFAULT 2,
-  max_depth integer NOT NULL DEFAULT 6,
-  allowed_sequences jsonb DEFAULT '[]',
-  description text,
-  created_at timestamptz NOT NULL DEFAULT now()
+-- Update existing data: rename 'dimension' nodes to 'process'
+UPDATE pbc_nodes SET node_type = 'process' WHERE node_type = 'dimension';
+
+-- Drop and recreate enum (if rename not supported)
+-- Alternative: create new enum and migrate
+
+-- Update root constraint
+ALTER TABLE pbc_nodes DROP CONSTRAINT pbc_nodes_area_is_root;
+ALTER TABLE pbc_nodes ADD CONSTRAINT pbc_nodes_valid_root CHECK (
+  parent_id IS NOT NULL OR node_type IN ('department', 'area')
 );
-
--- Create nodes table
-CREATE TABLE public.pbc_nodes (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  entity_id uuid NOT NULL REFERENCES entities(id) ON DELETE CASCADE,
-  period_id uuid NOT NULL REFERENCES periods(id) ON DELETE CASCADE,
-  pbc_template_id uuid REFERENCES pbc_templates(id),
-  parent_id uuid REFERENCES pbc_nodes(id) ON DELETE CASCADE,
-  node_type pbc_node_type NOT NULL,
-  label text NOT NULL,
-  sort_order integer DEFAULT 0,
-  area_id uuid REFERENCES areas(id),
-  object_id uuid REFERENCES objects(id),
-  status pbc_status,
-  assignee_id uuid REFERENCES auth.users(id),
-  due_date date,
-  priority text DEFAULT 'normal',
-  notes text,
-  created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now(),
-  
-  -- Constraint: only request nodes can have status
-  CONSTRAINT request_only_status CHECK (
-    node_type = 'request' OR status IS NULL
-  ),
-  -- Constraint: only area nodes can be roots
-  CONSTRAINT area_is_root CHECK (
-    parent_id IS NOT NULL OR node_type = 'area'
-  )
-);
-
--- Enable RLS
-ALTER TABLE public.pbc_templates ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.pbc_nodes ENABLE ROW LEVEL SECURITY;
-
--- RLS policies (similar to existing patterns)
 ```
 
 ---
 
+## User Experience
+
+After this change:
+- PBC tree will use the same terminology as Documents
+- Users can create trees starting at any level (Department, Process, or Area)
+- Templates control the minimum and maximum depth
+- Familiar icons from the Documents tree appear in PBC
+
 ## Implementation Order
 
-1. **Database First**: Create migration with new tables and RLS
-2. **Types**: Define TypeScript interfaces
-3. **Hooks**: Build data layer (usePbcTree, usePbcTemplates)
-4. **Core UI**: PbcTreeView, PbcNodeItem components
-5. **CRUD Modals**: CreatePbcNodeModal, update existing modals
-6. **Integration**: Update UnifiedFolderStructure and workspace
-7. **Migration Script**: Move existing pbc_items to pbc_nodes
-8. **Testing**: Verify tree operations and completion rollups
-9. **Cleanup**: Remove deprecated flat-list components
+1. Create database migration to update enum
+2. Update TypeScript types and configurations
+3. Update UI components (icons, labels)
+4. Update hooks and validation logic
+5. Test tree creation at various depths
+6. Verify existing data remains functional
 
-## User Experience Benefits
-
-| Before (Flat List) | After (Tree Model) |
-|-------------------|-------------------|
-| "Did you upload this?" | "Did we prove this area?" |
-| Fixed 2-level structure | Variable 3-6 level depth |
-| No intermediate context | Dimension nodes for slicing |
-| Manual completion tracking | Automatic rollup from leaves |
-| One-size-fits-all | Area-specific templates |

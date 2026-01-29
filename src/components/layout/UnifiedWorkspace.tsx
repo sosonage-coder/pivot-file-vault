@@ -4,7 +4,7 @@ import { useModule } from '@/contexts/ModuleContext';
 import { useDocuments } from '@/hooks/useDocuments';
 import { useFolderStructure } from '@/hooks/useFolderStructure';
 import { usePivotDocuments } from '@/hooks/usePivotDocuments';
-// PBC tree hook no longer used - using simpler object-based requests
+// PBC now uses object-based checklist requests (simplified from tree)
 import { useTasks, useUpdateTask, useCreateTask, useDeleteTask } from '@/hooks/useTasks';
 import { useReconciliations } from '@/hooks/useReconciliations';
 import { usePeriods } from '@/hooks/usePeriods';

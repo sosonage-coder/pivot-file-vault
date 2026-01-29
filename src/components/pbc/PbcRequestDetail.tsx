@@ -10,7 +10,8 @@ import {
   Upload,
   Eye,
   Briefcase,
-  GitBranch,
+  FolderOpen,
+  Folder,
   FileBox
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -38,8 +39,9 @@ interface PbcRequestDetailProps {
 }
 
 const NODE_ICONS: Record<PbcNodeType, React.ElementType> = {
-  area: Briefcase,
-  dimension: GitBranch,
+  department: Briefcase,
+  process: FolderOpen,
+  area: Folder,
   object: FileBox,
   request: Circle,
 };

@@ -3,7 +3,8 @@ import {
   ChevronRight, 
   ChevronDown, 
   Briefcase, 
-  GitBranch, 
+  FolderOpen,
+  Folder,
   FileBox, 
   ClipboardCheck,
   Plus,
@@ -36,8 +37,9 @@ interface PbcNodeItemProps {
 }
 
 const NODE_ICONS: Record<PbcNodeType, React.ElementType> = {
-  area: Briefcase,
-  dimension: GitBranch,
+  department: Briefcase,
+  process: FolderOpen,
+  area: Folder,
   object: FileBox,
   request: ClipboardCheck,
 };

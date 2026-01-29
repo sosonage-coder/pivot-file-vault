@@ -1,10 +1,10 @@
 // PBC Tree Model Types
-// Hierarchical tree structure for audit evidence requests
+// Hierarchical tree structure matching Documents: Department → Process → Area → Object → Request
 
 import type { PbcStatus } from './filegrid';
 
-/** Node types in the PBC tree hierarchy */
-export type PbcNodeType = 'area' | 'dimension' | 'object' | 'request';
+/** Node types matching Documents structure */
+export type PbcNodeType = 'department' | 'process' | 'area' | 'object' | 'request';
 
 /** Database representation of a PBC template */
 export interface PbcTemplate {
@@ -95,20 +95,31 @@ export const PBC_NODE_CONFIG: Record<PbcNodeType, {
   icon: string;
   colorClass: string;
   label: string;
+  description: string;
   canHaveChildren: boolean;
   canHaveStatus: boolean;
 }> = {
-  area: {
+  department: {
     icon: 'Briefcase',
-    colorClass: 'text-amber-500',
-    label: 'Area',
+    colorClass: 'text-slate-500',
+    label: 'Department',
+    description: 'Top-level organizational grouping (e.g., Finance, Accounting)',
     canHaveChildren: true,
     canHaveStatus: false,
   },
-  dimension: {
-    icon: 'GitBranch',
+  process: {
+    icon: 'FolderOpen',
     colorClass: 'text-blue-500',
-    label: 'Dimension',
+    label: 'Process',
+    description: 'Business process or function (e.g., Fixed Assets, Revenue)',
+    canHaveChildren: true,
+    canHaveStatus: false,
+  },
+  area: {
+    icon: 'Folder',
+    colorClass: 'text-amber-500',
+    label: 'Area',
+    description: 'Specific area within a process (e.g., Additions, Disposals)',
     canHaveChildren: true,
     canHaveStatus: false,
   },
@@ -116,6 +127,7 @@ export const PBC_NODE_CONFIG: Record<PbcNodeType, {
     icon: 'FileBox',
     colorClass: 'text-purple-500',
     label: 'Object',
+    description: 'Specific item or account (e.g., Bank of America, Equipment)',
     canHaveChildren: true,
     canHaveStatus: false,
   },
@@ -123,6 +135,7 @@ export const PBC_NODE_CONFIG: Record<PbcNodeType, {
     icon: 'ClipboardCheck',
     colorClass: 'text-green-500',
     label: 'Request',
+    description: 'Actionable PBC request item',
     canHaveChildren: false,
     canHaveStatus: true,
   },
@@ -136,15 +149,17 @@ export const PBC_STATUS_COLORS: Record<PbcStatus, string> = {
   Complete: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
 };
 
-/** Helper to get allowed child types for a node type */
+/** Helper to get allowed child types for a node type - supports skipping levels */
 export function getAllowedChildTypes(nodeType: PbcNodeType): PbcNodeType[] {
   switch (nodeType) {
+    case 'department':
+      return ['process', 'area', 'request']; // Skip process if not needed
+    case 'process':
+      return ['area', 'object', 'request']; // Skip area if not needed
     case 'area':
-      return ['dimension', 'object', 'request'];
-    case 'dimension':
-      return ['dimension', 'object', 'request'];
+      return ['object', 'request']; // Object optional
     case 'object':
-      return ['dimension', 'object', 'request'];
+      return ['request']; // Requests only
     case 'request':
       return []; // Requests are leaves
     default:
@@ -154,5 +169,6 @@ export function getAllowedChildTypes(nodeType: PbcNodeType): PbcNodeType[] {
 
 /** Helper to check if a node type can be a root */
 export function canBeRoot(nodeType: PbcNodeType): boolean {
-  return nodeType === 'area';
+  // Department, Process, or Area can be root (for flexible depth)
+  return nodeType === 'department' || nodeType === 'process' || nodeType === 'area';
 }

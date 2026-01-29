@@ -15,8 +15,9 @@ This plan transforms the Reconciliation module from a simple tracking tool into 
 | Phase 2: Intelligent Templates | ✅ Complete | 6 template types with auto-calculations |
 | Phase 3: Evidence vs. Primary | ✅ Complete | Categorized attachments (evidence, workpaper, report) |
 | Phase 4: Task List Templates | ✅ Complete | 5 checklist templates with item completion tracking |
-| Phase 5: Intelligent Dashboards | ✅ Complete | Variance analysis, pending reviews, bottlenecks, completion tracker |
+| Phase 5: Intelligent Dashboards | ✅ Complete | Dashboard shows when no account selected |
 | Phase 6: Cross-Module Linking | ⏳ Pending | Links between modules |
+| Unified Layout | ✅ Complete | All modules use Tree + Workspace pattern |
 
 ---
 

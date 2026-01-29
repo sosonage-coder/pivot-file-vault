@@ -124,6 +124,145 @@ export type Database = {
           },
         ]
       }
+      checklist_instances: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          entity_id: string
+          id: string
+          items: Json
+          name: string
+          period_id: string | null
+          reconciliation_id: string | null
+          template_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          entity_id: string
+          id?: string
+          items?: Json
+          name: string
+          period_id?: string | null
+          reconciliation_id?: string | null
+          template_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          entity_id?: string
+          id?: string
+          items?: Json
+          name?: string
+          period_id?: string | null
+          reconciliation_id?: string | null
+          template_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checklist_instances_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "checklist_instances_period_id_fkey"
+            columns: ["period_id"]
+            isOneToOne: false
+            referencedRelation: "periods"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "checklist_instances_reconciliation_id_fkey"
+            columns: ["reconciliation_id"]
+            isOneToOne: false
+            referencedRelation: "reconciliations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "checklist_instances_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "checklist_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      checklist_item_completions: {
+        Row: {
+          completed: boolean | null
+          completed_at: string | null
+          completed_by: string | null
+          created_at: string
+          id: string
+          instance_id: string
+          item_index: number
+          notes: string | null
+        }
+        Insert: {
+          completed?: boolean | null
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string
+          id?: string
+          instance_id: string
+          item_index: number
+          notes?: string | null
+        }
+        Update: {
+          completed?: boolean | null
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string
+          id?: string
+          instance_id?: string
+          item_index?: number
+          notes?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checklist_item_completions_instance_id_fkey"
+            columns: ["instance_id"]
+            isOneToOne: false
+            referencedRelation: "checklist_instances"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      checklist_templates: {
+        Row: {
+          applies_to: string[] | null
+          created_at: string
+          description: string | null
+          id: string
+          items: Json
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          applies_to?: string[] | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          items?: Json
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          applies_to?: string[] | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          items?: Json
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       departments: {
         Row: {
           created_at: string

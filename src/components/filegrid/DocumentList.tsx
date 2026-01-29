@@ -2,6 +2,7 @@ import { ExternalLink, FileText } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { ApprovalActions } from './ApprovalActions';
 import type { DocumentWithRelations, DocumentStatus } from '@/types/filegrid';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -56,10 +57,11 @@ export function DocumentList({ documents, isLoading }: DocumentListProps) {
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead className="w-[40%]">Name</TableHead>
+            <TableHead className="w-[35%]">Name</TableHead>
             <TableHead>Object</TableHead>
             <TableHead>Period</TableHead>
             <TableHead>Status</TableHead>
+            <TableHead>Approval</TableHead>
             <TableHead>Type</TableHead>
             <TableHead className="text-right">Updated</TableHead>
           </TableRow>
@@ -93,6 +95,9 @@ export function DocumentList({ documents, isLoading }: DocumentListProps) {
                 >
                   {doc.status}
                 </Badge>
+              </TableCell>
+              <TableCell>
+                <ApprovalActions documentId={doc.id} />
               </TableCell>
               <TableCell className="text-muted-foreground">
                 {doc.document_types?.name || '—'}

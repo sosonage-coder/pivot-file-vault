@@ -5,6 +5,8 @@ import { useEntities } from '@/hooks/useEntities';
 import { useFolderStructure } from '@/hooks/useFolderStructure';
 import { useDocuments } from '@/hooks/useDocuments';
 import { usePivotDocuments } from '@/hooks/usePivotDocuments';
+import { usePendingApprovalCounts } from '@/hooks/useApprovals';
+import { useObject } from '@/hooks/useObjects';
 import { Header } from '@/components/filegrid/Header';
 import { EntitySelector } from '@/components/filegrid/EntitySelector';
 import { FolderTree } from '@/components/filegrid/FolderTree';
@@ -13,6 +15,7 @@ import { UploadDocumentModal } from '@/components/filegrid/UploadDocumentModal';
 import { CreateEntityModal } from '@/components/filegrid/CreateEntityModal';
 import { CreateProcessModal } from '@/components/filegrid/CreateProcessModal';
 import { ClonePeriodModal } from '@/components/filegrid/ClonePeriodModal';
+import { EditObjectModal } from '@/components/filegrid/EditObjectModal';
 import { ViewSelector, type ViewType } from '@/components/filegrid/ViewSelector';
 import { PivotView } from '@/components/filegrid/PivotView';
 import { PivotFilterBar } from '@/components/filegrid/PivotFilterBar';
@@ -21,7 +24,7 @@ import { PBCListView } from '@/components/filegrid/PBCListView';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { Loader2, Plus, Copy } from 'lucide-react';
-import type { Entity, TreeNode, PivotViewType, PivotFilters } from '@/types/filegrid';
+import type { Entity, TreeNode, PivotViewType, PivotFilters, FileObject } from '@/types/filegrid';
 
 const DEFAULT_FILTERS: PivotFilters = {
   statusList: [],
@@ -39,6 +42,8 @@ export default function Index() {
   const [createEntityModalOpen, setCreateEntityModalOpen] = useState(false);
   const [createProcessModalOpen, setCreateProcessModalOpen] = useState(false);
   const [clonePeriodModalOpen, setClonePeriodModalOpen] = useState(false);
+  const [editObjectModalOpen, setEditObjectModalOpen] = useState(false);
+  const [objectToEdit, setObjectToEdit] = useState<FileObject | null>(null);
   const [currentView, setCurrentView] = useState<ViewType>('folder');
   const [pivotFilters, setPivotFilters] = useState<PivotFilters>(DEFAULT_FILTERS);
 
@@ -46,6 +51,10 @@ export default function Index() {
   const { data: folderStructure, isLoading: foldersLoading } = useFolderStructure(
     selectedEntity?.id ?? null
   );
+  const { data: pendingCounts } = usePendingApprovalCounts(selectedEntity?.id ?? null);
+  
+  // Get object data for editing
+  const { data: objectData } = useObject(objectToEdit?.id ?? null);
   
   // Determine if we need documents (not for analysis views)
   const isAnalysisView = currentView === 'whats-missing' || currentView === 'pbc-requests';
@@ -125,6 +134,25 @@ export default function Index() {
     // Switch to folder view when selecting a node
     if (currentView !== 'folder') {
       setCurrentView('folder');
+    }
+  };
+
+  const handleEditObject = (node: TreeNode) => {
+    if (node.type === 'object') {
+      // Create a FileObject from the tree node
+      const obj: FileObject = {
+        id: node.id,
+        name: node.name,
+        entity_id: selectedEntity?.id || '',
+        department_id: (node.metadata?.department_id as string) || '',
+        process_id: (node.metadata?.process_id as string) || '',
+        area_id: (node.metadata?.area_id as string) || '',
+        requires_approval: (node.metadata?.requires_approval as boolean) || false,
+        created_at: '',
+        updated_at: '',
+      };
+      setObjectToEdit(obj);
+      setEditObjectModalOpen(true);
     }
   };
 
@@ -241,6 +269,8 @@ export default function Index() {
                 nodes={folderStructure || []}
                 selectedId={currentView === 'folder' ? (selectedNode?.id ?? null) : null}
                 onSelect={handleNodeSelect}
+                pendingCounts={pendingCounts}
+                onEditObject={handleEditObject}
               />
             )}
           </ScrollArea>
@@ -322,6 +352,16 @@ export default function Index() {
           entity={selectedEntity}
         />
       )}
+
+      {/* Edit Object Modal */}
+      <EditObjectModal
+        open={editObjectModalOpen}
+        onOpenChange={(open) => {
+          setEditObjectModalOpen(open);
+          if (!open) setObjectToEdit(null);
+        }}
+        object={objectToEdit}
+      />
     </div>
   );
 }

@@ -31,12 +31,14 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Loader2, Plus, FileText, Sparkles } from 'lucide-react';
-import { useObjects, useCreateObject } from '@/hooks/useObjects';
+import { useObjects, useCreateObject, useObject } from '@/hooks/useObjects';
 import { useAreaDocumentTypes } from '@/hooks/useDocumentTypes';
 import { usePeriods } from '@/hooks/usePeriods';
 import { useCreateDocument } from '@/hooks/useCreateDocument';
+import { useCreateApproval } from '@/hooks/useApprovals';
 import { checkAndUpdatePBCItem } from '@/hooks/usePBCItems';
 import { useRecentSelections } from '@/hooks/useRecentSelections';
+import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/hooks/use-toast';
 import type { TreeNode, Entity, DocumentStatus } from '@/types/filegrid';
 
@@ -69,6 +71,7 @@ export function UploadDocumentModal({
   departmentId,
   processId,
 }: UploadDocumentModalProps) {
+  const { user } = useAuth();
   const [isCreatingObject, setIsCreatingObject] = useState(false);
   const [aiAssistEnabled, setAiAssistEnabled] = useState(false);
 
@@ -89,6 +92,7 @@ export function UploadDocumentModal({
   // Mutations
   const createObject = useCreateObject();
   const createDocument = useCreateDocument();
+  const createApproval = useCreateApproval();
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -102,6 +106,11 @@ export function UploadDocumentModal({
       notes: '',
     },
   });
+
+  // Check if selected object requires approval
+  const selectedObjectId = form.watch('objectId');
+  const { data: selectedObjectData } = useObject(isCreatingObject ? null : selectedObjectId || null);
+  const requiresApproval = selectedObjectData?.requires_approval || false;
 
   // Apply smart defaults when data loads
   useEffect(() => {
@@ -184,8 +193,16 @@ export function UploadDocumentModal({
       const docTypeName = documentTypes.find(t => t.id === values.documentTypeId)?.name || '';
       const logicalName = `${objectName}_${docTypeName}`;
 
+      // Check if the object requires approval
+      const objectRequiresApproval = isCreatingObject 
+        ? false // New objects default to no approval
+        : objects.find(o => o.id === objectId)?.requires_approval || false;
+
+      // Force Draft status if approval is required
+      const finalStatus = objectRequiresApproval ? 'Draft' : values.status as DocumentStatus;
+
       // Create document
-      await createDocument.mutateAsync({
+      const newDocument = await createDocument.mutateAsync({
         logicalName,
         entityId: selectedEntity.id,
         departmentId,
@@ -194,10 +211,18 @@ export function UploadDocumentModal({
         objectId,
         periodId: values.periodId,
         documentTypeId: values.documentTypeId,
-        status: values.status as DocumentStatus,
+        status: finalStatus,
         externalFileUrl: values.externalFileUrl,
         notes: values.notes || null,
       });
+
+      // Create approval record if required
+      if (objectRequiresApproval && user?.id) {
+        await createApproval.mutateAsync({
+          documentId: newDocument.id,
+          requestedBy: user.id,
+        });
+      }
 
       // Auto-complete any matching PBC requests
       await checkAndUpdatePBCItem(
@@ -420,23 +445,36 @@ export function UploadDocumentModal({
                 name="status"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Status</FormLabel>
-                    <FormControl>
-                      <RadioGroup
-                        onValueChange={field.onChange}
-                        value={field.value}
-                        className="flex gap-4"
-                      >
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="Draft" id="draft" />
-                          <Label htmlFor="draft" className="font-normal">Draft</Label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="Final" id="final" />
-                          <Label htmlFor="final" className="font-normal">Final</Label>
-                        </div>
-                      </RadioGroup>
-                    </FormControl>
+                    <FormLabel className="flex items-center gap-2">
+                      Status
+                      {requiresApproval && (
+                        <span className="rounded bg-amber-100 px-2 py-0.5 text-xs font-normal text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">
+                          Approval Required
+                        </span>
+                      )}
+                    </FormLabel>
+                    {requiresApproval ? (
+                      <div className="rounded-md border bg-muted/50 p-3 text-sm text-muted-foreground">
+                        Document will be created as <strong>Draft</strong> and require approval before finalizing.
+                      </div>
+                    ) : (
+                      <FormControl>
+                        <RadioGroup
+                          onValueChange={field.onChange}
+                          value={field.value}
+                          className="flex gap-4"
+                        >
+                          <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="Draft" id="draft" />
+                            <Label htmlFor="draft" className="font-normal">Draft</Label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="Final" id="final" />
+                            <Label htmlFor="final" className="font-normal">Final</Label>
+                          </div>
+                        </RadioGroup>
+                      </FormControl>
+                    )}
                     <FormMessage />
                   </FormItem>
                 )}

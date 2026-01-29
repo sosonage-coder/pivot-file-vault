@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { format } from 'date-fns';
 import { 
   CheckCircle2, 
@@ -21,6 +21,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -32,7 +33,9 @@ import {
   useUpdateReconciliation,
   useReconciliationAttachments 
 } from '@/hooks/useReconciliations';
-import type { ReconciliationStatus } from '@/types/reconciliations';
+import { useReconciliationLineItems } from '@/hooks/useReconciliationLineItems';
+import { TemplateRenderer } from './templates/TemplateRenderer';
+import type { ReconciliationStatus, ReconciliationTemplate } from '@/types/reconciliations';
 
 interface ReconciliationWorkspaceProps {
   reconciliationId: string | null;
@@ -66,8 +69,8 @@ const statusConfig: Record<ReconciliationStatus, {
   rejected: { 
     label: 'Rejected',
     icon: XCircle, 
-    color: 'text-red-600',
-    bgClass: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
+    color: 'text-destructive',
+    bgClass: 'bg-destructive/10 text-destructive'
   },
   approved: { 
     label: 'Approved',
@@ -93,8 +96,9 @@ const workflowTransitions: Record<ReconciliationStatus, ReconciliationStatus[]> 
 };
 
 export function ReconciliationWorkspace({ reconciliationId }: ReconciliationWorkspaceProps) {
-  const { data: reconciliation, isLoading } = useReconciliation(reconciliationId);
+  const { data: reconciliation, isLoading, refetch: refetchReconciliation } = useReconciliation(reconciliationId);
   const { data: attachments = [] } = useReconciliationAttachments(reconciliationId);
+  const { data: lineItems = [], refetch: refetchLineItems } = useReconciliationLineItems(reconciliationId);
   const updateReconciliation = useUpdateReconciliation();
   
   const [glBalance, setGlBalance] = useState<string>('');
@@ -109,6 +113,10 @@ export function ReconciliationWorkspace({ reconciliationId }: ReconciliationWork
       setVarianceExplanation(reconciliation.variance_explanation || '');
     }
   }, [reconciliation]);
+
+  const handleLineItemsChange = useCallback(() => {
+    refetchLineItems();
+  }, [refetchLineItems]);
 
   if (!reconciliationId) {
     return (
@@ -154,6 +162,12 @@ export function ReconciliationWorkspace({ reconciliationId }: ReconciliationWork
   const variance = (parseFloat(glBalance) || 0) - (parseFloat(subBalance) || 0);
   const hasVariance = variance !== 0;
 
+  // Editable if not yet approved/certified
+  const isEditable = !['approved', 'certified'].includes(currentStatus);
+
+  // Get template info
+  const template = reconciliation.reconciliation_templates as ReconciliationTemplate | null;
+
   const handleStatusChange = (newStatus: ReconciliationStatus) => {
     updateReconciliation.mutate({
       id: reconciliation.id,
@@ -185,6 +199,14 @@ export function ReconciliationWorkspace({ reconciliationId }: ReconciliationWork
               <span>{reconciliation.objects?.areas?.name}</span>
               <span>•</span>
               <span>{reconciliation.periods?.label}</span>
+              {template && (
+                <>
+                  <span>•</span>
+                  <Badge variant="outline" className="text-xs">
+                    {template.name}
+                  </Badge>
+                </>
+              )}
             </div>
           </div>
           
@@ -240,6 +262,7 @@ export function ReconciliationWorkspace({ reconciliationId }: ReconciliationWork
                   onChange={(e) => setGlBalance(e.target.value)}
                   placeholder="0.00"
                   className="mt-1.5 font-mono"
+                  disabled={!isEditable}
                 />
               </div>
               <div>
@@ -251,6 +274,7 @@ export function ReconciliationWorkspace({ reconciliationId }: ReconciliationWork
                   onChange={(e) => setSubBalance(e.target.value)}
                   placeholder="0.00"
                   className="mt-1.5 font-mono"
+                  disabled={!isEditable}
                 />
               </div>
               <div>
@@ -274,140 +298,166 @@ export function ReconciliationWorkspace({ reconciliationId }: ReconciliationWork
                   placeholder="Explain the variance..."
                   className="mt-1.5"
                   rows={3}
+                  disabled={!isEditable}
                 />
               </div>
             )}
             
-            <div className="flex justify-end">
-              <Button 
-                onClick={handleSaveBalances}
-                disabled={updateReconciliation.isPending}
-              >
-                {updateReconciliation.isPending ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : null}
-                Save Balances
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Attachments */}
-        <Card>
-          <CardHeader className="flex-row items-center justify-between space-y-0">
-            <CardTitle className="text-base">Supporting Evidence</CardTitle>
-            <Button variant="outline" size="sm">
-              <Plus className="mr-1 h-4 w-4" />
-              Add Document
-            </Button>
-          </CardHeader>
-          <CardContent>
-            {attachments.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-8 text-center">
-                <FileText className="h-8 w-8 text-muted-foreground/50" />
-                <p className="mt-2 text-sm text-muted-foreground">
-                  No documents attached yet
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {attachments.map((attachment) => (
-                  <div
-                    key={attachment.id}
-                    className="flex items-center justify-between rounded-md border p-3"
-                  >
-                    <div className="flex items-center gap-3">
-                      <FileText className="h-5 w-5 text-muted-foreground" />
-                      <div>
-                        <p className="text-sm font-medium">
-                          {attachment.documents?.logical_name}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {attachment.attachment_type}
-                        </p>
-                      </div>
-                    </div>
-                    <Button variant="ghost" size="sm" asChild>
-                      <a 
-                        href={attachment.documents?.external_file_url} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                      >
-                        View
-                      </a>
-                    </Button>
-                  </div>
-                ))}
+            {isEditable && (
+              <div className="flex justify-end">
+                <Button 
+                  onClick={handleSaveBalances}
+                  disabled={updateReconciliation.isPending}
+                >
+                  {updateReconciliation.isPending ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : null}
+                  Save Balances
+                </Button>
               </div>
             )}
           </CardContent>
         </Card>
 
-        {/* Workflow History */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Workflow History</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {reconciliation.certified_at && (
-                <WorkflowStep
-                  label="Certified"
-                  timestamp={reconciliation.certified_at}
-                  icon={Shield}
-                  color="text-primary"
-                />
-              )}
-              {reconciliation.approved_at && (
-                <WorkflowStep
-                  label="Approved"
-                  timestamp={reconciliation.approved_at}
-                  icon={CheckCircle2}
-                  color="text-green-600"
-                />
-              )}
-              {reconciliation.rejected_at && (
-                <WorkflowStep
-                  label="Rejected"
-                  timestamp={reconciliation.rejected_at}
-                  icon={XCircle}
-                  color="text-red-600"
-                  notes={reconciliation.rejection_notes}
-                />
-              )}
-              {reconciliation.reviewed_at && (
-                <WorkflowStep
-                  label="Reviewed"
-                  timestamp={reconciliation.reviewed_at}
-                  icon={CheckCircle2}
-                  color="text-blue-600"
-                />
-              )}
-              {reconciliation.submitted_at && (
-                <WorkflowStep
-                  label="Submitted for Review"
-                  timestamp={reconciliation.submitted_at}
-                  icon={Clock}
-                  color="text-amber-600"
-                />
-              )}
-              {reconciliation.prepared_at && (
-                <WorkflowStep
-                  label="Preparation Started"
-                  timestamp={reconciliation.prepared_at}
-                  icon={Play}
-                  color="text-blue-600"
-                />
-              )}
-              <WorkflowStep
-                label="Created"
-                timestamp={reconciliation.created_at}
-                icon={Plus}
-                color="text-muted-foreground"
-              />
-            </div>
-          </CardContent>
-        </Card>
+        {/* Template Content */}
+        <Tabs defaultValue="reconciliation" className="w-full">
+          <TabsList>
+            <TabsTrigger value="reconciliation">Reconciliation</TabsTrigger>
+            <TabsTrigger value="evidence">Evidence ({attachments.length})</TabsTrigger>
+            <TabsTrigger value="history">History</TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="reconciliation" className="mt-4">
+            <TemplateRenderer
+              template={template}
+              reconciliationId={reconciliation.id}
+              lineItems={lineItems}
+              glBalance={parseFloat(glBalance) || 0}
+              subBalance={parseFloat(subBalance) || 0}
+              isEditable={isEditable}
+              onLineItemsChange={handleLineItemsChange}
+            />
+          </TabsContent>
+          
+          <TabsContent value="evidence" className="mt-4">
+            <Card>
+              <CardHeader className="flex-row items-center justify-between space-y-0">
+                <CardTitle className="text-base">Supporting Evidence</CardTitle>
+                <Button variant="outline" size="sm" disabled={!isEditable}>
+                  <Plus className="mr-1 h-4 w-4" />
+                  Add Document
+                </Button>
+              </CardHeader>
+              <CardContent>
+                {attachments.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-8 text-center">
+                    <FileText className="h-8 w-8 text-muted-foreground/50" />
+                    <p className="mt-2 text-sm text-muted-foreground">
+                      No documents attached yet
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {attachments.map((attachment) => (
+                      <div
+                        key={attachment.id}
+                        className="flex items-center justify-between rounded-md border p-3"
+                      >
+                        <div className="flex items-center gap-3">
+                          <FileText className="h-5 w-5 text-muted-foreground" />
+                          <div>
+                            <p className="text-sm font-medium">
+                              {attachment.documents?.logical_name}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {attachment.attachment_type}
+                            </p>
+                          </div>
+                        </div>
+                        <Button variant="ghost" size="sm" asChild>
+                          <a 
+                            href={attachment.documents?.external_file_url} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                          >
+                            View
+                          </a>
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+          
+          <TabsContent value="history" className="mt-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Workflow History</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {reconciliation.certified_at && (
+                    <WorkflowStep
+                      label="Certified"
+                      timestamp={reconciliation.certified_at}
+                      icon={Shield}
+                      color="text-primary"
+                    />
+                  )}
+                  {reconciliation.approved_at && (
+                    <WorkflowStep
+                      label="Approved"
+                      timestamp={reconciliation.approved_at}
+                      icon={CheckCircle2}
+                      color="text-green-600"
+                    />
+                  )}
+                  {reconciliation.rejected_at && (
+                    <WorkflowStep
+                      label="Rejected"
+                      timestamp={reconciliation.rejected_at}
+                      icon={XCircle}
+                      color="text-destructive"
+                      notes={reconciliation.rejection_notes}
+                    />
+                  )}
+                  {reconciliation.reviewed_at && (
+                    <WorkflowStep
+                      label="Reviewed"
+                      timestamp={reconciliation.reviewed_at}
+                      icon={CheckCircle2}
+                      color="text-blue-600"
+                    />
+                  )}
+                  {reconciliation.submitted_at && (
+                    <WorkflowStep
+                      label="Submitted for Review"
+                      timestamp={reconciliation.submitted_at}
+                      icon={Clock}
+                      color="text-amber-600"
+                    />
+                  )}
+                  {reconciliation.prepared_at && (
+                    <WorkflowStep
+                      label="Preparation Started"
+                      timestamp={reconciliation.prepared_at}
+                      icon={Play}
+                      color="text-blue-600"
+                    />
+                  )}
+                  <WorkflowStep
+                    label="Created"
+                    timestamp={reconciliation.created_at}
+                    icon={Plus}
+                    color="text-muted-foreground"
+                  />
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
 
         {/* Notes */}
         {reconciliation.notes && (

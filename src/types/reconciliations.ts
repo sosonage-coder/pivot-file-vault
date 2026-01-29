@@ -8,11 +8,71 @@ export type ReconciliationStatus =
   | 'approved' 
   | 'certified';
 
+export type ReconciliationTemplateType = 
+  | 'general'
+  | 'bank'
+  | 'prepaid'
+  | 'accrual'
+  | 'fixed_asset'
+  | 'lease'
+  | 'intercompany';
+
+export type ReconciliationLineType = 
+  | 'opening'
+  | 'addition'
+  | 'reversal'
+  | 'adjustment'
+  | 'closing'
+  | 'outstanding'
+  | 'deposit_in_transit'
+  | 'amortization'
+  | 'depreciation'
+  | 'interest'
+  | 'principal';
+
+export interface TemplateFieldSchema {
+  fields?: Array<{
+    name: string;
+    type: 'number' | 'text' | 'date' | 'select';
+    label: string;
+    options?: string[];
+  }>;
+  sections?: Array<{
+    name: string;
+    label: string;
+    lineType: ReconciliationLineType;
+  }>;
+}
+
+export interface TemplateCalculationRules {
+  [key: string]: string;
+}
+
 export interface ReconciliationTemplate {
   id: string;
   name: string;
   description: string | null;
+  template_type: ReconciliationTemplateType;
+  field_schema: TemplateFieldSchema;
+  calculation_rules: TemplateCalculationRules;
   template_content: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ReconciliationLineItem {
+  id: string;
+  reconciliation_id: string;
+  line_type: ReconciliationLineType;
+  period_month: string | null;
+  description: string | null;
+  amount: number;
+  quantity: number | null;
+  rate: number | null;
+  start_date: string | null;
+  end_date: string | null;
+  metadata: Record<string, unknown>;
+  sort_order: number;
   created_at: string;
   updated_at: string;
 }
@@ -66,7 +126,7 @@ export interface ReconciliationWithRelations extends Reconciliation {
     processes?: { name: string } | null;
   } | null;
   periods?: { label: string } | null;
-  reconciliation_templates?: { name: string } | null;
+  reconciliation_templates?: ReconciliationTemplate | null;
 }
 
 export interface ReconciliationAttachment {
@@ -116,6 +176,33 @@ export interface UpdateReconciliationInput {
   notes?: string | null;
   rejection_notes?: string | null;
   // Workflow timestamps set automatically based on status
+}
+
+export interface CreateLineItemInput {
+  reconciliation_id: string;
+  line_type: ReconciliationLineType;
+  description?: string;
+  amount?: number;
+  quantity?: number;
+  rate?: number;
+  start_date?: string;
+  end_date?: string;
+  period_month?: string;
+  metadata?: Record<string, unknown>;
+  sort_order?: number;
+}
+
+export interface UpdateLineItemInput {
+  line_type?: ReconciliationLineType;
+  description?: string;
+  amount?: number;
+  quantity?: number;
+  rate?: number;
+  start_date?: string;
+  end_date?: string;
+  period_month?: string;
+  metadata?: Record<string, unknown>;
+  sort_order?: number;
 }
 
 export type ReconciliationViewType = 'list' | 'by-status' | 'by-account';

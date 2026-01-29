@@ -51,6 +51,7 @@ export function useReconciliations(entityId: string | null, periodId?: string | 
 }
 
 // Fetch a single reconciliation by ID
+// Fetch a single reconciliation by ID with full template data
 export function useReconciliation(reconciliationId: string | null) {
   return useQuery({
     queryKey: ['reconciliation', reconciliationId],
@@ -70,12 +71,32 @@ export function useReconciliation(reconciliationId: string | null) {
             processes (name)
           ),
           periods (label),
-          reconciliation_templates (name)
+          reconciliation_templates (
+            id,
+            name,
+            description,
+            template_type,
+            field_schema,
+            calculation_rules,
+            template_content,
+            created_at,
+            updated_at
+          )
         `)
         .eq('id', reconciliationId)
         .single();
       
       if (error) throw error;
+      
+      // Ensure template fields have defaults
+      if (data?.reconciliation_templates) {
+        const template = data.reconciliation_templates as Record<string, unknown>;
+        template.template_type = template.template_type || 'general';
+        template.field_schema = template.field_schema || {};
+        template.calculation_rules = template.calculation_rules || {};
+        template.template_content = template.template_content || {};
+      }
+      
       return data as ReconciliationWithRelations;
     },
     enabled: !!reconciliationId,
@@ -141,18 +162,26 @@ export function useReconciliationStats(entityId: string | null, periodId?: strin
   });
 }
 
-// Fetch reconciliation templates
+// Fetch reconciliation templates with full schema
 export function useReconciliationTemplates() {
   return useQuery({
     queryKey: ['reconciliation-templates'],
     queryFn: async (): Promise<ReconciliationTemplate[]> => {
       const { data, error } = await supabase
         .from('reconciliation_templates')
-        .select('*')
+        .select('id, name, description, template_type, field_schema, calculation_rules, template_content, created_at, updated_at')
         .order('name');
       
       if (error) throw error;
-      return (data || []) as ReconciliationTemplate[];
+      
+      // Cast the data to match our ReconciliationTemplate type
+      return (data || []).map(template => ({
+        ...template,
+        template_type: template.template_type || 'general',
+        field_schema: template.field_schema || {},
+        calculation_rules: template.calculation_rules || {},
+        template_content: template.template_content || {},
+      })) as ReconciliationTemplate[];
     },
   });
 }

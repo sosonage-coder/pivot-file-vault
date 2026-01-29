@@ -124,3 +124,72 @@ export function useProcessTemplates() {
     },
   });
 }
+
+export function useDeleteProcess() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (processId: string) => {
+      const { error } = await supabase
+        .from('processes')
+        .delete()
+        .eq('id', processId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['folder-structure'] });
+      queryClient.invalidateQueries({ queryKey: ['processes'] });
+      toast.success('Process deleted successfully');
+    },
+    onError: (error) => {
+      toast.error(`Failed to delete process: ${error.message}`);
+    },
+  });
+}
+
+export function useDeleteArea() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (areaId: string) => {
+      const { error } = await supabase
+        .from('areas')
+        .delete()
+        .eq('id', areaId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['folder-structure'] });
+      queryClient.invalidateQueries({ queryKey: ['areas'] });
+      toast.success('Area deleted successfully');
+    },
+    onError: (error) => {
+      toast.error(`Failed to delete area: ${error.message}`);
+    },
+  });
+}
+
+export function useDeleteObject() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (objectId: string) => {
+      const { error } = await supabase
+        .from('objects')
+        .delete()
+        .eq('id', objectId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['folder-structure'] });
+      queryClient.invalidateQueries({ queryKey: ['objects'] });
+      toast.success('Object deleted successfully');
+    },
+    onError: (error) => {
+      toast.error(`Failed to delete object: ${error.message}`);
+    },
+  });
+}

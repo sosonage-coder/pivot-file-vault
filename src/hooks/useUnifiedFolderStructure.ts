@@ -233,6 +233,7 @@ export function useUnifiedFolderStructure(entityId: string | null, periodId: str
               metadata: {
                 department_id: deptId,
                 process_id: process.id,
+                entity_id: entityId,
                 template_id: area.template_id
               }
             };

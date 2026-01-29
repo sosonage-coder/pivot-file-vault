@@ -637,6 +637,129 @@ export type Database = {
           },
         ]
       }
+      tasks: {
+        Row: {
+          area_id: string | null
+          assignee_id: string | null
+          completed_at: string | null
+          created_at: string
+          created_by: string | null
+          department_id: string | null
+          description: string | null
+          document_id: string | null
+          due_date: string | null
+          entity_id: string
+          id: string
+          object_id: string | null
+          pbc_item_id: string | null
+          period_id: string | null
+          priority: string
+          process_id: string | null
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          area_id?: string | null
+          assignee_id?: string | null
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          department_id?: string | null
+          description?: string | null
+          document_id?: string | null
+          due_date?: string | null
+          entity_id: string
+          id?: string
+          object_id?: string | null
+          pbc_item_id?: string | null
+          period_id?: string | null
+          priority?: string
+          process_id?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          area_id?: string | null
+          assignee_id?: string | null
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          department_id?: string | null
+          description?: string | null
+          document_id?: string | null
+          due_date?: string | null
+          entity_id?: string
+          id?: string
+          object_id?: string | null
+          pbc_item_id?: string | null
+          period_id?: string | null
+          priority?: string
+          process_id?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tasks_area_id_fkey"
+            columns: ["area_id"]
+            isOneToOne: false
+            referencedRelation: "areas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_object_id_fkey"
+            columns: ["object_id"]
+            isOneToOne: false
+            referencedRelation: "objects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_pbc_item_id_fkey"
+            columns: ["pbc_item_id"]
+            isOneToOne: false
+            referencedRelation: "pbc_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_period_id_fkey"
+            columns: ["period_id"]
+            isOneToOne: false
+            referencedRelation: "periods"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_process_id_fkey"
+            columns: ["process_id"]
+            isOneToOne: false
+            referencedRelation: "processes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_entities: {
         Row: {
           created_at: string

@@ -35,6 +35,7 @@ import {
 } from '@/hooks/useReconciliations';
 import { useReconciliationLineItems } from '@/hooks/useReconciliationLineItems';
 import { TemplateRenderer } from './templates/TemplateRenderer';
+import { EvidencePanel } from './EvidencePanel';
 import type { ReconciliationStatus, ReconciliationTemplate } from '@/types/reconciliations';
 
 interface ReconciliationWorkspaceProps {
@@ -340,55 +341,14 @@ export function ReconciliationWorkspace({ reconciliationId }: ReconciliationWork
           </TabsContent>
           
           <TabsContent value="evidence" className="mt-4">
-            <Card>
-              <CardHeader className="flex-row items-center justify-between space-y-0">
-                <CardTitle className="text-base">Supporting Evidence</CardTitle>
-                <Button variant="outline" size="sm" disabled={!isEditable}>
-                  <Plus className="mr-1 h-4 w-4" />
-                  Add Document
-                </Button>
-              </CardHeader>
-              <CardContent>
-                {attachments.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-8 text-center">
-                    <FileText className="h-8 w-8 text-muted-foreground/50" />
-                    <p className="mt-2 text-sm text-muted-foreground">
-                      No documents attached yet
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {attachments.map((attachment) => (
-                      <div
-                        key={attachment.id}
-                        className="flex items-center justify-between rounded-md border p-3"
-                      >
-                        <div className="flex items-center gap-3">
-                          <FileText className="h-5 w-5 text-muted-foreground" />
-                          <div>
-                            <p className="text-sm font-medium">
-                              {attachment.documents?.logical_name}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {attachment.attachment_type}
-                            </p>
-                          </div>
-                        </div>
-                        <Button variant="ghost" size="sm" asChild>
-                          <a 
-                            href={attachment.documents?.external_file_url} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                          >
-                            View
-                          </a>
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+            <EvidencePanel
+              reconciliationId={reconciliation.id}
+              isEditable={isEditable}
+              onAddDocument={(category) => {
+                // TODO: Implement document picker modal
+                console.log('Add document to category:', category);
+              }}
+            />
           </TabsContent>
           
           <TabsContent value="history" className="mt-4">

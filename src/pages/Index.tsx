@@ -15,12 +15,20 @@ import { CreateProcessModal } from '@/components/filegrid/CreateProcessModal';
 import { ClonePeriodModal } from '@/components/filegrid/ClonePeriodModal';
 import { ViewSelector, type ViewType } from '@/components/filegrid/ViewSelector';
 import { PivotView } from '@/components/filegrid/PivotView';
+import { PivotFilterBar } from '@/components/filegrid/PivotFilterBar';
 import { WhatsMissingView } from '@/components/filegrid/WhatsMissingView';
 import { PBCListView } from '@/components/filegrid/PBCListView';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { Loader2, Plus, Copy } from 'lucide-react';
-import type { Entity, TreeNode, PivotViewType } from '@/types/filegrid';
+import type { Entity, TreeNode, PivotViewType, PivotFilters } from '@/types/filegrid';
+
+const DEFAULT_FILTERS: PivotFilters = {
+  statusList: [],
+  periodId: null,
+  areaId: null,
+  objectId: null,
+};
 
 export default function Index() {
   const { user, loading: authLoading, isExternalReviewer, isAdmin } = useAuth();
@@ -32,6 +40,7 @@ export default function Index() {
   const [createProcessModalOpen, setCreateProcessModalOpen] = useState(false);
   const [clonePeriodModalOpen, setClonePeriodModalOpen] = useState(false);
   const [currentView, setCurrentView] = useState<ViewType>('folder');
+  const [pivotFilters, setPivotFilters] = useState<PivotFilters>(DEFAULT_FILTERS);
 
   const { data: entities, isLoading: entitiesLoading } = useEntities();
   const { data: folderStructure, isLoading: foldersLoading } = useFolderStructure(
@@ -42,11 +51,35 @@ export default function Index() {
   const isAnalysisView = currentView === 'whats-missing' || currentView === 'pbc-requests';
   const isPivotView = !['folder', 'whats-missing', 'pbc-requests'].includes(currentView);
 
-  // For folder view, filter by area; for pivot views, get all entity documents
+  // Build status filter based on context
+  const getStatusFilter = () => {
+    // External reviewers or review mode always see Final only
+    if (externalReviewMode || isExternalReviewer) {
+      return 'Final' as const;
+    }
+    // If in pivot view and user has status filters, use those
+    if (isPivotView && pivotFilters.statusList.length > 0) {
+      return pivotFilters.statusList;
+    }
+    // "Final Only" view
+    if (currentView === 'status-final') {
+      return 'Final' as const;
+    }
+    return null;
+  };
+
+  // For folder view, filter by area/object; for pivot views, apply pivot filters
   const { data: documents, isLoading: documentsLoading } = useDocuments({
-    areaId: currentView === 'folder' && selectedNode?.type === 'area' ? selectedNode.id : null,
+    areaId: currentView === 'folder' 
+      ? (selectedNode?.type === 'area' ? selectedNode.id : 
+         selectedNode?.type === 'object' ? (selectedNode.metadata?.area_id as string) : null)
+      : (isPivotView ? pivotFilters.areaId : null),
     entityId: selectedEntity?.id ?? null,
-    statusFilter: (externalReviewMode || isExternalReviewer || currentView === 'status-final') ? 'Final' : null
+    statusFilter: getStatusFilter(),
+    periodId: isPivotView ? pivotFilters.periodId : null,
+    objectId: currentView === 'folder' && selectedNode?.type === 'object' 
+      ? selectedNode.id 
+      : (isPivotView ? pivotFilters.objectId : null),
   });
 
   // Group documents for pivot views
@@ -68,6 +101,12 @@ export default function Index() {
       setExternalReviewMode(true);
     }
   }, [isExternalReviewer]);
+
+  // Reset filters when switching entities
+  useEffect(() => {
+    setPivotFilters(DEFAULT_FILTERS);
+    setSelectedNode(null);
+  }, [selectedEntity?.id]);
 
   if (authLoading) {
     return (
@@ -104,6 +143,15 @@ export default function Index() {
       return `${selectedEntity?.name} — ${viewLabels[currentView]}`;
     }
     if (!selectedNode) return 'All Documents';
+    if (selectedNode.type === 'object') {
+      // Show Area / Object path
+      const areaName = folderStructure?.flatMap(d => 
+        d.children?.flatMap(p => 
+          p.children?.filter(a => a.id === selectedNode.metadata?.area_id)
+        )
+      ).filter(Boolean)[0]?.name || '';
+      return `${selectedEntity?.name} / ${areaName} / ${selectedNode.name}`;
+    }
     if (selectedNode.type === 'area') {
       return `${selectedEntity?.name} / ${selectedNode.name}`;
     }
@@ -122,10 +170,17 @@ export default function Index() {
 
     if (isPivotView) {
       return (
-        <PivotView
-          groups={pivotGroups}
-          isLoading={documentsLoading || entitiesLoading}
-        />
+        <div className="space-y-4">
+          <PivotFilterBar
+            filters={pivotFilters}
+            onFiltersChange={setPivotFilters}
+            areas={folderStructure || []}
+          />
+          <PivotView
+            groups={pivotGroups}
+            isLoading={documentsLoading || entitiesLoading}
+          />
+        </div>
       );
     }
 
@@ -136,6 +191,24 @@ export default function Index() {
       />
     );
   };
+
+  // Get area info for Add Document button when object is selected
+  const getAreaForUpload = (): TreeNode | null => {
+    if (selectedNode?.type === 'area') return selectedNode;
+    if (selectedNode?.type === 'object') {
+      // Find the parent area
+      const areaId = selectedNode.metadata?.area_id as string;
+      const area = folderStructure?.flatMap(d => 
+        d.children?.flatMap(p => 
+          p.children?.filter(a => a.id === areaId)
+        )
+      ).filter(Boolean)[0];
+      return area || null;
+    }
+    return null;
+  };
+
+  const uploadArea = getAreaForUpload();
 
   return (
     <div className="flex h-screen flex-col bg-background">
@@ -198,8 +271,8 @@ export default function Index() {
                 </Button>
               )}
               
-              {/* Add Document button - only show when Area is selected in folder view */}
-              {currentView === 'folder' && selectedNode?.type === 'area' && selectedEntity && !isExternalReviewer && (
+              {/* Add Document button - show when Area or Object is selected in folder view */}
+              {currentView === 'folder' && uploadArea && selectedEntity && !isExternalReviewer && (
                 <Button onClick={() => setUploadModalOpen(true)}>
                   <Plus className="mr-2 h-4 w-4" />
                   Add Document
@@ -215,14 +288,14 @@ export default function Index() {
       </div>
 
       {/* Upload Document Modal */}
-      {selectedNode?.type === 'area' && selectedEntity && (
+      {uploadArea && selectedEntity && (
         <UploadDocumentModal
           open={uploadModalOpen}
           onOpenChange={setUploadModalOpen}
-          selectedNode={selectedNode}
+          selectedNode={uploadArea}
           selectedEntity={selectedEntity}
-          departmentId={(selectedNode.metadata?.department_id as string) || ''}
-          processId={(selectedNode.metadata?.process_id as string) || ''}
+          departmentId={(uploadArea.metadata?.department_id as string) || ''}
+          processId={(uploadArea.metadata?.process_id as string) || ''}
         />
       )}
 

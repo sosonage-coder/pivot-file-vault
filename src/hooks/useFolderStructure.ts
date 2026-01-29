@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import type { TreeNode, Department, Process, Area } from '@/types/filegrid';
+import type { TreeNode, Department, Process, Area, FileObject } from '@/types/filegrid';
 
 interface ProcessWithDepartment extends Process {
   departments: Department;
@@ -49,25 +49,50 @@ export function useFolderStructure(entityId: string | null) {
         areas = areasData as AreaWithProcess[];
       }
 
-      // Get document counts per area
+      // Get all area IDs
       const areaIds = areas.map(a => a.id);
-      let documentCounts: Record<string, number> = {};
+      
+      // Fetch objects for all areas
+      let objects: FileObject[] = [];
+      if (areaIds.length > 0) {
+        const { data: objectsData, error: objectsError } = await supabase
+          .from('objects')
+          .select('*')
+          .eq('entity_id', entityId)
+          .in('area_id', areaIds)
+          .order('name');
+
+        if (!objectsError && objectsData) {
+          objects = objectsData as FileObject[];
+        }
+      }
+
+      // Get document counts per area and per object
+      let documentCountsByArea: Record<string, number> = {};
+      let documentCountsByObject: Record<string, number> = {};
       
       if (areaIds.length > 0) {
         const { data: counts, error: countError } = await supabase
           .from('documents')
-          .select('area_id')
+          .select('area_id, object_id')
           .in('area_id', areaIds);
 
         if (!countError && counts) {
-          documentCounts = counts.reduce((acc, doc) => {
+          documentCountsByArea = counts.reduce((acc, doc) => {
             acc[doc.area_id] = (acc[doc.area_id] || 0) + 1;
+            return acc;
+          }, {} as Record<string, number>);
+
+          documentCountsByObject = counts.reduce((acc, doc) => {
+            if (doc.object_id) {
+              acc[doc.object_id] = (acc[doc.object_id] || 0) + 1;
+            }
             return acc;
           }, {} as Record<string, number>);
         }
       }
 
-      // Build tree structure: Department → Process → Area
+      // Build tree structure: Department → Process → Area → Object
       const departmentMap = new Map<string, TreeNode>();
 
       for (const process of (processes as ProcessWithDepartment[]) || []) {
@@ -100,18 +125,37 @@ export function useFolderStructure(entityId: string | null) {
         // Add areas to this process
         const processAreas = areas.filter(a => a.process_id === process.id);
         for (const area of processAreas) {
-          const areaDocCount = documentCounts[area.id] || 0;
-          processNode.children!.push({
+          const areaDocCount = documentCountsByArea[area.id] || 0;
+          
+          // Get objects for this area
+          const areaObjects = objects.filter(o => o.area_id === area.id);
+          const objectNodes: TreeNode[] = areaObjects.map(obj => ({
+            id: obj.id,
+            name: obj.name,
+            type: 'object' as const,
+            documentCount: documentCountsByObject[obj.id] || 0,
+            metadata: {
+              department_id: dept.id,
+              process_id: process.id,
+              area_id: area.id,
+              entity_id: entityId
+            }
+          }));
+
+          const areaNode: TreeNode = {
             id: area.id,
             name: area.name,
             type: 'area',
+            children: objectNodes.length > 0 ? objectNodes : undefined,
             documentCount: areaDocCount,
             metadata: {
               department_id: dept.id,
               process_id: process.id,
               template_id: area.template_id
             }
-          });
+          };
+
+          processNode.children!.push(areaNode);
           processNode.documentCount = (processNode.documentCount || 0) + areaDocCount;
         }
 

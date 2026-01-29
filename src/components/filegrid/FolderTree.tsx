@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChevronRight, ChevronDown, Building2, Briefcase, FolderOpen, Folder } from 'lucide-react';
+import { ChevronRight, ChevronDown, Building2, Briefcase, FolderOpen, Folder, FileBox } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { TreeNode } from '@/types/filegrid';
 
@@ -20,7 +20,8 @@ const iconMap = {
   entity: Building2,
   department: Briefcase,
   process: FolderOpen,
-  area: Folder
+  area: Folder,
+  object: FileBox
 };
 
 function TreeItem({ node, level, selectedId, onSelect }: TreeItemProps) {
@@ -60,7 +61,8 @@ function TreeItem({ node, level, selectedId, onSelect }: TreeItemProps) {
         </span>
         <Icon className={cn(
           'h-4 w-4',
-          node.type === 'area' ? 'text-primary' : 'text-muted-foreground'
+          node.type === 'area' ? 'text-primary' : 
+          node.type === 'object' ? 'text-accent-foreground' : 'text-muted-foreground'
         )} />
         <span className="flex-1 truncate">{node.name}</span>
         {typeof node.documentCount === 'number' && node.documentCount > 0 && (

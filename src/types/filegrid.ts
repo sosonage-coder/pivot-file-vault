@@ -147,10 +147,18 @@ export interface DocumentWithRelations extends Document {
 export interface TreeNode {
   id: string;
   name: string;
-  type: 'entity' | 'department' | 'process' | 'area';
+  type: 'entity' | 'department' | 'process' | 'area' | 'object';
   children?: TreeNode[];
   documentCount?: number;
   metadata?: Record<string, unknown>;
+}
+
+// Pivot view filter state
+export interface PivotFilters {
+  statusList: DocumentStatus[];
+  periodId: string | null;
+  areaId: string | null;
+  objectId: string | null;
 }
 
 // Pivot view types

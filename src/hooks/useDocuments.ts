@@ -1,16 +1,24 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import type { DocumentWithRelations } from '@/types/filegrid';
+import type { DocumentWithRelations, DocumentStatus } from '@/types/filegrid';
 
 interface UseDocumentsOptions {
   areaId?: string | null;
   entityId?: string | null;
-  statusFilter?: 'Final' | null;
+  statusFilter?: DocumentStatus | DocumentStatus[] | null;
+  periodId?: string | null;
+  objectId?: string | null;
 }
 
-export function useDocuments({ areaId, entityId, statusFilter }: UseDocumentsOptions) {
+export function useDocuments({ 
+  areaId, 
+  entityId, 
+  statusFilter, 
+  periodId, 
+  objectId 
+}: UseDocumentsOptions) {
   return useQuery({
-    queryKey: ['documents', { areaId, entityId, statusFilter }],
+    queryKey: ['documents', { areaId, entityId, statusFilter, periodId, objectId }],
     queryFn: async () => {
       let query = supabase
         .from('documents')
@@ -37,8 +45,23 @@ export function useDocuments({ areaId, entityId, statusFilter }: UseDocumentsOpt
         query = query.eq('entity_id', entityId);
       }
 
+      // Handle single status or array of statuses
       if (statusFilter) {
-        query = query.eq('status', statusFilter);
+        if (Array.isArray(statusFilter)) {
+          if (statusFilter.length > 0) {
+            query = query.in('status', statusFilter);
+          }
+        } else {
+          query = query.eq('status', statusFilter);
+        }
+      }
+
+      if (periodId) {
+        query = query.eq('period_id', periodId);
+      }
+
+      if (objectId) {
+        query = query.eq('object_id', objectId);
       }
 
       const { data, error } = await query;

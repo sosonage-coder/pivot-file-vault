@@ -1,119 +1,156 @@
 
-# Transforming Reconciliations into Financial Truth Infrastructure
+# Unified Navigation Plan: Integrated Folder Tree
 
-## Executive Summary
+## Overview
 
-This plan transforms the Reconciliation module from a simple tracking tool into a first-class experience that mirrors the Documents module's familiar navigation while introducing powerful accounting-specific functionality through intelligent templates.
+This plan consolidates all module navigation (Documents, PBC, Tasks, Reconciliations) into a single unified tree structure in the SharedSidebar. Instead of separate navigation panels for each module, everything lives within the same folder hierarchy.
 
----
+## Current Problem
 
-## Progress Tracker
+```text
+Current Layout (with wasted space):
+┌────────────────────────────────────────────────────────────────┐
+│ Header: FileGRID  | Documents | PBC | Tasks | Recon           │
+├─────────────┬──────────────┬──────────────────────────────────┤
+│ SharedSidebar│ Module Tree  │  Workspace                      │
+│ (Entity +   │ (PBC/Task    │                                  │
+│  Empty      │  specific)   │                                  │
+│  Space!)    │              │                                  │
+└─────────────┴──────────────┴──────────────────────────────────┘
+```
 
-| Phase | Status | Notes |
-|-------|--------|-------|
-| Phase 1: Layout Transformation | ✅ Complete | Tree navigation, workspace, split-pane layout |
-| Phase 2: Intelligent Templates | ✅ Complete | 6 template types with auto-calculations |
-| Phase 3: Evidence vs. Primary | ✅ Complete | Categorized attachments (evidence, workpaper, report) |
-| Phase 4: Task List Templates | ✅ Complete | 5 checklist templates with item completion tracking |
-| Phase 5: Intelligent Dashboards | ✅ Complete | Dashboard shows when no account selected |
-| Phase 6: Cross-Module Linking | ⏳ Pending | Links between modules |
-| Unified Layout | ✅ Complete | All modules use Tree + Workspace pattern |
+## Proposed Solution
 
----
+```text
+New Layout (integrated tree):
+┌───────────────────────────────────────────────────────────────┐
+│ Header: FileGRID                                              │
+├──────────────────────────┬────────────────────────────────────┤
+│ Unified Sidebar          │  Workspace Content                 │
+│ ┌──────────────────────┐ │                                    │
+│ │ [Entity Selector]    │ │                                    │
+│ ├──────────────────────┤ │                                    │
+│ │ ▼ Finance            │ │                                    │
+│ │   ├─ 📂 Documents    │ │                                    │
+│ │   │  ├─ Banking      │ │                                    │
+│ │   │  └─ Payables     │ │                                    │
+│ │   ├─ 📋 PBC Requests │ │                                    │
+│ │   │  ├─ Item 1       │ │                                    │
+│ │   │  └─ Item 2       │ │                                    │
+│ │   ├─ ✓ Tasks         │ │                                    │
+│ │   │  ├─ Task 1       │ │                                    │
+│ │   │  └─ Task 2       │ │                                    │
+│ │   └─ ⚖ Reconciliations│ │                                   │
+│ │      ├─ Account 1    │ │                                    │
+│ │      └─ Account 2    │ │                                    │
+│ │ ▶ HR                 │ │                                    │
+│ │ ▶ Legal              │ │                                    │
+│ └──────────────────────┘ │                                    │
+└──────────────────────────┴────────────────────────────────────┘
+```
 
-## Phase 1: Mirror the Documents Experience ✅ COMPLETE
+## Technical Approach
 
-**Implemented**:
-- `ReconciliationTree.tsx` - Tree organized by area/account hierarchy with status indicators
-- `ReconciliationWorkspace.tsx` - Full-page workspace with tabs (Reconciliation, Evidence, History)
-- `useReconciliationTree.ts` - Hook to transform flat data into hierarchical tree
-- Split-pane layout matching Documents module
+### Phase 1: Extend TreeNode Type
 
----
+Add new node types to support module categories:
 
-## Phase 2: Intelligent Template System ✅ COMPLETE
+```typescript
+// src/types/filegrid.ts
+export interface TreeNode {
+  id: string;
+  name: string;
+  type: 'entity' | 'department' | 'process' | 'area' | 'object' 
+      | 'module-documents' | 'module-pbc' | 'module-tasks' | 'module-reconciliations';
+  children?: TreeNode[];
+  documentCount?: number;
+  metadata?: Record<string, unknown>;
+}
+```
 
-**Database Changes**:
-- Added `template_type`, `field_schema`, `calculation_rules` to `reconciliation_templates`
-- Created `reconciliation_line_items` table with RLS policies
+### Phase 2: Create Unified Folder Structure Hook
 
-**Templates Created** (6 total):
-| Template | Type | Auto-Calculations |
-|----------|------|-------------------|
-| Bank Reconciliation | `bank` | Adjusted book balance, variance |
-| Prepaid Expense | `prepaid` | Monthly amortization, remaining balance |
-| Accrual Rollforward | `accrual` | Opening + additions - reversals = closing |
-| Fixed Asset | `fixed_asset` | NBV = cost - accumulated depreciation |
-| Lease (IFRS 16) | `lease` | PV calculation, liability rollforward |
-| Intercompany | `intercompany` | Net position, variance |
+Create `useUnifiedFolderStructure.ts` that builds the complete tree:
 
-**Components Created**:
-- `TemplateRenderer.tsx` - Routes to correct template based on type
-- `LineItemSection.tsx` - Reusable line item table with CRUD
-- `BankReconciliationTemplate.tsx` - Outstanding checks, deposits in transit
-- `PrepaidExpenseTemplate.tsx` - Amortization schedule visualization
-- `AccrualRollforwardTemplate.tsx` - Opening/closing balance rollforward
-- `FixedAssetTemplate.tsx` - Cost/depreciation/NBV tracking
-- `LeaseTemplate.tsx` - IFRS 16 liability rollforward with PV calculator
-- `GeneralTemplate.tsx` - Fallback for untyped templates
+```text
+Department
+├─ Documents (module node)
+│  ├─ Process → Area → Object (existing structure)
+├─ PBC Requests (module node)
+│  ├─ PBC Items grouped by process/area
+├─ Tasks (module node)
+│  ├─ Tasks grouped by process/area
+└─ Reconciliations (module node)
+   └─ Accounts grouped by process/area
+```
 
-**Hook Created**:
-- `useReconciliationLineItems.ts` - CRUD for line items
+### Phase 3: Enhanced FolderTree Component
 
----
+Update `FolderTree.tsx` to:
+- Render different icons for module categories
+- Handle selection of different node types
+- Route clicks to appropriate workspace views
 
-## Phase 3: Evidence vs. Primary Artifact (NEXT)
+### Phase 4: Unified Workspace Rendering
 
-**Goal**: Clear distinction between the reconciliation (primary) and its attachments (evidence)
+Update `AppLayout.tsx` or create a `UnifiedWorkspace.tsx` that:
+- Detects the selected node type
+- Renders appropriate content (document list, PBC detail, task detail, reconciliation workspace)
+- Maintains consistent workspace layout regardless of content type
 
-**Changes Needed**:
-1. Categorized attachments: evidence, workpaper, report
-2. UI to show attachments grouped by category
-3. Link to Documents module for browsing available evidence
+### Phase 5: Remove Module-Specific Routes
 
----
+Simplify routing by removing separate `/pbc`, `/tasks`, `/reconciliations` routes. Instead:
+- Single route `/` handles all content
+- Workspace content is determined by selected tree node
+- Top header bar simplified (no more module tabs)
 
-## Phase 4: Task List Templates (Checklists)
+### Phase 6: Remove Redundant Components
 
-**Goal**: Pre-defined checklists that enforce best practices
+Clean up unused:
+- `ModuleNav.tsx` (module tabs in header)
+- Separate tree components (`PBCTree.tsx`, `TaskTree.tsx`, `ReconciliationTree.tsx`)
+- Module-specific page layouts
 
-**Database Needed**:
-- `checklist_templates` - Template definitions
-- `checklist_instances` - Instantiated checklists
-- `checklist_item_completions` - Completion tracking
+## Files to Modify
 
----
+| File | Change |
+|------|--------|
+| `src/types/filegrid.ts` | Add module node types |
+| `src/hooks/useFolderStructure.ts` | Rename to `useUnifiedFolderStructure.ts`, add PBC/Task/Recon data |
+| `src/components/filegrid/FolderTree.tsx` | Add module icons, handle new node types |
+| `src/components/layout/SharedSidebar.tsx` | Always show full tree (remove module check) |
+| `src/components/layout/AppLayout.tsx` | Add unified workspace rendering |
+| `src/components/layout/ModuleNav.tsx` | Remove or repurpose |
+| `src/App.tsx` | Simplify routes |
+| `src/contexts/ModuleContext.tsx` | Remove activeModule tracking |
+| `src/pages/Documents.tsx` | Convert to workspace component |
+| `src/pages/PBC.tsx` | Remove (content moves to workspace) |
+| `src/pages/Tasks.tsx` | Remove (content moves to workspace) |
+| `src/pages/Reconciliations.tsx` | Remove (content moves to workspace) |
 
-## Phase 5: Intelligent Dashboards ✅ COMPLETE
+## New Files to Create
 
-**Goal**: Actionable insights, not vanity metrics
+| File | Purpose |
+|------|---------|
+| `src/hooks/useUnifiedFolderStructure.ts` | Combined tree with all module data |
+| `src/components/layout/UnifiedWorkspace.tsx` | Renders appropriate content based on selection |
 
-**Components Created**:
-- `useReconciliationDashboard.ts` - Analytics hook with variance analysis, bottleneck detection
-- `ReconciliationDashboard.tsx` - Main dashboard container
-- `SummaryCards.tsx` - KPI summary (total, completion rate, avg variance, attention needed)
-- `TopVariancesCard.tsx` - Top 10 variances with unexplained flag
-- `PendingReviewsCard.tsx` - Pending reviews sorted by age with urgency indicators
-- `BottlenecksCard.tsx` - Workflow bottlenecks by status with avg days stuck
-- `CompletionTrackerCard.tsx` - Progress by area with visual bars
+## User Experience Changes
 
-**Features**:
-1. Summary KPIs with conditional coloring
-2. Top 10 variances with click-to-navigate
-3. Pending reviews with days-pending urgency
-4. Workflow bottlenecks showing avg time stuck per status
-5. Completion tracker by area with progress bars
-6. Dashboard/Workspace view toggle in header
+| Before | After |
+|--------|-------|
+| Click module tab to switch context | Click module category in tree to expand |
+| Separate navigation trees per module | Single unified tree |
+| Empty sidebar space when not on Documents | Full tree always visible |
+| Must navigate to PBC page to see requests | PBC items visible under each department |
 
----
+## Implementation Order
 
-## Phase 6: Cross-Module Linking
-
-**Links from Reconciliations**:
-- Tasks: "Create task: Investigate AR variance"
-- Documents: "View supporting docs for this account"
-- PBC: "Request missing bank statement"
-
-**Links to Reconciliations**:
-- From Tasks: "Related reconciliation: Bank A - Dec 2025"
-- From Documents: "Used as evidence in: Bank A reconciliation"
+1. Extend type definitions
+2. Create unified folder structure hook
+3. Update FolderTree component
+4. Create UnifiedWorkspace component
+5. Update AppLayout and routing
+6. Remove deprecated components
+7. Test all workflows

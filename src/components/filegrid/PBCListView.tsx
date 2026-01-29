@@ -63,7 +63,7 @@ export function PBCListView({ entity }: PBCListViewProps) {
   const { data: periods = [], isLoading: periodsLoading } = usePeriods();
   const { data: pbcItems = [], isLoading: itemsLoading } = usePBCItems({
     entityId: entity.id,
-    periodId: selectedPeriodId || null
+    periodId: selectedPeriodId && selectedPeriodId !== 'all' ? selectedPeriodId : null
   });
 
   const updateStatus = useUpdatePBCStatus();
@@ -106,7 +106,7 @@ export function PBCListView({ entity }: PBCListViewProps) {
               <SelectValue placeholder="All periods" />
             </SelectTrigger>
             <SelectContent className="bg-popover">
-              <SelectItem value="">All periods</SelectItem>
+              <SelectItem value="all">All periods</SelectItem>
               {periods.map((period) => (
                 <SelectItem key={period.id} value={period.id}>
                   {period.label}

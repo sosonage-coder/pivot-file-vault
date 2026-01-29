@@ -1,104 +1,109 @@
 
-# Fix: Connect PBC Sample Data to Department Structure
 
-## Problem Identified
+# Sidebar Cleanup and Right-Click Delete Feature
 
-The PBC sample data exists in the database but isn't appearing in the sidebar because:
-
-1. **Sidebar is department-first**: Each department shows its own "PBC Requests" module
-2. **PBC nodes have no department link**: The `pbc_nodes` table lacks a `department_id` column
-3. **Current code shows same PBC tree to all departments**: Line 321 uses global `pbcTreeNodes` instead of filtering by department
-
-## Solution Options
-
-### Option A: Add department_id to pbc_nodes (Recommended)
-
-Add a `department_id` column to `pbc_nodes` table and update the sidebar to filter PBC nodes by department.
-
-**Pros:**
-- Matches how Documents/Tasks/Reconciliations work
-- Each department shows only its PBC requests
-- Clean data model
-
-**Cons:**
-- Requires database migration
-- Needs to update seed data
-
-### Option B: Show all PBC nodes under first department only
-
-Quick fix without database changes - show PBC tree only once.
-
-**Pros:**
-- No database changes
-- Quick to implement
-
-**Cons:**
-- PBC requests would all appear under one department
-- Doesn't scale well for multi-department organizations
+## Summary
+This plan covers three main changes:
+1. Delete the unused "Audit" process (with PBC Documents, Work Papers areas)
+2. Delete the duplicate empty "Monthly Close" process
+3. Rename the remaining "Monthly Close" (with documents) to "Audit"
+4. Add right-click context menu with delete option for folders
 
 ---
 
-## Recommended Implementation (Option A)
+## Phase 1: Data Cleanup
 
-### Step 1: Add department_id column to pbc_nodes
+### Delete Unused Folders
+Remove from database:
+- **Audit process** (id: `2716d6b2-360e-4dbb-83ad-e2e34b6fcc7f`)
+  - Area: PBC Documents (`36589d8f-fc42-426c-bd81-189f8dd38601`)
+  - Area: Work Papers (`a214ffcd-fd8c-4924-8fa4-0da6aa84b450`)
+- **Duplicate Monthly Close** (id: `db91a0ce-b186-42c5-a28d-27f80c4e1e9e`) - the one without documents
+  - Areas: Banking, Fixed Assets, Journals, Payables, Receivables (the empty duplicates)
 
-```sql
-ALTER TABLE pbc_nodes ADD COLUMN department_id UUID REFERENCES departments(id);
-
--- Create index for performance
-CREATE INDEX idx_pbc_nodes_department ON pbc_nodes(department_id);
-```
-
-### Step 2: Update seed data with department linkage
-
-```sql
--- Get the Finance department ID
-UPDATE pbc_nodes 
-SET department_id = (SELECT id FROM departments WHERE name = 'Finance' LIMIT 1)
-WHERE entity_id = '11111111-1111-1111-1111-111111111111';
-```
-
-### Step 3: Update useUnifiedFolderStructure.ts
-
-Filter PBC nodes by department when building each department's tree:
-
-```typescript
-// Group PBC nodes by department
-const pbcByDept: Record<string, PbcNodeRow[]> = {};
-(pbcNodes as PbcNodeRow[])?.forEach((node: any) => {
-  if (node.department_id) {
-    if (!pbcByDept[node.department_id]) pbcByDept[node.department_id] = [];
-    pbcByDept[node.department_id].push(node);
-  }
-});
-
-// Inside the department loop:
-const deptPbcNodes = pbcByDept[deptId] || [];
-const pbcTreeNodes = buildPbcTreeNodes(deptPbcNodes);
-```
-
-### Step 4: Update CreatePbcNodeModal to require department selection
-
-When creating new PBC nodes, capture department_id.
+### Rename Process
+- Change "Monthly Close" (`22222222-2222-2222-2222-222222222222`) to "Audit"
 
 ---
 
-## Files to Modify
+## Phase 2: Right-Click Delete Feature
+
+### New Hook: `useDeleteFolder`
+Add delete mutations to `src/hooks/useAdminMutations.ts`:
+
+```text
+useDeleteProcess(processId)
+  - Deletes process and cascades to areas, objects, documents
+  - Invalidates folder-structure query
+  
+useDeleteArea(areaId)
+  - Deletes area and cascades to objects, documents
+  - Invalidates folder-structure query
+```
+
+### Updated Tree Component
+Modify `src/components/filegrid/UnifiedFolderTree.tsx`:
+
+```text
+TreeItem component changes:
+  - Wrap each tree item button in ContextMenuTrigger
+  - Show context menu on right-click with options:
+    - "Edit" (for objects, existing behavior)
+    - "Delete" (for process/area nodes)
+  - Use AlertDialog for delete confirmation
+```
+
+### Context Menu Options by Node Type
+| Node Type | Right-Click Options |
+|-----------|---------------------|
+| department | (none) |
+| process | Delete Process |
+| area | Delete Area |
+| object | Edit, Delete Object |
+| module-* | (none) |
+| pbc-* | (none) |
+
+### Delete Confirmation Dialog
+- Title: "Delete [Process/Area]?"
+- Message: "This will permanently delete [name] and all its contents. This action cannot be undone."
+- Buttons: Cancel, Delete (destructive style)
+
+---
+
+## Files to Create/Modify
 
 | File | Change |
 |------|--------|
-| `supabase/migrations/NEW` | Add department_id column, update seed data |
-| `src/hooks/useUnifiedFolderStructure.ts` | Filter PBC nodes by department |
-| `src/hooks/usePbcTree.ts` | Include department_id in queries |
-| `src/components/pbc/CreatePbcNodeModal.tsx` | Add department selector for root nodes |
-| `src/types/pbc-tree.ts` | Add department_id to interfaces |
+| `useAdminMutations.ts` | Add `useDeleteProcess`, `useDeleteArea`, `useUpdateProcess` mutations |
+| `UnifiedFolderTree.tsx` | Add context menu wrapper and delete confirmation dialog |
+| Database | SQL UPDATE/DELETE operations for cleanup |
 
 ---
 
-## Expected Result
+## Technical Details
 
-After implementation:
-- Navigate to **Finance** department in sidebar
-- Expand **PBC Requests** under Finance
-- See the full Asset/Liability/Equity hierarchy with all sample requests
-- Each department will only show its own PBC requests
+### Database Operations
+```text
+-- Delete empty "Audit" process and areas
+DELETE FROM areas WHERE process_id = '2716d6b2-...';
+DELETE FROM processes WHERE id = '2716d6b2-...';
+
+-- Delete duplicate Monthly Close (empty one)
+DELETE FROM areas WHERE process_id = 'db91a0ce-...';
+DELETE FROM processes WHERE id = 'db91a0ce-...';
+
+-- Rename remaining Monthly Close to Audit
+UPDATE processes SET name = 'Audit' WHERE id = '22222222-...';
+```
+
+### Cascade Behavior
+The database has `ON DELETE CASCADE` constraints, so:
+- Deleting a process automatically deletes its areas
+- Deleting an area automatically deletes its objects
+- Deleting an object automatically deletes its documents, PBC nodes, etc.
+
+### Safety Check
+Before deletion, we should check if the folder has children:
+- If process has areas with documents: show warning in confirmation
+- If area has objects with documents: show warning in confirmation
+

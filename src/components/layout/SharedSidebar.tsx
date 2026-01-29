@@ -2,12 +2,12 @@ import { useEffect } from 'react';
 import { Loader2 } from 'lucide-react';
 import { useModule } from '@/contexts/ModuleContext';
 import { useEntities } from '@/hooks/useEntities';
-import { useFolderStructure } from '@/hooks/useFolderStructure';
+import { useUnifiedFolderStructure } from '@/hooks/useUnifiedFolderStructure';
 import { usePendingApprovalCounts } from '@/hooks/useApprovals';
 import { EntitySelector } from '@/components/filegrid/EntitySelector';
-import { FolderTree } from '@/components/filegrid/FolderTree';
+import { UnifiedFolderTree } from '@/components/filegrid/UnifiedFolderTree';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import type { TreeNode, FileObject } from '@/types/filegrid';
+import type { TreeNode } from '@/types/filegrid';
 
 interface SharedSidebarProps {
   selectedNode: TreeNode | null;
@@ -26,10 +26,11 @@ export function SharedSidebar({
   onCreateEntity,
   onCreateProcess,
 }: SharedSidebarProps) {
-  const { selectedEntity, setSelectedEntity, activeModule } = useModule();
+  const { selectedEntity, setSelectedEntity, selectedPeriod } = useModule();
   const { data: entities, isLoading: entitiesLoading } = useEntities();
-  const { data: folderStructure, isLoading: foldersLoading } = useFolderStructure(
-    selectedEntity?.id ?? null
+  const { data: folderStructure, isLoading: foldersLoading } = useUnifiedFolderStructure(
+    selectedEntity?.id ?? null,
+    selectedPeriod?.id ?? null
   );
   const { data: pendingCounts } = usePendingApprovalCounts(selectedEntity?.id ?? null);
 
@@ -39,28 +40,6 @@ export function SharedSidebar({
       setSelectedEntity(entities[0]);
     }
   }, [entities, selectedEntity, setSelectedEntity]);
-
-  // Only Documents shows the full folder tree in SharedSidebar
-  // Other modules have their own layouts with integrated trees
-  const showFolderTree = activeModule === 'documents';
-
-  // For non-document modules, show a slim sidebar with just entity/period selectors
-  if (!showFolderTree) {
-    return (
-      <aside className="flex w-64 flex-col border-r bg-sidebar-background">
-        <div className="border-b p-3">
-          <EntitySelector
-            entities={entities || []}
-            selectedEntity={selectedEntity}
-            onSelect={setSelectedEntity}
-            isAdmin={isAdmin}
-            onCreateEntity={onCreateEntity}
-            onCreateProcess={onCreateProcess}
-          />
-        </div>
-      </aside>
-    );
-  }
 
   return (
     <aside className="flex w-64 flex-col border-r bg-sidebar-background">
@@ -81,7 +60,7 @@ export function SharedSidebar({
             <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
           </div>
         ) : (
-          <FolderTree
+          <UnifiedFolderTree
             nodes={folderStructure || []}
             selectedId={selectedNode?.id ?? null}
             onSelect={onSelectNode}

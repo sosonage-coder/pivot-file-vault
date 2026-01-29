@@ -3,7 +3,6 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/contexts/AuthContext';
-import { ModuleNav } from './ModuleNav';
 
 interface AppHeaderProps {
   externalReviewMode: boolean;
@@ -23,9 +22,6 @@ export function AppHeader({ externalReviewMode, onToggleReviewMode }: AppHeaderP
           </div>
           <h1 className="text-lg font-semibold">FileGRID</h1>
         </div>
-
-        {/* Module Navigation */}
-        <ModuleNav />
       </div>
 
       <div className="flex items-center gap-6">

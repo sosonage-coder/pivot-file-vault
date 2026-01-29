@@ -1,14 +1,16 @@
 
 # Formal PBC Tree Model Implementation
 
-## Overview
+## Status: ✅ Phase 1-4 Complete
 
-This plan transforms the current flat PBC list structure into a hierarchical tree model that reflects how auditors actually think about evidence requests. The new model supports variable depth (3-6 levels) with typed nodes (Area, Dimension, Object, Request) and enforces structural rules at the application layer.
+### Completed:
+- ✅ Database schema (pbc_templates, pbc_nodes tables with RLS)
+- ✅ TypeScript types (src/types/pbc-tree.ts)
+- ✅ Data hooks (usePbcTree.ts, usePbcTemplates.ts)
+- ✅ UI Components (PbcTreeView, PbcNodeItem, CreatePbcNodeModal, PbcRequestDetail, PbcCompletionBadge)
+- ✅ UnifiedWorkspace integration
 
-## Current State Analysis
-
-```text
-Current Implementation:
+### Remaining:
 ┌────────────────────────────────────────┐
 │ pbc_items (flat table)                 │
 │ - entity_id, period_id                 │

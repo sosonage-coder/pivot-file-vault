@@ -545,6 +545,7 @@ export type Database = {
           created_at: string | null
           id: string
           pbc_item_id: string
+          pbc_node_id: string | null
           user_id: string | null
         }
         Insert: {
@@ -552,6 +553,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           pbc_item_id: string
+          pbc_node_id?: string | null
           user_id?: string | null
         }
         Update: {
@@ -559,6 +561,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           pbc_item_id?: string
+          pbc_node_id?: string | null
           user_id?: string | null
         }
         Relationships: [
@@ -567,6 +570,13 @@ export type Database = {
             columns: ["pbc_item_id"]
             isOneToOne: false
             referencedRelation: "pbc_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pbc_comments_pbc_node_id_fkey"
+            columns: ["pbc_node_id"]
+            isOneToOne: false
+            referencedRelation: "pbc_nodes"
             referencedColumns: ["id"]
           },
         ]
@@ -664,6 +674,145 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      pbc_nodes: {
+        Row: {
+          area_id: string | null
+          assignee_id: string | null
+          created_at: string
+          due_date: string | null
+          entity_id: string
+          id: string
+          label: string
+          node_type: Database["public"]["Enums"]["pbc_node_type"]
+          notes: string | null
+          object_id: string | null
+          parent_id: string | null
+          pbc_template_id: string | null
+          period_id: string
+          priority: string | null
+          sort_order: number | null
+          status: Database["public"]["Enums"]["pbc_status"] | null
+          updated_at: string
+        }
+        Insert: {
+          area_id?: string | null
+          assignee_id?: string | null
+          created_at?: string
+          due_date?: string | null
+          entity_id: string
+          id?: string
+          label: string
+          node_type: Database["public"]["Enums"]["pbc_node_type"]
+          notes?: string | null
+          object_id?: string | null
+          parent_id?: string | null
+          pbc_template_id?: string | null
+          period_id: string
+          priority?: string | null
+          sort_order?: number | null
+          status?: Database["public"]["Enums"]["pbc_status"] | null
+          updated_at?: string
+        }
+        Update: {
+          area_id?: string | null
+          assignee_id?: string | null
+          created_at?: string
+          due_date?: string | null
+          entity_id?: string
+          id?: string
+          label?: string
+          node_type?: Database["public"]["Enums"]["pbc_node_type"]
+          notes?: string | null
+          object_id?: string | null
+          parent_id?: string | null
+          pbc_template_id?: string | null
+          period_id?: string
+          priority?: string | null
+          sort_order?: number | null
+          status?: Database["public"]["Enums"]["pbc_status"] | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pbc_nodes_area_id_fkey"
+            columns: ["area_id"]
+            isOneToOne: false
+            referencedRelation: "areas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pbc_nodes_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pbc_nodes_object_id_fkey"
+            columns: ["object_id"]
+            isOneToOne: false
+            referencedRelation: "objects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pbc_nodes_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "pbc_nodes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pbc_nodes_pbc_template_id_fkey"
+            columns: ["pbc_template_id"]
+            isOneToOne: false
+            referencedRelation: "pbc_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pbc_nodes_period_id_fkey"
+            columns: ["period_id"]
+            isOneToOne: false
+            referencedRelation: "periods"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pbc_templates: {
+        Row: {
+          allowed_sequences: Json | null
+          area_type: string | null
+          created_at: string
+          description: string | null
+          id: string
+          max_depth: number
+          min_depth: number
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          allowed_sequences?: Json | null
+          area_type?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          max_depth?: number
+          min_depth?: number
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          allowed_sequences?: Json | null
+          area_type?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          max_depth?: number
+          min_depth?: number
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       periods: {
         Row: {
@@ -1217,6 +1366,7 @@ export type Database = {
       app_role: "admin" | "user" | "external_reviewer"
       approval_status: "pending" | "approved" | "rejected"
       document_status: "Draft" | "Final" | "Superseded" | "Archived"
+      pbc_node_type: "area" | "dimension" | "object" | "request"
       pbc_status: "Requested" | "Uploaded" | "Reviewed" | "Complete"
       period_type: "month" | "quarter" | "year" | "phase"
       reconciliation_line_type:
@@ -1368,6 +1518,7 @@ export const Constants = {
       app_role: ["admin", "user", "external_reviewer"],
       approval_status: ["pending", "approved", "rejected"],
       document_status: ["Draft", "Final", "Superseded", "Archived"],
+      pbc_node_type: ["area", "dimension", "object", "request"],
       pbc_status: ["Requested", "Uploaded", "Reviewed", "Complete"],
       period_type: ["month", "quarter", "year", "phase"],
       reconciliation_line_type: [

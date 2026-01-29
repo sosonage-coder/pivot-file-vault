@@ -8,8 +8,10 @@ import { Header } from '@/components/filegrid/Header';
 import { EntitySelector } from '@/components/filegrid/EntitySelector';
 import { FolderTree } from '@/components/filegrid/FolderTree';
 import { DocumentList } from '@/components/filegrid/DocumentList';
+import { UploadDocumentModal } from '@/components/filegrid/UploadDocumentModal';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Loader2, Plus } from 'lucide-react';
 import type { Entity, TreeNode } from '@/types/filegrid';
 
 export default function Index() {
@@ -17,6 +19,7 @@ export default function Index() {
   const [selectedEntity, setSelectedEntity] = useState<Entity | null>(null);
   const [selectedNode, setSelectedNode] = useState<TreeNode | null>(null);
   const [externalReviewMode, setExternalReviewMode] = useState(false);
+  const [uploadModalOpen, setUploadModalOpen] = useState(false);
 
   const { data: entities, isLoading: entitiesLoading } = useEntities();
   const { data: folderStructure, isLoading: foldersLoading } = useFolderStructure(
@@ -111,6 +114,14 @@ export default function Index() {
                 </p>
               )}
             </div>
+            
+            {/* Add Document button - only show when Area is selected */}
+            {selectedNode?.type === 'area' && selectedEntity && !isExternalReviewer && (
+              <Button onClick={() => setUploadModalOpen(true)}>
+                <Plus className="mr-2 h-4 w-4" />
+                Add Document
+              </Button>
+            )}
           </div>
 
           <ScrollArea className="flex-1 p-6">
@@ -121,6 +132,18 @@ export default function Index() {
           </ScrollArea>
         </main>
       </div>
+
+      {/* Upload Document Modal */}
+      {selectedNode?.type === 'area' && selectedEntity && (
+        <UploadDocumentModal
+          open={uploadModalOpen}
+          onOpenChange={setUploadModalOpen}
+          selectedNode={selectedNode}
+          selectedEntity={selectedEntity}
+          departmentId={(selectedNode.metadata?.department_id as string) || ''}
+          processId={(selectedNode.metadata?.process_id as string) || ''}
+        />
+      )}
     </div>
   );
 }

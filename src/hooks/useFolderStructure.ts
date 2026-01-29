@@ -90,7 +90,11 @@ export function useFolderStructure(entityId: string | null) {
           name: process.name,
           type: 'process',
           children: [],
-          documentCount: 0
+          documentCount: 0,
+          metadata: {
+            department_id: dept.id,
+            entity_id: entityId
+          }
         };
 
         // Add areas to this process
@@ -101,7 +105,12 @@ export function useFolderStructure(entityId: string | null) {
             id: area.id,
             name: area.name,
             type: 'area',
-            documentCount: areaDocCount
+            documentCount: areaDocCount,
+            metadata: {
+              department_id: dept.id,
+              process_id: process.id,
+              template_id: area.template_id
+            }
           });
           processNode.documentCount = (processNode.documentCount || 0) + areaDocCount;
         }

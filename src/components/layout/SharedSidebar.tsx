@@ -41,7 +41,8 @@ export function SharedSidebar({
   }, [entities, selectedEntity, setSelectedEntity]);
 
   // Determine if folder tree should be shown for this module
-  const showFolderTree = ['documents', 'pbc', 'reconciliations'].includes(activeModule);
+  // Only show for Documents - other modules (PBC, Tasks, Recon) have their own tree panels
+  const showFolderTree = activeModule === 'documents';
 
   return (
     <aside className="flex w-64 flex-col border-r bg-sidebar-background">

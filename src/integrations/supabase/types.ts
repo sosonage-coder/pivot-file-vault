@@ -682,29 +682,97 @@ export type Database = {
           },
         ]
       }
-      reconciliation_templates: {
+      reconciliation_line_items: {
         Row: {
+          amount: number | null
           created_at: string
           description: string | null
+          end_date: string | null
           id: string
-          name: string
-          template_content: Json | null
+          line_type: string
+          metadata: Json | null
+          period_month: string | null
+          quantity: number | null
+          rate: number | null
+          reconciliation_id: string
+          sort_order: number | null
+          start_date: string | null
           updated_at: string
         }
         Insert: {
+          amount?: number | null
           created_at?: string
           description?: string | null
+          end_date?: string | null
           id?: string
-          name: string
-          template_content?: Json | null
+          line_type?: string
+          metadata?: Json | null
+          period_month?: string | null
+          quantity?: number | null
+          rate?: number | null
+          reconciliation_id: string
+          sort_order?: number | null
+          start_date?: string | null
           updated_at?: string
         }
         Update: {
+          amount?: number | null
           created_at?: string
           description?: string | null
+          end_date?: string | null
+          id?: string
+          line_type?: string
+          metadata?: Json | null
+          period_month?: string | null
+          quantity?: number | null
+          rate?: number | null
+          reconciliation_id?: string
+          sort_order?: number | null
+          start_date?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reconciliation_line_items_reconciliation_id_fkey"
+            columns: ["reconciliation_id"]
+            isOneToOne: false
+            referencedRelation: "reconciliations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reconciliation_templates: {
+        Row: {
+          calculation_rules: Json | null
+          created_at: string
+          description: string | null
+          field_schema: Json | null
+          id: string
+          name: string
+          template_content: Json | null
+          template_type: string | null
+          updated_at: string
+        }
+        Insert: {
+          calculation_rules?: Json | null
+          created_at?: string
+          description?: string | null
+          field_schema?: Json | null
+          id?: string
+          name: string
+          template_content?: Json | null
+          template_type?: string | null
+          updated_at?: string
+        }
+        Update: {
+          calculation_rules?: Json | null
+          created_at?: string
+          description?: string | null
+          field_schema?: Json | null
           id?: string
           name?: string
           template_content?: Json | null
+          template_type?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -1012,6 +1080,18 @@ export type Database = {
       document_status: "Draft" | "Final" | "Superseded" | "Archived"
       pbc_status: "Requested" | "Uploaded" | "Reviewed" | "Complete"
       period_type: "month" | "quarter" | "year" | "phase"
+      reconciliation_line_type:
+        | "opening"
+        | "addition"
+        | "reversal"
+        | "adjustment"
+        | "closing"
+        | "outstanding"
+        | "deposit_in_transit"
+        | "amortization"
+        | "depreciation"
+        | "interest"
+        | "principal"
       reconciliation_status:
         | "not_started"
         | "in_progress"
@@ -1151,6 +1231,19 @@ export const Constants = {
       document_status: ["Draft", "Final", "Superseded", "Archived"],
       pbc_status: ["Requested", "Uploaded", "Reviewed", "Complete"],
       period_type: ["month", "quarter", "year", "phase"],
+      reconciliation_line_type: [
+        "opening",
+        "addition",
+        "reversal",
+        "adjustment",
+        "closing",
+        "outstanding",
+        "deposit_in_transit",
+        "amortization",
+        "depreciation",
+        "interest",
+        "principal",
+      ],
       reconciliation_status: [
         "not_started",
         "in_progress",

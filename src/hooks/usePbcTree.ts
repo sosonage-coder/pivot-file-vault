@@ -176,6 +176,7 @@ export function useCreatePbcNode() {
       const insertData = {
         entity_id: input.entityId,
         period_id: input.periodId,
+        department_id: input.departmentId || null,
         parent_id: input.parentId || null,
         node_type: input.nodeType as 'department' | 'process' | 'area' | 'object' | 'request',
         label: input.label,

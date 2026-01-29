@@ -53,6 +53,7 @@ interface CreatePbcNodeModalProps {
   onOpenChange: (open: boolean) => void;
   entityId: string;
   periodId: string;
+  departmentId: string;
   parentNode: PbcTreeNode | null;
 }
 
@@ -61,6 +62,7 @@ export function CreatePbcNodeModal({
   onOpenChange,
   entityId,
   periodId,
+  departmentId,
   parentNode,
 }: CreatePbcNodeModalProps) {
   const { data: templates } = usePbcTemplates();
@@ -103,6 +105,7 @@ export function CreatePbcNodeModal({
       await createNode.mutateAsync({
         entityId,
         periodId,
+        departmentId,
         parentId: parentNode?.id || null,
         nodeType: values.nodeType as PbcNodeType,
         label: values.label,

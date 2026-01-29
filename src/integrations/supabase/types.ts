@@ -680,6 +680,7 @@ export type Database = {
           area_id: string | null
           assignee_id: string | null
           created_at: string
+          department_id: string | null
           due_date: string | null
           entity_id: string
           id: string
@@ -699,6 +700,7 @@ export type Database = {
           area_id?: string | null
           assignee_id?: string | null
           created_at?: string
+          department_id?: string | null
           due_date?: string | null
           entity_id: string
           id?: string
@@ -718,6 +720,7 @@ export type Database = {
           area_id?: string | null
           assignee_id?: string | null
           created_at?: string
+          department_id?: string | null
           due_date?: string | null
           entity_id?: string
           id?: string
@@ -739,6 +742,13 @@ export type Database = {
             columns: ["area_id"]
             isOneToOne: false
             referencedRelation: "areas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pbc_nodes_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
             referencedColumns: ["id"]
           },
           {

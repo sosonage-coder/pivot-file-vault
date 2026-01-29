@@ -220,8 +220,15 @@ export function useUnifiedFolderStructure(entityId: string | null, periodId: str
         }
       });
 
-      // Build PBC tree from nodes
-      const pbcTreeNodes = buildPbcTreeNodes(pbcNodes as PbcNodeRow[]);
+      // Group PBC nodes by department
+      const pbcByDept: Record<string, PbcNodeRow[]> = {};
+      (pbcNodes as PbcNodeRow[])?.forEach((node) => {
+        const deptId = node.department_id;
+        if (deptId) {
+          if (!pbcByDept[deptId]) pbcByDept[deptId] = [];
+          pbcByDept[deptId].push(node);
+        }
+      });
 
       // Build tree structure: Department → Modules (Documents, PBC, Tasks, Recon)
       const departmentMap = new Map<string, TreeNode>();
@@ -313,13 +320,15 @@ export function useUnifiedFolderStructure(entityId: string | null, periodId: str
           metadata: { department_id: deptId, entity_id: entityId }
         };
 
-        // 2. PBC Module Node - now uses hierarchical tree
+        // 2. PBC Module Node - now uses hierarchical tree filtered by department
+        const deptPbcNodes = pbcByDept[deptId] || [];
+        const pbcTreeNodes = buildPbcTreeNodes(deptPbcNodes);
         const pbcModule: TreeNode = {
           id: `${deptId}-pbc`,
           name: 'PBC Requests',
           type: 'module-pbc',
           children: pbcTreeNodes.length > 0 ? pbcTreeNodes : undefined,
-          itemCount: pbcNodes.length,
+          itemCount: deptPbcNodes.filter(n => n.node_type === 'request').length,
           metadata: { department_id: deptId, entity_id: entityId }
         };
 

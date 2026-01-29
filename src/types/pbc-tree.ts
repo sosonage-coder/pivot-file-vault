@@ -24,6 +24,7 @@ export interface PbcNode {
   id: string;
   entity_id: string;
   period_id: string;
+  department_id: string | null;
   pbc_template_id: string | null;
   parent_id: string | null;
   node_type: PbcNodeType;
@@ -63,6 +64,7 @@ export interface PbcTreeNode extends PbcNode {
 export interface CreatePbcNodeInput {
   entityId: string;
   periodId: string;
+  departmentId?: string | null;
   parentId?: string | null;
   nodeType: PbcNodeType;
   label: string;

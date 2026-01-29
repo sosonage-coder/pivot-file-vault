@@ -539,6 +539,57 @@ export type Database = {
           },
         ]
       }
+      pbc_attachments: {
+        Row: {
+          created_at: string
+          entity_id: string
+          file_name: string
+          file_path: string
+          file_size: number | null
+          file_type: string | null
+          id: string
+          pbc_node_id: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          entity_id: string
+          file_name: string
+          file_path: string
+          file_size?: number | null
+          file_type?: string | null
+          id?: string
+          pbc_node_id: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          entity_id?: string
+          file_name?: string
+          file_path?: string
+          file_size?: number | null
+          file_type?: string | null
+          id?: string
+          pbc_node_id?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pbc_attachments_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pbc_attachments_pbc_node_id_fkey"
+            columns: ["pbc_node_id"]
+            isOneToOne: false
+            referencedRelation: "pbc_nodes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pbc_comments: {
         Row: {
           content: string

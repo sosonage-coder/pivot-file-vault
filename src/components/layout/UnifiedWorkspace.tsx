@@ -353,6 +353,7 @@ export function UnifiedWorkspace({ selectedNode, externalReviewMode }: UnifiedWo
               objectNode={selectedNode}
               requests={pbcRequests}
               isLoading={pbcLoading}
+              entityId={selectedEntity.id}
               onFulfillRequest={async (requestId, fileUrl) => {
                 await fulfillPbcRequest.mutateAsync({
                   requestId,

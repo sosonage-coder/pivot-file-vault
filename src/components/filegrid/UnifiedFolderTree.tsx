@@ -8,6 +8,7 @@ import {
   FileBox, 
   FileText,
   ClipboardList,
+  ClipboardCheck,
   CheckSquare,
   Scale,
   ShieldCheck,
@@ -47,6 +48,12 @@ const iconMap: Record<TreeNodeType, typeof Briefcase> = {
   'pbc-item': ClipboardList,
   'task-item': CheckSquare,
   'reconciliation-account': Scale,
+  // PBC tree hierarchy icons
+  'pbc-department': Briefcase,
+  'pbc-process': FolderOpen,
+  'pbc-area': Folder,
+  'pbc-object': FileBox,
+  'pbc-request': ClipboardCheck,
 };
 
 const moduleColors: Record<string, string> = {
@@ -54,6 +61,15 @@ const moduleColors: Record<string, string> = {
   'module-pbc': 'text-amber-600 dark:text-amber-400',
   'module-tasks': 'text-green-600 dark:text-green-400',
   'module-reconciliations': 'text-purple-600 dark:text-purple-400',
+};
+
+// PBC tree node colors
+const pbcTreeColors: Record<string, string> = {
+  'pbc-department': 'text-slate-500 dark:text-slate-400',
+  'pbc-process': 'text-blue-500 dark:text-blue-400',
+  'pbc-area': 'text-amber-500 dark:text-amber-400',
+  'pbc-object': 'text-purple-500 dark:text-purple-400',
+  'pbc-request': 'text-green-500 dark:text-green-400',
 };
 
 function TreeItem({ node, level, selectedId, onSelect, pendingCounts, onEditObject }: TreeItemProps) {
@@ -65,7 +81,8 @@ function TreeItem({ node, level, selectedId, onSelect, pendingCounts, onEditObje
   const pendingCount = node.type === 'object' ? (pendingCounts?.[node.id] || 0) : 0;
   const requiresApproval = node.type === 'object' && node.metadata?.requires_approval;
   const isModuleNode = node.type.startsWith('module-');
-  const isItemNode = ['pbc-item', 'task-item', 'reconciliation-account'].includes(node.type);
+  const isPbcTreeNode = node.type.startsWith('pbc-') && !node.type.startsWith('pbc-item');
+  const isItemNode = ['pbc-item', 'task-item', 'reconciliation-account'].includes(node.type) || node.type === 'pbc-request';
 
   const handleClick = () => {
     if (hasChildren) {
@@ -153,6 +170,7 @@ function TreeItem({ node, level, selectedId, onSelect, pendingCounts, onEditObje
         <Icon className={cn(
           'h-4 w-4 flex-shrink-0',
           isModuleNode ? moduleColors[node.type] : 
+          isPbcTreeNode ? pbcTreeColors[node.type] :
           node.type === 'area' ? 'text-primary' : 
           node.type === 'object' ? 'text-accent-foreground' : 
           isItemNode ? 'text-muted-foreground' :

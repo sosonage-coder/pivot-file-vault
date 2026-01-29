@@ -169,7 +169,13 @@ export type TreeNodeType =
   | 'module-reconciliations'
   | 'pbc-item'
   | 'task-item'
-  | 'reconciliation-account';
+  | 'reconciliation-account'
+  // PBC tree hierarchy types
+  | 'pbc-department'
+  | 'pbc-process'
+  | 'pbc-area'
+  | 'pbc-object'
+  | 'pbc-request';
 
 export interface TreeNode {
   id: string;

@@ -11,76 +11,14 @@ interface AreaWithProcess extends Area {
   processes: ProcessWithDepartment;
 }
 
-type PbcNodeRow = Tables<'pbc_nodes'>;
+// Removed: PbcNodeRow type no longer needed for sidebar tree
 
-// Map PBC node types to sidebar TreeNodeType
-const pbcNodeTypeMap: Record<string, TreeNodeType> = {
-  'department': 'pbc-department',
-  'process': 'pbc-process',
-  'area': 'pbc-area',
-  'object': 'pbc-object',
-  'request': 'pbc-request',
+// PBC helper: count requests per object
+type PbcRequestRow = {
+  id: string;
+  object_id: string | null;
+  status: string | null;
 };
-
-// Build hierarchical tree from flat pbc_nodes
-function buildPbcTreeNodes(nodes: PbcNodeRow[]): TreeNode[] {
-  const nodeMap = new Map<string, TreeNode>();
-  const rootNodes: TreeNode[] = [];
-
-  // First pass: create all TreeNode objects
-  for (const node of nodes) {
-    const treeNode: TreeNode = {
-      id: node.id,
-      name: node.label,
-      type: pbcNodeTypeMap[node.node_type] || 'pbc-request',
-      children: [],
-      metadata: {
-        status: node.status,
-        priority: node.priority,
-        due_date: node.due_date,
-        node_type: node.node_type,
-        parent_id: node.parent_id,
-      },
-    };
-    nodeMap.set(node.id, treeNode);
-  }
-
-  // Second pass: build parent-child relationships
-  for (const node of nodes) {
-    const treeNode = nodeMap.get(node.id)!;
-    if (node.parent_id && nodeMap.has(node.parent_id)) {
-      const parent = nodeMap.get(node.parent_id)!;
-      parent.children = parent.children || [];
-      parent.children.push(treeNode);
-    } else {
-      rootNodes.push(treeNode);
-    }
-  }
-
-  // Clean up empty children arrays
-  for (const node of nodeMap.values()) {
-    if (node.children?.length === 0) {
-      node.children = undefined;
-    }
-  }
-
-  // Count requests in each node
-  function countRequests(node: TreeNode): number {
-    if (node.type === 'pbc-request') return 1;
-    let count = 0;
-    if (node.children) {
-      for (const child of node.children) {
-        count += countRequests(child);
-      }
-    }
-    node.itemCount = count > 0 ? count : undefined;
-    return count;
-  }
-
-  rootNodes.forEach(countRequests);
-
-  return rootNodes;
-}
 
 export function useUnifiedFolderStructure(entityId: string | null, periodId: string | null) {
   return useQuery({
@@ -164,18 +102,26 @@ export function useUnifiedFolderStructure(entityId: string | null, periodId: str
         }
       }
 
-      // Fetch PBC nodes (hierarchical tree) instead of flat pbc_items
+      // Fetch PBC nodes (request nodes) to count per object
       const pbcNodesQuery = supabase
         .from('pbc_nodes')
-        .select('*')
+        .select('id, object_id, status')
         .eq('entity_id', entityId)
-        .order('sort_order');
+        .eq('node_type', 'request');
       
       if (periodId) {
         pbcNodesQuery.eq('period_id', periodId);
       }
       
       const { data: pbcNodes = [] } = await pbcNodesQuery;
+      
+      // Count PBC requests per object
+      const pbcCountsByObject: Record<string, number> = {};
+      (pbcNodes as PbcRequestRow[])?.forEach((node) => {
+        if (node.object_id) {
+          pbcCountsByObject[node.object_id] = (pbcCountsByObject[node.object_id] || 0) + 1;
+        }
+      });
 
       // Fetch Tasks grouped by department
       const tasksQuery = supabase
@@ -217,16 +163,6 @@ export function useUnifiedFolderStructure(entityId: string | null, periodId: str
         if (deptId) {
           if (!reconByDept[deptId]) reconByDept[deptId] = [];
           reconByDept[deptId].push(item);
-        }
-      });
-
-      // Group PBC nodes by department
-      const pbcByDept: Record<string, PbcNodeRow[]> = {};
-      (pbcNodes as PbcNodeRow[])?.forEach((node) => {
-        const deptId = node.department_id;
-        if (deptId) {
-          if (!pbcByDept[deptId]) pbcByDept[deptId] = [];
-          pbcByDept[deptId].push(node);
         }
       });
 
@@ -320,15 +256,77 @@ export function useUnifiedFolderStructure(entityId: string | null, periodId: str
           metadata: { department_id: deptId, entity_id: entityId }
         };
 
-        // 2. PBC Module Node - now uses hierarchical tree filtered by department
-        const deptPbcNodes = pbcByDept[deptId] || [];
-        const pbcTreeNodes = buildPbcTreeNodes(deptPbcNodes);
+        // 2. PBC Module Node - mirrors Documents structure (Process → Area → Object)
+        const pbcChildren: TreeNode[] = [];
+        let totalPbcCount = 0;
+        
+        for (const process of deptProcesses) {
+          const processNode: TreeNode = {
+            id: `pbc-${process.id}`,
+            name: process.name,
+            type: 'pbc-process' as const,
+            children: [],
+            itemCount: 0,
+            metadata: {
+              department_id: deptId,
+              entity_id: entityId,
+              process_id: process.id
+            }
+          };
+
+          const processAreas = areas.filter(a => a.process_id === process.id);
+          for (const area of processAreas) {
+            const areaObjects = objects.filter(o => o.area_id === area.id);
+            
+            // Only include areas that have objects with PBC requests
+            const objectNodes: TreeNode[] = areaObjects.map(obj => {
+              const pbcCount = pbcCountsByObject[obj.id] || 0;
+              return {
+                id: `pbc-obj-${obj.id}`,
+                name: obj.name,
+                type: 'pbc-object' as const,
+                itemCount: pbcCount,
+                metadata: {
+                  department_id: deptId,
+                  process_id: process.id,
+                  area_id: area.id,
+                  object_id: obj.id,
+                  entity_id: entityId
+                }
+              };
+            });
+
+            const areaItemCount = objectNodes.reduce((sum, o) => sum + (o.itemCount || 0), 0);
+            
+            const areaNode: TreeNode = {
+              id: `pbc-${area.id}`,
+              name: area.name,
+              type: 'pbc-area' as const,
+              children: objectNodes.length > 0 ? objectNodes : undefined,
+              itemCount: areaItemCount,
+              metadata: {
+                department_id: deptId,
+                process_id: process.id,
+                area_id: area.id
+              }
+            };
+
+            processNode.children!.push(areaNode);
+            processNode.itemCount = (processNode.itemCount || 0) + areaItemCount;
+          }
+
+          if (processNode.children!.length > 0) {
+            pbcChildren.push(processNode);
+            totalPbcCount += processNode.itemCount || 0;
+          }
+        }
+
         const pbcModule: TreeNode = {
           id: `${deptId}-pbc`,
           name: 'PBC Requests',
           type: 'module-pbc',
-          children: pbcTreeNodes.length > 0 ? pbcTreeNodes : undefined,
-          itemCount: deptPbcNodes.filter(n => n.node_type === 'request').length,
+          children: pbcChildren.length > 0 ? pbcChildren : undefined,
+          itemCount: totalPbcCount,
           metadata: { department_id: deptId, entity_id: entityId }
         };
 

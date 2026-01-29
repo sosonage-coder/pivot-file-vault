@@ -1366,7 +1366,13 @@ export type Database = {
       app_role: "admin" | "user" | "external_reviewer"
       approval_status: "pending" | "approved" | "rejected"
       document_status: "Draft" | "Final" | "Superseded" | "Archived"
-      pbc_node_type: "area" | "dimension" | "object" | "request"
+      pbc_node_type:
+        | "department"
+        | "process"
+        | "area"
+        | "dimension"
+        | "object"
+        | "request"
       pbc_status: "Requested" | "Uploaded" | "Reviewed" | "Complete"
       period_type: "month" | "quarter" | "year" | "phase"
       reconciliation_line_type:
@@ -1518,7 +1524,14 @@ export const Constants = {
       app_role: ["admin", "user", "external_reviewer"],
       approval_status: ["pending", "approved", "rejected"],
       document_status: ["Draft", "Final", "Superseded", "Archived"],
-      pbc_node_type: ["area", "dimension", "object", "request"],
+      pbc_node_type: [
+        "department",
+        "process",
+        "area",
+        "dimension",
+        "object",
+        "request",
+      ],
       pbc_status: ["Requested", "Uploaded", "Reviewed", "Complete"],
       period_type: ["month", "quarter", "year", "phase"],
       reconciliation_line_type: [

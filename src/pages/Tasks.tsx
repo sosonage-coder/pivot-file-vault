@@ -1,13 +1,16 @@
 import { useState } from 'react';
 import { useModule } from '@/contexts/ModuleContext';
-import { useTasks, useUpdateTask, useCreateTask } from '@/hooks/useTasks';
+import { useTasks, useUpdateTask, useCreateTask, useDeleteTask } from '@/hooks/useTasks';
 import { usePeriods } from '@/hooks/usePeriods';
 import { useFolderStructure } from '@/hooks/useFolderStructure';
-import { TaskTree, useTaskTree, type TaskTreeNode } from '@/components/tasks/TaskTree';
-import { TaskWorkspace } from '@/components/tasks/TaskWorkspace';
+import { TaskDashboard } from '@/components/tasks/TaskDashboard';
+import { TaskListView } from '@/components/tasks/TaskListView';
+import { TaskKanbanView } from '@/components/tasks/TaskKanbanView';
+import { TaskCalendarView } from '@/components/tasks/TaskCalendarView';
 import { CreateTaskModal } from '@/components/tasks/CreateTaskModal';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Select,
   SelectContent,
@@ -15,23 +18,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  ResizablePanelGroup,
-  ResizablePanel,
-  ResizableHandle,
-} from '@/components/ui/resizable';
-import { Plus, Loader2 } from 'lucide-react';
+import { Plus, Loader2, LayoutDashboard, List, Columns3, Calendar } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import type { TaskStatus, TaskWithRelations } from '@/types/tasks';
 import type { Process, Area } from '@/types/filegrid';
+
+type ViewMode = 'dashboard' | 'list' | 'kanban' | 'calendar';
 
 export default function TasksModule() {
   const { selectedEntity, selectedPeriod, setSelectedPeriod } = useModule();
   const { toast } = useToast();
 
+  const [viewMode, setViewMode] = useState<ViewMode>('dashboard');
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<TaskWithRelations | null>(null);
-  const [selectedNode, setSelectedNode] = useState<TaskTreeNode | null>(null);
 
   // Data hooks
   const { data: periods = [] } = usePeriods();
@@ -44,12 +44,7 @@ export default function TasksModule() {
   // Mutations
   const createTask = useCreateTask();
   const updateTask = useUpdateTask();
-
-  // Build tree from tasks
-  const tree = useTaskTree(tasks, folderStructure);
-
-  // Get selected task
-  const selectedTask = selectedNode?.type === 'task' ? selectedNode.task || null : null;
+  const deleteTask = useDeleteTask();
 
   // Calculate stats
   const stats = {
@@ -84,10 +79,6 @@ export default function TasksModule() {
     });
   });
 
-  const handleNodeSelect = (node: TaskTreeNode) => {
-    setSelectedNode(node);
-  };
-
   const handleCreateTask = async (data: Parameters<typeof createTask.mutate>[0]) => {
     try {
       await createTask.mutateAsync(data);
@@ -109,6 +100,16 @@ export default function TasksModule() {
       toast({ title: 'Task updated' });
     } catch (error) {
       toast({ title: 'Failed to update task', variant: 'destructive' });
+    }
+  };
+
+  const handleDeleteTask = async (taskId: string) => {
+    if (!selectedEntity) return;
+    try {
+      await deleteTask.mutateAsync({ taskId, entityId: selectedEntity.id });
+      toast({ title: 'Task deleted' });
+    } catch (error) {
+      toast({ title: 'Failed to delete task', variant: 'destructive' });
     }
   };
 
@@ -139,6 +140,11 @@ export default function TasksModule() {
     }
   };
 
+  const handleSelectTask = (task: TaskWithRelations) => {
+    setEditingTask(task);
+    setCreateModalOpen(true);
+  };
+
   if (!selectedEntity) {
     return (
       <main className="flex flex-1 flex-col items-center justify-center">
@@ -148,6 +154,63 @@ export default function TasksModule() {
   }
 
   const isLoading = foldersLoading || tasksLoading;
+
+  const renderContent = () => {
+    if (isLoading) {
+      return (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      );
+    }
+
+    switch (viewMode) {
+      case 'dashboard':
+        return (
+          <TaskDashboard
+            tasks={tasks}
+            isLoading={isLoading}
+            onSelectTask={handleSelectTask}
+          />
+        );
+      case 'list':
+        return (
+          <ScrollArea className="flex-1 p-6">
+            <TaskListView
+              tasks={tasks}
+              isLoading={isLoading}
+              onUpdateTask={handleUpdateTask}
+              onEditTask={handleEditTask}
+              onDeleteTask={handleDeleteTask}
+            />
+          </ScrollArea>
+        );
+      case 'kanban':
+        return (
+          <ScrollArea className="flex-1 p-6">
+            <TaskKanbanView
+              tasks={tasks}
+              isLoading={isLoading}
+              onUpdateTask={(id, updates) => handleUpdateTask(id, updates)}
+              onEditTask={handleEditTask}
+              onDeleteTask={handleDeleteTask}
+            />
+          </ScrollArea>
+        );
+      case 'calendar':
+        return (
+          <ScrollArea className="flex-1 p-6">
+            <TaskCalendarView
+              tasks={tasks}
+              isLoading={isLoading}
+              onSelectTask={handleSelectTask}
+            />
+          </ScrollArea>
+        );
+      default:
+        return null;
+    }
+  };
 
   return (
     <main className="flex flex-1 flex-col overflow-hidden">
@@ -162,6 +225,29 @@ export default function TasksModule() {
           </p>
         </div>
         <div className="flex items-center gap-3">
+          {/* View Mode Tabs */}
+          <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as ViewMode)}>
+            <TabsList>
+              <TabsTrigger value="dashboard" className="gap-1.5">
+                <LayoutDashboard className="h-4 w-4" />
+                <span className="hidden sm:inline">Dashboard</span>
+              </TabsTrigger>
+              <TabsTrigger value="list" className="gap-1.5">
+                <List className="h-4 w-4" />
+                <span className="hidden sm:inline">List</span>
+              </TabsTrigger>
+              <TabsTrigger value="kanban" className="gap-1.5">
+                <Columns3 className="h-4 w-4" />
+                <span className="hidden sm:inline">Kanban</span>
+              </TabsTrigger>
+              <TabsTrigger value="calendar" className="gap-1.5">
+                <Calendar className="h-4 w-4" />
+                <span className="hidden sm:inline">Calendar</span>
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+
+          {/* Period Selector */}
           <Select
             value={selectedPeriod?.id ?? 'all'}
             onValueChange={(val) => {
@@ -169,7 +255,7 @@ export default function TasksModule() {
               setSelectedPeriod(period ?? null);
             }}
           >
-            <SelectTrigger className="w-[180px]">
+            <SelectTrigger className="w-[140px]">
               <SelectValue placeholder="All Periods" />
             </SelectTrigger>
             <SelectContent>
@@ -189,42 +275,10 @@ export default function TasksModule() {
         </div>
       </div>
 
-      {/* Main Content - Split Pane Layout */}
-      <ResizablePanelGroup direction="horizontal" className="flex-1">
-        {/* Left: Task Tree */}
-        <ResizablePanel defaultSize={25} minSize={20} maxSize={40}>
-          <div className="flex h-full flex-col border-r bg-sidebar-background">
-            <div className="border-b px-4 py-3">
-              <h3 className="text-sm font-medium">Tasks</h3>
-            </div>
-            <ScrollArea className="flex-1 p-2">
-              {isLoading ? (
-                <div className="flex justify-center py-8">
-                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                </div>
-              ) : (
-                <TaskTree
-                  nodes={tree}
-                  selectedId={selectedNode?.id || null}
-                  onSelect={handleNodeSelect}
-                />
-              )}
-            </ScrollArea>
-          </div>
-        </ResizablePanel>
-
-        <ResizableHandle withHandle />
-
-        {/* Right: Workspace */}
-        <ResizablePanel defaultSize={75}>
-          <TaskWorkspace
-            task={selectedTask}
-            onUpdateTask={handleUpdateTask}
-            onEditTask={handleEditTask}
-            isUpdating={updateTask.isPending}
-          />
-        </ResizablePanel>
-      </ResizablePanelGroup>
+      {/* Main Content */}
+      <div className="flex-1 overflow-hidden">
+        {renderContent()}
+      </div>
 
       {/* Create/Edit Modal */}
       <CreateTaskModal

@@ -12,6 +12,7 @@ import {
   startOfWeek,
   endOfWeek,
   isToday,
+  getDate,
 } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -24,6 +25,9 @@ interface TaskCalendarViewProps {
   isLoading?: boolean;
   onSelectDate?: (date: Date, tasks: TaskWithRelations[]) => void;
   onSelectTask?: (task: TaskWithRelations) => void;
+  // Month close configuration - working days of the month (e.g., days 1-10 are close days)
+  closeStartDay?: number;
+  closeEndDay?: number;
 }
 
 const statusColors: Record<TaskStatus, string> = {
@@ -38,6 +42,8 @@ export function TaskCalendarView({
   isLoading,
   onSelectDate,
   onSelectTask,
+  closeStartDay = 1,
+  closeEndDay = 10,
 }: TaskCalendarViewProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
 
@@ -68,6 +74,13 @@ export function TaskCalendarView({
   const goToPrevMonth = () => setCurrentMonth(subMonths(currentMonth, 1));
   const goToNextMonth = () => setCurrentMonth(addMonths(currentMonth, 1));
   const goToToday = () => setCurrentMonth(new Date());
+
+  // Check if a day is a month-close working day
+  const isCloseDay = (date: Date): boolean => {
+    if (!isSameMonth(date, currentMonth)) return false;
+    const dayOfMonth = getDate(date);
+    return dayOfMonth >= closeStartDay && dayOfMonth <= closeEndDay;
+  };
 
   if (isLoading) {
     return (
@@ -100,6 +113,16 @@ export function TaskCalendarView({
         </div>
       </div>
 
+      {/* Month Close Period Legend */}
+      <div className="flex items-center gap-4 border-b px-4 py-2 bg-muted/30">
+        <div className="flex items-center gap-2">
+          <div className="h-3 w-3 rounded bg-primary/20 border border-primary/40" />
+          <span className="text-xs text-muted-foreground">
+            Month-End Close (Days {closeStartDay}-{closeEndDay})
+          </span>
+        </div>
+      </div>
+
       {/* Week Day Headers */}
       <div className="grid grid-cols-7 border-b">
         {weekDays.map((day) => (
@@ -119,26 +142,35 @@ export function TaskCalendarView({
           const dayTasks = tasksByDate.get(dateKey) ?? [];
           const isCurrentMonth = isSameMonth(day, currentMonth);
           const isTodayDate = isToday(day);
+          const isClosePeriod = isCloseDay(day);
 
           return (
             <div
               key={idx}
               className={cn(
-                'min-h-[100px] border-b border-r p-1',
+                'min-h-[100px] border-b border-r p-1 transition-colors',
                 !isCurrentMonth && 'bg-muted/30',
+                isClosePeriod && isCurrentMonth && 'bg-primary/10',
                 idx % 7 === 6 && 'border-r-0'
               )}
               onClick={() => onSelectDate?.(day, dayTasks)}
             >
               {/* Day Number */}
-              <div
-                className={cn(
-                  'mb-1 flex h-6 w-6 items-center justify-center rounded-full text-sm',
-                  isTodayDate && 'bg-primary text-primary-foreground font-bold',
-                  !isCurrentMonth && 'text-muted-foreground'
+              <div className="flex items-center justify-between mb-1">
+                <div
+                  className={cn(
+                    'flex h-6 w-6 items-center justify-center rounded-full text-sm',
+                    isTodayDate && 'bg-primary text-primary-foreground font-bold',
+                    !isCurrentMonth && 'text-muted-foreground'
+                  )}
+                >
+                  {format(day, 'd')}
+                </div>
+                {isClosePeriod && isCurrentMonth && (
+                  <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 bg-primary/20 border-primary/40">
+                    Close
+                  </Badge>
                 )}
-              >
-                {format(day, 'd')}
               </div>
 
               {/* Tasks for this day */}

@@ -15,9 +15,9 @@ interface TaskListViewProps {
   onUpdateTask: (taskId: string, updates: { status?: TaskStatus; priority?: TaskPriority }) => void;
   onDeleteTask: (taskId: string) => void;
   onEditTask: (task: TaskWithRelations) => void;
-  selectedTasks: string[];
-  onSelectTask: (taskId: string, selected: boolean) => void;
-  onSelectAll: (selected: boolean) => void;
+  selectedTasks?: string[];
+  onSelectTask?: (taskId: string, selected: boolean) => void;
+  onSelectAll?: (selected: boolean) => void;
 }
 
 const statusColors: Record<TaskStatus, string> = {
@@ -40,12 +40,13 @@ export function TaskListView({
   onUpdateTask,
   onDeleteTask,
   onEditTask,
-  selectedTasks,
+  selectedTasks = [],
   onSelectTask,
   onSelectAll,
 }: TaskListViewProps) {
   const allSelected = tasks.length > 0 && selectedTasks.length === tasks.length;
   const someSelected = selectedTasks.length > 0 && selectedTasks.length < tasks.length;
+  const showSelection = onSelectTask && onSelectAll;
 
   const isOverdue = (task: TaskWithRelations) => {
     if (!task.due_date || task.status === 'completed' || task.status === 'cancelled') return false;
@@ -79,15 +80,17 @@ export function TaskListView({
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead className="w-12">
-              <Checkbox
-                checked={allSelected}
-                ref={(ref) => {
-                  if (ref) (ref as HTMLButtonElement).dataset.indeterminate = someSelected ? 'true' : 'false';
-                }}
-                onCheckedChange={(checked) => onSelectAll(!!checked)}
-              />
-            </TableHead>
+            {showSelection && (
+              <TableHead className="w-12">
+                <Checkbox
+                  checked={allSelected}
+                  ref={(ref) => {
+                    if (ref) (ref as HTMLButtonElement).dataset.indeterminate = someSelected ? 'true' : 'false';
+                  }}
+                  onCheckedChange={(checked) => onSelectAll?.(!!checked)}
+                />
+              </TableHead>
+            )}
             <TableHead>Task</TableHead>
             <TableHead className="w-28">Status</TableHead>
             <TableHead className="w-24">Priority</TableHead>
@@ -111,10 +114,12 @@ export function TaskListView({
                 )}
               >
                 <TableCell>
-                  <Checkbox
-                    checked={selectedTasks.includes(task.id)}
-                    onCheckedChange={(checked) => onSelectTask(task.id, !!checked)}
-                  />
+                  {showSelection && (
+                    <Checkbox
+                      checked={selectedTasks.includes(task.id)}
+                      onCheckedChange={(checked) => onSelectTask?.(task.id, !!checked)}
+                    />
+                  )}
                 </TableCell>
                 <TableCell>
                   <div className="flex flex-col gap-1">

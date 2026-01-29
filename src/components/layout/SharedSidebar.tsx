@@ -40,9 +40,27 @@ export function SharedSidebar({
     }
   }, [entities, selectedEntity, setSelectedEntity]);
 
-  // Determine if folder tree should be shown for this module
-  // Only show for Documents - other modules (PBC, Tasks, Recon) have their own tree panels
+  // Only Documents shows the full folder tree in SharedSidebar
+  // Other modules have their own layouts with integrated trees
   const showFolderTree = activeModule === 'documents';
+
+  // For non-document modules, show a slim sidebar with just entity/period selectors
+  if (!showFolderTree) {
+    return (
+      <aside className="flex w-64 flex-col border-r bg-sidebar-background">
+        <div className="border-b p-3">
+          <EntitySelector
+            entities={entities || []}
+            selectedEntity={selectedEntity}
+            onSelect={setSelectedEntity}
+            isAdmin={isAdmin}
+            onCreateEntity={onCreateEntity}
+            onCreateProcess={onCreateProcess}
+          />
+        </div>
+      </aside>
+    );
+  }
 
   return (
     <aside className="flex w-64 flex-col border-r bg-sidebar-background">
@@ -57,23 +75,21 @@ export function SharedSidebar({
         />
       </div>
 
-      {showFolderTree && (
-        <ScrollArea className="flex-1 p-2">
-          {foldersLoading || entitiesLoading ? (
-            <div className="flex justify-center py-8">
-              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-            </div>
-          ) : (
-            <FolderTree
-              nodes={folderStructure || []}
-              selectedId={selectedNode?.id ?? null}
-              onSelect={onSelectNode}
-              pendingCounts={pendingCounts}
-              onEditObject={onEditObject}
-            />
-          )}
-        </ScrollArea>
-      )}
+      <ScrollArea className="flex-1 p-2">
+        {foldersLoading || entitiesLoading ? (
+          <div className="flex justify-center py-8">
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+          </div>
+        ) : (
+          <FolderTree
+            nodes={folderStructure || []}
+            selectedId={selectedNode?.id ?? null}
+            onSelect={onSelectNode}
+            pendingCounts={pendingCounts}
+            onEditObject={onEditObject}
+          />
+        )}
+      </ScrollArea>
     </aside>
   );
 }

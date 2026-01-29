@@ -1,170 +1,176 @@
 
 
-# Plan: Improve PBC List, Document Metadata & Streamlined Creation
+# FileGRID Enhancement Plan: Combined Filters + Object Sub-Folders
 
-## Problem Summary
+## Summary
 
-You've identified three key usability issues:
-
-1. **PBC List Not Showing Data**: The sample PBC data exists in the database but may not be displaying correctly
-2. **Missing Metadata Features**: Document metadata is hard to work with and "AI Assist" isn't functional
-3. **Tedious Monthly Document Creation**: Creating documents each month requires too many manual selections
+This plan addresses two key enhancements:
+1. **Multi-filter pivot views**: Add filter chips to combine status (Final/Draft), period, and other filters simultaneously
+2. **Object as sub-folder level**: Display Objects as expandable folders under Areas in the sidebar tree
 
 ---
 
-## Solution Overview
+## Current State Analysis
 
+### Hierarchy Today
 ```text
-+------------------------------------------+
-|           Quick Add Workflows            |
-+------------------------------------------+
-|  [1] PBC Request → Document (1-click)    |
-|  [2] Clone Period (bulk copy)            |
-|  [3] Simplified Form (smart defaults)    |
-+------------------------------------------+
+Entity → Department → Process → Area → Documents (flat list)
 ```
 
----
-
-## Phase 1: Fix PBC List Display Issue
-
-**Investigation & Fix:**
-- The `usePBCItems` hook uses `!inner` joins which fail silently if any related record is missing
-- Change joins to left joins where appropriate to handle optional relationships
-- Add error boundary and loading states for better debugging
-
-**Files to modify:**
-- `src/hooks/usePBCItems.ts` - Fix the query joins
+### Pivot Views Today
+- Each view applies ONE grouping dimension
+- "Final Only" is a separate view, not a combinable filter
+- No way to say "Show me Final documents for Q4-2025 in the Accruals area"
 
 ---
 
-## Phase 2: Add "Quick Add from PBC" Feature
+## Proposed Changes
 
-When viewing PBC Requests, allow one-click document creation:
+### Part 1: Combinable Filter Bar for Pivot Views
+
+Add a filter bar that appears on all pivot views with these options:
+
+| Filter      | Type        | Options                              |
+|-------------|-------------|--------------------------------------|
+| Status      | Multi-check | Draft, Final, Superseded, Archived   |
+| Period      | Dropdown    | All periods / specific period        |
+| Area        | Dropdown    | All areas / specific area            |
 
 **User Experience:**
-1. User sees PBC request list with "Requested" status
-2. Clicks "Fulfill" button on a request
-3. Opens simplified modal pre-filled with:
-   - Area (from PBC item)
-   - Document Type (from PBC item)
-   - Period (from PBC item)
-   - Object (from PBC item if specified)
-4. User only needs to add the URL
-5. Document created + PBC status auto-updates to "Uploaded"
+- Select "By Period" view from the dropdown
+- Filter bar shows above the grouped documents  
+- Toggle "Final only" checkbox → list updates in real-time
+- Select specific period → further narrows results
+- Filters persist when switching between pivot views
 
-**Files to create/modify:**
-- `src/components/filegrid/FulfillPBCModal.tsx` - New streamlined modal
-- `src/components/filegrid/PBCListView.tsx` - Add "Fulfill" action button
+### Part 2: Objects as Sub-Folders in Tree
 
----
+Extend the folder tree to show Objects under each Area:
 
-## Phase 3: Clone Period Feature (Bulk Copy)
+```text
+Finance (Department)
+└── Monthly Close (Process)
+    └── Accruals (Area)
+        ├── Payroll Accruals (Object) → 3 docs
+        ├── Vendor Accruals (Object) → 2 docs
+        └── (No Object) → 1 doc
+```
 
-For recurring monthly work, allow copying all documents from one period to another:
-
-**User Experience:**
-1. User goes to "Clone Period" action in View menu
-2. Selects source period (e.g., "2025-11")
-3. Selects target period (e.g., "2025-12")
-4. System shows preview: "8 documents will be copied"
-5. User confirms, documents are cloned (status reset to Draft)
-
-**Files to create/modify:**
-- `src/components/filegrid/ClonePeriodModal.tsx` - New wizard component
-- `src/hooks/useClonePeriod.ts` - Bulk copy mutation
-- `src/pages/Index.tsx` - Add Clone Period to header/menu
+**Behavior:**
+- Clicking an Area still shows all documents in that area
+- Clicking an Object filters to only documents linked to that object
+- Objects are user-creatable (existing functionality)
+- New TreeNode type: `'object'`
 
 ---
 
-## Phase 4: Simplified "Quick Add" Form
+## Technical Implementation
 
-Streamline the existing upload modal:
+### Files to Create
 
-**Improvements:**
-1. **Smart Defaults**: Pre-select most recent period, remember last-used Object
-2. **Recent History**: Show "Recently Used" section at top of dropdowns
-3. **Keyboard Shortcuts**: Tab through fields quickly
-4. **URL Paste Detection**: Auto-focus URL field when modal opens
+| File | Purpose |
+|------|---------|
+| `src/components/filegrid/PivotFilterBar.tsx` | Filter chip/dropdown component |
 
-**Files to modify:**
-- `src/components/filegrid/UploadDocumentModal.tsx` - Add smart defaults
-- `src/hooks/useRecentSelections.ts` - Track user's recent choices (localStorage)
+### Files to Modify
 
----
+| File | Changes |
+|------|---------|
+| `src/types/filegrid.ts` | Add `'object'` to TreeNode type; add filter state type |
+| `src/hooks/useFolderStructure.ts` | Fetch objects per area; build 5-level tree |
+| `src/hooks/useDocuments.ts` | Accept new filter parameters: periodId, objectId, statusList |
+| `src/hooks/usePivotDocuments.ts` | Pre-filter documents before grouping |
+| `src/pages/Index.tsx` | Add filter state; render PivotFilterBar; pass filters to hooks |
+| `src/components/filegrid/FolderTree.tsx` | Add icon for 'object' type |
 
-## Phase 5: Period-Based Batch Request Creation
-
-Allow creating multiple PBC requests at once:
-
-**User Experience:**
-1. User clicks "Generate Requests from Template" in PBC view
-2. Selects a Period
-3. System auto-generates requests for all expected documents from templates
-4. Shows preview: "12 requests will be created based on templates"
-5. User confirms
-
-**Files to create/modify:**
-- `src/components/filegrid/GeneratePBCRequestsModal.tsx` - Batch creation wizard
-- `src/hooks/useBatchPBCCreation.ts` - Bulk insert based on templates
+### Database Changes
+None required. Objects already exist and are linked to Areas.
 
 ---
 
-## Technical Details
+## Detailed Implementation Steps
 
-### Query Fix for PBC Items (Phase 1)
-
-The current query:
+### Step 1: Define Filter State Type
+Add to `src/types/filegrid.ts`:
 ```typescript
-.select(`
-  *,
-  areas!inner(...),      // Fails if area missing
-  periods!inner(label),  // Fails if period missing
-  document_types!inner(name),  // Fails if doc type missing
-  objects(name)          // OK - already left join
-`)
+export interface PivotFilters {
+  statusList: DocumentStatus[];
+  periodId: string | null;
+  areaId: string | null;
+  objectId: string | null;
+}
 ```
 
-Will be changed to verify all FK relationships exist for the test data and add proper error handling.
+### Step 2: Create PivotFilterBar Component
+New component with:
+- Status checkboxes (Draft, Final, etc.)
+- Period dropdown (populated from usePeriods)
+- Area dropdown (populated from folder structure)
+- Clear filters button
 
-### Clone Period Logic (Phase 3)
+### Step 3: Extend useDocuments Hook
+Add optional filter parameters:
+```typescript
+interface UseDocumentsOptions {
+  areaId?: string | null;
+  entityId?: string | null;
+  statusFilter?: DocumentStatus[] | null;  // Changed from single status
+  periodId?: string | null;
+  objectId?: string | null;
+}
+```
+
+### Step 4: Extend Folder Tree with Objects
+Modify `useFolderStructure.ts` to:
+1. Fetch objects for each area
+2. Count documents per object
+3. Add object children under area nodes
+
+Update TreeNode type to include `'object'`.
+
+### Step 5: Wire Up in Index.tsx
+- Add `pivotFilters` state
+- Pass to useDocuments and usePivotDocuments
+- Render PivotFilterBar when on a pivot view
+- Handle object node selection from tree
+
+---
+
+## UI Mockup
 
 ```text
-Source Period Documents → Copy to Target Period
-  ├─ Reset status to "Draft"
-  ├─ Update period_id to target
-  ├─ Increment version if same object+docType exists
-  └─ Preserve all other metadata
++----------------------------------------------------------+
+| Acme Corp — By Period                                     |
++----------------------------------------------------------+
+| Filters: [x] Final  [ ] Draft  |  Period: [All ▼]  |  Area: [All ▼]  |  [Clear]
++----------------------------------------------------------+
+| ▼ 2025-12                                           (8)  |
+|   ▼ Accruals                                        (4)  |
+|       Payroll_Accruals_Invoice_2025-12_Final             |
+|       Vendor_Accruals_Invoice_2025-12_Final              |
+|   ▼ Banking                                         (4)  |
+|       Main_Account_Reconciliation_2025-12_Final          |
++----------------------------------------------------------+
 ```
 
-### Fulfill PBC Modal (Phase 2)
+---
 
-Pre-filled fields (read-only):
-- Entity, Area, Document Type, Period, Object
+## Trade-offs Considered
 
-User fills:
-- External URL (required)
-- Notes (optional)
-- Status (default: Final)
+| Approach | Pros | Cons |
+|----------|------|------|
+| **Objects as sub-folders** (chosen) | Uses existing data model; no schema changes | Objects are optional, so some docs won't nest |
+| Sub-Area table | Cleaner forced hierarchy | Requires migration; more complex relationships |
+| **Filter bar** (chosen) | Flexible; combinable | Slight UI complexity |
+| Separate filter views | Simpler implementation | Explosion of view options |
 
 ---
 
-## Outcome Summary
+## Success Criteria
 
-| Current Pain | Solution |
-|-------------|----------|
-| Must select 6+ fields each time | Pre-filled from PBC request or smart defaults |
-| Repeat same work monthly | Clone Period copies previous month |
-| PBC list empty | Fix query joins |
-| No batch operations | Generate requests from templates |
-
----
-
-## Implementation Order
-
-1. **Fix PBC display** - Quick win, unblocks testing
-2. **Fulfill PBC modal** - High impact for daily workflow
-3. **Clone Period** - Reduces monthly repetition
-4. **Smart defaults** - Incremental UX improvement
-5. **Batch PBC generation** - Advanced admin feature
+1. User can select "By Period" view and toggle "Final only" → sees only finalized documents grouped by period
+2. User can filter to a specific period across any pivot view
+3. Folder tree shows Objects under Areas with document counts
+4. Clicking an Object in the tree shows only that object's documents
+5. Filters reset when switching entities
 

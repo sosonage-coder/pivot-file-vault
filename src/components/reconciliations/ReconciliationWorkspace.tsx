@@ -36,6 +36,7 @@ import {
 import { useReconciliationLineItems } from '@/hooks/useReconciliationLineItems';
 import { TemplateRenderer } from './templates/TemplateRenderer';
 import { EvidencePanel } from './EvidencePanel';
+import { ChecklistPanel } from './ChecklistPanel';
 import type { ReconciliationStatus, ReconciliationTemplate } from '@/types/reconciliations';
 
 interface ReconciliationWorkspaceProps {
@@ -324,6 +325,7 @@ export function ReconciliationWorkspace({ reconciliationId }: ReconciliationWork
         <Tabs defaultValue="reconciliation" className="w-full">
           <TabsList>
             <TabsTrigger value="reconciliation">Reconciliation</TabsTrigger>
+            <TabsTrigger value="checklists">Checklists</TabsTrigger>
             <TabsTrigger value="evidence">Evidence ({attachments.length})</TabsTrigger>
             <TabsTrigger value="history">History</TabsTrigger>
           </TabsList>
@@ -337,6 +339,15 @@ export function ReconciliationWorkspace({ reconciliationId }: ReconciliationWork
               subBalance={parseFloat(subBalance) || 0}
               isEditable={isEditable}
               onLineItemsChange={handleLineItemsChange}
+            />
+          </TabsContent>
+          
+          <TabsContent value="checklists" className="mt-4">
+            <ChecklistPanel
+              reconciliationId={reconciliation.id}
+              entityId={reconciliation.entity_id}
+              periodId={reconciliation.period_id}
+              isEditable={isEditable}
             />
           </TabsContent>
           

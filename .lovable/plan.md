@@ -1,242 +1,245 @@
 
 
-# FileGRID v1 — Implementation Plan
+# FileGRID v1 — Remaining Features Implementation Plan
 
-## Overview
-A metadata-driven document coordination layer with enforced 4-level folder structure (Entity → Department → Process → Area), pivot views, and external file references. FileGRID indexes documents — it doesn't store them.
-
----
-
-## Phase 1: Database Foundation & Authentication
-
-### Core Tables (Supabase)
-**Structural Tables:**
-- `entities` — Admin-created organizational units
-- `departments` — Controlled list (Finance, Legal, HR, Marketing, Ops)
-- `processes` — Created from templates, linked to departments
-- `areas` — Controlled list per process
-
-**Document System:**
-- `periods` — System-controlled (month/quarter/year/phase)
-- `objects` — Reusable anchors (bank accounts, contracts, employees)
-- `documents` — Core table with metadata + external_file_url
-- `document_types` — Controlled reference list
-
-**Scaffolding for v1.1:**
-- `pbc_items` — Request list items (Requested → Uploaded → Reviewed → Complete)
-
-### Reference Data
-- Seed departments, document types, and area templates
-- Process templates with expected document configurations
-
-### Authentication & Roles
-- Email/password login via Supabase Auth
-- Role-based access: Admin, User, External Reviewer
-- Entity-scoped data isolation via RLS policies
+## Current State Summary
+The foundation is complete with authentication, folder tree navigation, and basic document list display. The database has all required tables with seed data including:
+- 5 departments (Finance, Legal, HR, Marketing, Operations)
+- 5 process templates with 13 area templates
+- 10 document types
+- 12 months of periods (2025)
+- Area-document type mappings for "What's Missing" logic
 
 ---
 
-## Phase 2: Structure Explorer
+## Sprint 2: Core Workflows
 
-### Left Panel — Folder Tree
-- Collapsible 4-level hierarchy: Entity → Department → Process → Area
-- Visual indicators showing document counts
-- No "New Folder" button — only guided creation via controlled lists
-- Clicking an Area loads its documents in the right panel
+### 2.1 Upload Modal with Naming Engine
 
-### Right Panel — Document List
-- Table view with columns: Name, Object, Period, Status, Type, Updated
-- Status badges with color coding (Draft, Final, Superseded, Archived)
-- Click to open external file URL in new tab
-- Hover for quick metadata preview
+**New Component: `UploadDocumentModal.tsx`**
 
-### Guided Creation Flows
-- **Admin only**: Create new Entity
-- **Template-based**: Create Process from predefined templates
-- **Controlled list**: Add Area from master list for that Process
+A dialog that opens when user clicks "Add Document" button (shown when viewing an Area):
 
----
+| Field | Behavior |
+|-------|----------|
+| Entity/Dept/Process/Area | Auto-filled from current location (read-only) |
+| Object | Searchable dropdown with "Create new" option |
+| Period | Dropdown of available periods (most recent first) |
+| Document Type | Filtered to allowed types for this Area |
+| Status | Radio: Draft or Final |
+| External URL | Text input for SharePoint/Drive link |
+| Notes | Optional textarea |
 
-## Phase 3: Upload Flow & Naming Engine
+**Naming Engine Logic:**
+- On submit, generate `logical_name` = `{ObjectName}_{DocumentType}`
+- Display preview of rendered filename: `{Object}_{DocType}_{Period}_{Status}`
+- If `logical_name` + `period_id` already exists, system auto-increments version
 
-### Upload Modal (Context-Aware)
-When user clicks "Upload" within an Area:
-1. **Auto-inferred**: Entity, Department, Process, Area (from current location)
-2. **User selects**:
-   - Object (search existing or create new — with reuse prompt)
-   - Period (dropdown of system periods)
-   - Document Type (from allowed types for this Area)
-   - Status (Draft / Final)
-3. **Paste**: External file URL (SharePoint/Drive link)
-
-### Naming Logic (System-Controlled)
-- **Logical Name**: `<Object>_<DocumentType>` — generated once, immutable
-- **Rendered Filename**: `<Object>_<DocumentType>_<Period>_<Status>` — display only
-- **Version**: Auto-incremented when same logical name uploaded again
-
-### Rename Protection
-- No direct filename editing
-- Attempted rename shows soft block: "FileGRID manages naming automatically. Add notes instead."
-- Notes field available for user context
+**Technical Implementation:**
+- New hook: `useObjects.ts` - fetch/create Objects for an area
+- New hook: `useDocumentTypes.ts` - fetch document types (filtered by area template)
+- Form validation with Zod schema
+- Insert document with all foreign keys
 
 ---
 
-## Phase 4: Pivot Views
+### 2.2 Object Creation/Reuse Flow
 
-### View Selector (Header Toggle)
-Five predefined views — no custom pivots:
-
-1. **By Period → Area → Object**
-   - Primary view for monthly close
-   - Group documents by time period first
-
-2. **By Object → Period**
-   - Track document history for a specific Object
-   - Timeline view per bank account, contract, etc.
-
-3. **By Area → Period**
-   - Department-level review
-   - All Banking docs across months
-
-4. **By Document Type**
-   - Cross-cutting view: all Reconciliations, all Invoices
-   
-5. **By Status (Final Only)**
-   - Clean view of completed work
-   - Ready for review/export
-
-### Implementation
-- Same `documents` table, different GROUP BY logic
-- Maintains current Entity/Department context
-- Collapsible groupings with document counts
+**Within Upload Modal:**
+- Object dropdown shows existing Objects for current Area
+- "Create new Object" option opens inline form
+- When creating new Object, prompt user: "This will be reusable across periods"
+- New Object inherits entity_id, department_id, process_id, area_id from current location
 
 ---
 
-## Phase 5: External Review View
+### 2.3 Rename Protection
 
-### Toggle Mode
-- Switch in header: "External Review Mode"
-- Activates read-only interface
-
-### Filters Applied
-- `status = 'Final'` only
-- Hide internal notes
-- Hide Draft/Superseded/Archived documents
-
-### Use Case
-- Share with auditors without creating separate folders
-- Clients see only finalized deliverables
+**In DocumentList:**
+- No edit button on filename
+- If user attempts any rename action, show toast: "FileGRID manages naming automatically. Use the Notes field for additional context."
+- Notes field visible in document detail panel (future enhancement)
 
 ---
 
-## Phase 6: "What's Missing" View
+### 2.4 Admin Guided Creation Flows
 
-### Gap Analysis Logic
-- **Expected**: Documents defined in Process templates (e.g., Monthly Close requires Bank Rec, Journal Summary, Trial Balance)
-- **Uploaded**: Documents matching those types for current Period
-- **Missing**: Expected minus Uploaded
+**Entity Creation (Admin only):**
+- New component: `CreateEntityModal.tsx`
+- Simple form: Entity name only
+- Visible in EntitySelector when user is admin
+- On create, entity appears in dropdown
 
-### Display
-- Grouped by Period / Area / Object
-- Checklist-style (✓ uploaded, ○ missing)
-- No tasks, no assignments, no reminders
-
-### Export
-- Download as CSV for offline tracking
-
----
-
-## Phase 7: PBC Request Lists (Scaffold)
-
-### PBC Item Structure
-- Links to: entity, period, process, area, object (optional), document_type
-- Status flow: Requested → Uploaded → Reviewed → Complete
-
-### Auto-Complete Logic
-- When document uploaded matches PBC item criteria → status moves to "Uploaded"
-- No manual task management
-
-### UI
-- Separate tab: "Requests"
-- Filter by Period, status
-- Basic list view (full features in v1.1)
+**Process Creation (From Templates):**
+- New component: `CreateProcessModal.tsx`
+- Step 1: Select Department
+- Step 2: Select Process Template (filtered by department)
+- Step 3: Process name (pre-filled from template)
+- On create: Copy all Area Templates as Areas linked to new Process
 
 ---
 
-## Phase 8: AI Metadata Assist (Scaffold)
+## Sprint 3: Pivot Views
 
-### Upload Enhancement
-- Optional toggle: "Suggest metadata from file"
-- Placeholder for future OCR/regex integration
+### 3.1 View Selector Component
 
-### Confirmation Flow
-- Show suggested: Object, Period, Document Type
-- Display confidence score
-- User must confirm or edit — never auto-apply
+**New Component: `ViewSelector.tsx`**
+- Dropdown in header area of main content panel
+- Options:
+  1. Default (Folder View) - current behavior
+  2. By Period - Area - Object
+  3. By Object - Period
+  4. By Area - Period
+  5. By Document Type
+  6. By Status (Final Only)
 
----
+### 3.2 Pivot View Components
 
-## UI Design Approach
+**New Component: `PivotView.tsx`**
+- Receives `viewType` and renders appropriate grouping
+- Uses same `documents` data, different grouping logic
 
-### Visual Style
-- Clean, calm, professional
-- Muted grays with accent colors for status
-- No dashboard metrics or charts
-- Tree navigation feels like a file explorer
-- Dense but readable tables
+**Grouping Logic:**
 
-### Layout
-- **Left**: Fixed-width folder tree (collapsible)
-- **Center**: Document list with pivot controls
-- **Right**: Optional detail panel on selection
+| View | Primary Group | Secondary Group | Display |
+|------|---------------|-----------------|---------|
+| Period-Area-Object | Period label | Area name | Collapsible sections |
+| Object-Period | Object name | Period label | Timeline per object |
+| Area-Period | Area name | Period label | Department overview |
+| Document Type | Type name | None | Flat list by type |
+| Status Final | None | None | Filtered to Final only |
 
-### Key Interactions
-- Single-click to select, double-click to open external URL
-- Keyboard navigation in tree
-- Bulk select for status changes
-
----
-
-## Technical Implementation
-
-### Stack
-- **Frontend**: React + TypeScript + Tailwind CSS
-- **Backend**: Supabase (Postgres, Auth, RLS)
-- **State**: React Query for server state
-- **Forms**: React Hook Form + Zod validation
-
-### Data Integrity
-- Foreign keys enforce Entity → Dept → Process → Area chain
-- Check constraints prevent invalid status values
-- Triggers auto-increment document versions
-- RLS policies scope all queries to user's Entity
-
-### Controlled Lists
-- Departments, Areas, Document Types stored as reference tables
-- Process templates define expected documents per Area
-- No user-editable metadata schemas
+**New Hooks:**
+- `useDocumentsByPeriod.ts` - already exists, enhance for pivot grouping
+- `usePivotDocuments.ts` - central hook that transforms documents based on view type
 
 ---
 
-## Build Sequence
+## Sprint 4: Analysis and Polish
 
-### Sprint 1: Foundation
-- Database schema + seed data
-- Authentication + role setup
-- Structure Explorer (tree + document list)
+### 4.1 "What's Missing" View
 
-### Sprint 2: Core Workflows
-- Upload flow with naming engine
-- Object creation/reuse logic
-- Version tracking
+**Logic Flow:**
+1. For selected Entity + Period:
+2. Get all Areas (from processes in this entity)
+3. For each Area, get expected Document Types (from `area_document_types` via `template_id`)
+4. Compare against uploaded Documents in that Period
+5. Display gaps as checklist
 
-### Sprint 3: Pivot Views
-- All 5 predefined views
-- External Review mode toggle
+**New Component: `WhatsMissingView.tsx`**
+- Period selector at top
+- Grouped by: Department - Process - Area
+- Each item shows: Document Type name, Required flag, Status icon
+- Legend: Checkmark (uploaded), Circle (missing), Warning (missing + required)
 
-### Sprint 4: Analysis & Polish
-- "What's Missing" view
-- PBC scaffold
-- AI assist placeholder
-- Rename protection messaging
+**New Hook: `useExpectedDocuments.ts`**
+- Fetches area templates and their required document types
+- Joins with actual documents to calculate gaps
+
+**Export Feature:**
+- CSV download button
+- Columns: Area, Document Type, Required, Status, Period
+
+---
+
+### 4.2 PBC Request List UI
+
+**New Component: `PBCListView.tsx`**
+- Separate tab/route: "Requests"
+- Table columns: Area, Document Type, Object, Period, Status, Assignee
+- Status flow: Requested - Uploaded - Reviewed - Complete
+
+**New Component: `CreatePBCItemModal.tsx`**
+- Select: Process, Area, Document Type, Period
+- Optional: Object, Assignee
+- Creates PBC item with status "Requested"
+
+**Auto-Complete Logic:**
+- When document uploaded, check if matching PBC item exists
+- If match found (same area_id, document_type_id, period_id, optional object_id):
+  - Update PBC item status to "Uploaded"
+  - This runs in the upload mutation's onSuccess callback
+
+---
+
+### 4.3 AI Metadata Assist Placeholder
+
+**Upload Modal Enhancement:**
+- Toggle: "Suggest metadata from URL" (disabled by default)
+- When enabled: Show placeholder message "AI analysis coming soon"
+- Scaffold the UI flow without actual AI integration
+
+**Future-Ready Structure:**
+- Create `useAIMetadataSuggestion.ts` hook (returns empty/mock data)
+- UI shows: Suggested Object, Period, Document Type with confidence %
+- All fields editable - user must confirm before saving
+
+---
+
+## Implementation Order
+
+### Phase 1: Upload Flow (Critical Path)
+1. Create `useObjects.ts` hook
+2. Create `useDocumentTypes.ts` hook  
+3. Build `UploadDocumentModal.tsx` with naming engine
+4. Add "Add Document" button to Index page (visible when Area selected)
+5. Test upload flow end-to-end
+
+### Phase 2: Pivot Views
+6. Create `ViewSelector.tsx` component
+7. Build `PivotView.tsx` with grouping logic
+8. Add view state to Index page
+9. Test all 5 view types
+
+### Phase 3: Admin Flows
+10. Create `CreateEntityModal.tsx` (admin only)
+11. Create `CreateProcessModal.tsx` (from templates)
+12. Integrate into EntitySelector and sidebar
+
+### Phase 4: Analysis Features
+13. Build `WhatsMissingView.tsx` with gap calculation
+14. Add CSV export functionality
+15. Build `PBCListView.tsx` with CRUD
+16. Implement PBC auto-complete on upload
+
+### Phase 5: Polish
+17. Add AI assist placeholder UI
+18. Rename protection messaging
+19. Loading states and error handling
+20. Final testing across all features
+
+---
+
+## Technical Notes
+
+### New Files to Create
+```
+src/components/filegrid/
+  UploadDocumentModal.tsx
+  CreateEntityModal.tsx
+  CreateProcessModal.tsx
+  ViewSelector.tsx
+  PivotView.tsx
+  WhatsMissingView.tsx
+  PBCListView.tsx
+  CreatePBCItemModal.tsx
+
+src/hooks/
+  useObjects.ts
+  useDocumentTypes.ts
+  usePivotDocuments.ts
+  useExpectedDocuments.ts
+  usePBCItems.ts
+```
+
+### Database Considerations
+- All tables and relationships already exist
+- No schema changes needed for core features
+- May add index on `documents(logical_name, period_id)` for version lookup performance
+
+### UI Patterns
+- All modals use shadcn Dialog component
+- Forms use React Hook Form + Zod
+- Queries use TanStack Query with proper cache invalidation
+- Toast notifications for success/error feedback
 

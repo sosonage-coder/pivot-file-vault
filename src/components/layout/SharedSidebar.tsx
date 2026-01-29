@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { Loader2 } from 'lucide-react';
 import { useModule } from '@/contexts/ModuleContext';
 import { useEntities } from '@/hooks/useEntities';
+import { usePeriods } from '@/hooks/usePeriods';
 import { useUnifiedFolderStructure } from '@/hooks/useUnifiedFolderStructure';
 import { usePendingApprovalCounts } from '@/hooks/useApprovals';
 import { EntitySelector } from '@/components/filegrid/EntitySelector';
@@ -26,8 +27,9 @@ export function SharedSidebar({
   onCreateEntity,
   onCreateProcess,
 }: SharedSidebarProps) {
-  const { selectedEntity, setSelectedEntity, selectedPeriod } = useModule();
+  const { selectedEntity, setSelectedEntity, selectedPeriod, setSelectedPeriod } = useModule();
   const { data: entities, isLoading: entitiesLoading } = useEntities();
+  const { data: periods } = usePeriods();
   const { data: folderStructure, isLoading: foldersLoading } = useUnifiedFolderStructure(
     selectedEntity?.id ?? null,
     selectedPeriod?.id ?? null
@@ -40,6 +42,13 @@ export function SharedSidebar({
       setSelectedEntity(entities[0]);
     }
   }, [entities, selectedEntity, setSelectedEntity]);
+
+  // Auto-select first period
+  useEffect(() => {
+    if (periods?.length && !selectedPeriod) {
+      setSelectedPeriod(periods[0]);
+    }
+  }, [periods, selectedPeriod, setSelectedPeriod]);
 
   return (
     <aside className="flex w-64 flex-col border-r bg-sidebar-background">

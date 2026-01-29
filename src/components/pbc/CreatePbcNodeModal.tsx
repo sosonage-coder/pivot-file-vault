@@ -38,7 +38,7 @@ import { getAllowedChildTypes, canBeRoot } from '@/types/pbc-tree';
 import type { PbcTreeNode, PbcNodeType } from '@/types/pbc-tree';
 
 const formSchema = z.object({
-  nodeType: z.enum(['area', 'dimension', 'object', 'request']),
+  nodeType: z.enum(['department', 'process', 'area', 'object', 'request']),
   label: z.string().min(1, 'Label is required'),
   templateId: z.string().optional(),
   priority: z.string().optional(),
@@ -67,9 +67,10 @@ export function CreatePbcNodeModal({
   const createNode = useCreatePbcNode();
 
   // Determine allowed node types
+  // Determine allowed node types - roots can be department, process, or area
   const allowedTypes: PbcNodeType[] = parentNode
     ? getAllowedChildTypes(parentNode.node_type)
-    : ['area']; // Only area can be root
+    : ['department', 'process', 'area']; // Any of these can be root
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -117,9 +118,10 @@ export function CreatePbcNodeModal({
   };
 
   const nodeTypeLabels: Record<PbcNodeType, string> = {
-    area: 'Area (e.g., Fixed Assets, Cash)',
-    dimension: 'Dimension (e.g., Additions, Bank)',
-    object: 'Object (e.g., Bank of America)',
+    department: 'Department (e.g., Finance, Accounting)',
+    process: 'Process (e.g., Fixed Assets, Revenue)',
+    area: 'Area (e.g., Additions, Disposals)',
+    object: 'Object (e.g., Bank of America, Equipment)',
     request: 'Request (actionable item)',
   };
 

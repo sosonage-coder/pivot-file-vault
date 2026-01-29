@@ -177,7 +177,7 @@ export function useCreatePbcNode() {
         entity_id: input.entityId,
         period_id: input.periodId,
         parent_id: input.parentId || null,
-        node_type: input.nodeType as 'area' | 'dimension' | 'object' | 'request',
+        node_type: input.nodeType as 'department' | 'process' | 'area' | 'object' | 'request',
         label: input.label,
         pbc_template_id: input.templateId || null,
         area_id: input.areaId || null,

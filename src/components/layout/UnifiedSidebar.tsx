@@ -12,7 +12,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Building2,
-  Calendar,
   Search,
   Shield,
   Plus,
@@ -38,14 +37,13 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useModule } from '@/contexts/ModuleContext';
 import { useSidebarSelection } from '@/contexts/SidebarSelectionContext';
 import { useEntities } from '@/hooks/useEntities';
-import { usePeriods } from '@/hooks/usePeriods';
 import { useFeatureFolderStructure } from '@/hooks/useFeatureFolderStructure';
 import { usePendingApprovalCounts } from '@/hooks/useApprovals';
 import { useReconciliations } from '@/hooks/useReconciliations';
 import { useReconciliationTree } from '@/hooks/useReconciliationTree';
 import { UnifiedFolderTree } from '@/components/filegrid/UnifiedFolderTree';
 import { ReconciliationTree } from '@/components/reconciliations/ReconciliationTree';
-import { CreateProcessModal } from '@/components/filegrid/CreateProcessModal';
+import { SimpleAddProcessModal } from '@/components/filegrid/SimpleAddProcessModal';
 import type { FeatureId } from '@/hooks/useActiveFeature';
 import type { TreeNode } from '@/types/filegrid';
 import type { ReconciliationTreeNode } from '@/hooks/useReconciliationTree';
@@ -119,34 +117,27 @@ export function UnifiedSidebar({ collapsed = false, onCollapsedChange }: Unified
   const navigate = useNavigate();
   const location = useLocation();
   const { user, signOut } = useAuth();
-  const { selectedEntity, setSelectedEntity, selectedPeriod, setSelectedPeriod } = useModule();
+  const { selectedEntity, setSelectedEntity, selectedPeriod } = useModule();
   const { selectedNode, setSelectedNode } = useSidebarSelection();
   const { data: entities = [] } = useEntities();
-  const { data: periods = [] } = usePeriods();
   const [searchQuery, setSearchQuery] = useState('');
   const [showCreateProcess, setShowCreateProcess] = useState(false);
 
-  // Auto-select first entity/period
+  // Auto-select first entity
   useEffect(() => {
     if (entities.length > 0 && !selectedEntity) {
       setSelectedEntity(entities[0]);
     }
   }, [entities, selectedEntity, setSelectedEntity]);
 
-  useEffect(() => {
-    if (periods.length > 0 && !selectedPeriod) {
-      setSelectedPeriod(periods[0]);
-    }
-  }, [periods, selectedPeriod, setSelectedPeriod]);
-
   const activeFeature = FEATURES.find(f => location.pathname.startsWith(f.path))?.id || 'monthclose';
   
-  // Determine if we need a folder tree for this feature
-  const showFolderTree = activeFeature === 'documents' || activeFeature === 'pbc' || activeFeature === 'monthclose';
+  // Show folder tree for all features that use structural navigation
+  const showFolderTree = ['documents', 'pbc', 'monthclose', 'compliance', 'checklists'].includes(activeFeature);
   const showReconciliationTree = activeFeature === 'reconciliations';
   const featureType = activeFeature === 'pbc' ? 'pbc' : activeFeature === 'monthclose' ? 'monthclose' : 'documents';
 
-  // Fetch folder tree data (for documents/pbc)
+  // Fetch folder tree data
   const { data: folderTree = [], isLoading: isLoadingTree } = useFeatureFolderStructure({
     entityId: selectedEntity?.id || null,
     periodId: selectedPeriod?.id || null,
@@ -235,9 +226,9 @@ export function UnifiedSidebar({ collapsed = false, onCollapsedChange }: Unified
         )}
       </div>
 
-      {/* Context Selectors */}
+      {/* Entity Selector Only (Period moved to workspace header) */}
       {!collapsed && (
-        <div className="space-y-2 border-b p-3">
+        <div className="border-b p-3">
           <Select
             value={selectedEntity?.id || ''}
             onValueChange={(value) => {
@@ -253,26 +244,6 @@ export function UnifiedSidebar({ collapsed = false, onCollapsedChange }: Unified
               {entities.map((entity) => (
                 <SelectItem key={entity.id} value={entity.id}>
                   {entity.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          <Select
-            value={selectedPeriod?.id || ''}
-            onValueChange={(value) => {
-              const period = periods.find(p => p.id === value);
-              if (period) setSelectedPeriod(period);
-            }}
-          >
-            <SelectTrigger className="h-8 text-sm">
-              <Calendar className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
-              <SelectValue placeholder="Select period" />
-            </SelectTrigger>
-            <SelectContent>
-              {periods.map((period) => (
-                <SelectItem key={period.id} value={period.id}>
-                  {period.label}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -354,7 +325,7 @@ export function UnifiedSidebar({ collapsed = false, onCollapsedChange }: Unified
         </div>
       </div>
 
-      {/* Context-Aware Content Panel */}
+      {/* Context-Aware Content Panel - Show for all structural features */}
       {!collapsed && showFolderTree && (
         <div className="flex flex-col flex-1 overflow-hidden">
           {/* Search + Add Process */}
@@ -404,8 +375,8 @@ export function UnifiedSidebar({ collapsed = false, onCollapsedChange }: Unified
       {/* Reconciliation Tree Panel */}
       {!collapsed && showReconciliationTree && (
         <div className="flex flex-col flex-1 overflow-hidden">
-          {/* Search */}
-          <div className="p-2 border-b">
+          {/* Search + Add Process */}
+          <div className="p-2 border-b space-y-2">
             <div className="relative">
               <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
               <Input
@@ -415,6 +386,17 @@ export function UnifiedSidebar({ collapsed = false, onCollapsedChange }: Unified
                 className="h-8 pl-8 text-sm"
               />
             </div>
+            {selectedEntity && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowCreateProcess(true)}
+                className="w-full justify-start gap-2 h-8 text-muted-foreground hover:text-foreground"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Add Process
+              </Button>
+            )}
           </div>
 
           {/* Reconciliation Tree */}
@@ -439,8 +421,6 @@ export function UnifiedSidebar({ collapsed = false, onCollapsedChange }: Unified
       {!collapsed && !showFolderTree && !showReconciliationTree && (
         <ScrollArea className="flex-1">
           <div className="p-4 text-center text-sm text-muted-foreground">
-            {activeFeature === 'compliance' && 'Compliance Calendar workspace'}
-            {activeFeature === 'checklists' && 'Checklists workspace'}
             {activeFeature === 'meetings' && 'Meetings (coming soon)'}
           </div>
         </ScrollArea>
@@ -503,12 +483,12 @@ export function UnifiedSidebar({ collapsed = false, onCollapsedChange }: Unified
         </div>
       </div>
 
-      {/* Create Process Modal */}
+      {/* Simple Create Process Modal */}
       {selectedEntity && (
-        <CreateProcessModal
+        <SimpleAddProcessModal
           open={showCreateProcess}
           onOpenChange={setShowCreateProcess}
-          entity={selectedEntity}
+          entityId={selectedEntity.id}
         />
       )}
     </aside>

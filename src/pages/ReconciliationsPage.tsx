@@ -1,5 +1,6 @@
 import { Scale } from 'lucide-react';
 import { FeatureLayout, FeatureContent, FeatureEmptyState } from '@/components/layout/FeatureLayout';
+import { WorkspaceFilterBar } from '@/components/layout/WorkspaceFilterBar';
 import { useModule } from '@/contexts/ModuleContext';
 import { useSidebarSelection } from '@/contexts/SidebarSelectionContext';
 import { ReconciliationWorkspace } from '@/components/reconciliations/ReconciliationWorkspace';
@@ -30,8 +31,9 @@ export function ReconciliationsPage() {
   return (
     <FeatureLayout
       title="Reconciliations"
-      description={`${selectedEntity.name}${selectedPeriod ? ` • ${selectedPeriod.label}` : ''}`}
+      description={selectedEntity.name}
       icon={<Scale className="h-5 w-5" />}
+      filterBar={<WorkspaceFilterBar />}
     >
       <FeatureContent noPadding>
         <ReconciliationWorkspace

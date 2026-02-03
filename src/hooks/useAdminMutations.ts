@@ -226,3 +226,50 @@ export function useCreateArea() {
     },
   });
 }
+
+interface SimpleCreateProcessData {
+  name: string;
+  entity_id: string;
+}
+
+export function useSimpleCreateProcess() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: SimpleCreateProcessData) => {
+      // Get default department (first available)
+      const { data: depts, error: deptError } = await supabase
+        .from('departments')
+        .select('id')
+        .order('name')
+        .limit(1);
+
+      if (deptError) throw deptError;
+      if (!depts || depts.length === 0) {
+        throw new Error('No departments available. Please create a department first.');
+      }
+
+      const { data: process, error } = await supabase
+        .from('processes')
+        .insert({
+          name: data.name,
+          entity_id: data.entity_id,
+          department_id: depts[0].id,
+          template_id: null, // No template required
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return process as Process;
+    },
+    onSuccess: (process) => {
+      queryClient.invalidateQueries({ queryKey: ['folder-structure'] });
+      queryClient.invalidateQueries({ queryKey: ['processes'] });
+      toast.success(`Process "${process.name}" created successfully`);
+    },
+    onError: (error) => {
+      toast.error(`Failed to create process: ${error.message}`);
+    },
+  });
+}

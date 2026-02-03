@@ -1,6 +1,6 @@
-import { CalendarClock, Plus } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { CalendarClock } from 'lucide-react';
 import { FeatureLayout, FeatureContent, FeatureEmptyState } from '@/components/layout/FeatureLayout';
+import { WorkspaceFilterBar } from '@/components/layout/WorkspaceFilterBar';
 import { useModule } from '@/contexts/ModuleContext';
 import { ChecklistWorkspace } from '@/components/checklists/ChecklistWorkspace';
 
@@ -26,8 +26,9 @@ export function CloseCalendarPage() {
   return (
     <FeatureLayout
       title="Close Calendar"
-      description={`${selectedEntity.name}${selectedPeriod ? ` • ${selectedPeriod.label}` : ''}`}
+      description={selectedEntity.name}
       icon={<CalendarClock className="h-5 w-5" />}
+      filterBar={<WorkspaceFilterBar />}
     >
       <FeatureContent noPadding>
         <ChecklistWorkspace

@@ -10,6 +10,7 @@ interface FeatureLayoutProps {
   icon?: ReactNode;
   actions?: ReactNode;
   tabs?: ReactNode;
+  filterBar?: ReactNode;
   backButton?: {
     label: string;
     onClick: () => void;
@@ -24,6 +25,7 @@ export function FeatureLayout({
   icon,
   actions,
   tabs,
+  filterBar,
   backButton,
   className,
 }: FeatureLayoutProps) {
@@ -62,6 +64,13 @@ export function FeatureLayout({
         </div>
         {tabs && <div className="px-6 pb-0">{tabs}</div>}
       </header>
+
+      {/* Horizontal Filter Bar */}
+      {filterBar && (
+        <div className="flex-none border-b bg-muted/30 px-6 py-2">
+          {filterBar}
+        </div>
+      )}
 
       {/* Content */}
       <main className="flex-1 overflow-hidden">{children}</main>

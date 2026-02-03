@@ -263,6 +263,69 @@ export type Database = {
         }
         Relationships: []
       }
+      compliance_items: {
+        Row: {
+          assigned_to: string | null
+          category: string
+          created_at: string
+          description: string | null
+          due_date: string
+          entity_id: string
+          evidence_document_ids: string[] | null
+          id: string
+          period_id: string | null
+          recurrence: string
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          category?: string
+          created_at?: string
+          description?: string | null
+          due_date: string
+          entity_id: string
+          evidence_document_ids?: string[] | null
+          id?: string
+          period_id?: string | null
+          recurrence?: string
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_to?: string | null
+          category?: string
+          created_at?: string
+          description?: string | null
+          due_date?: string
+          entity_id?: string
+          evidence_document_ids?: string[] | null
+          id?: string
+          period_id?: string | null
+          recurrence?: string
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "compliance_items_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "compliance_items_period_id_fkey"
+            columns: ["period_id"]
+            isOneToOne: false
+            referencedRelation: "periods"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       departments: {
         Row: {
           created_at: string

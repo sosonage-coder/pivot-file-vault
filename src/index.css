@@ -2,126 +2,155 @@
 @tailwind components;
 @tailwind utilities;
 
-/* FileGRID Design System
-   Clean, calm, professional - file explorer aesthetic
+/* FileGRID Premium Design System
+   Modern, calm, professional - Linear/Notion inspired
    All colors MUST be HSL
 */
 
 @layer base {
   :root {
-    /* Core palette - professional grays with subtle blue undertones */
-    --background: 210 20% 99%;
-    --foreground: 220 25% 10%;
+    /* Core palette - sophisticated navy with refined surfaces */
+    --background: 220 14% 98%;
+    --foreground: 222 47% 11%;
 
     --card: 0 0% 100%;
-    --card-foreground: 220 25% 10%;
+    --card-foreground: 222 47% 11%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 220 25% 10%;
+    --popover-foreground: 222 47% 11%;
 
-    /* Primary - deep slate blue */
-    --primary: 220 60% 35%;
+    /* Primary - confident navy blue */
+    --primary: 222 47% 31%;
     --primary-foreground: 0 0% 100%;
 
-    /* Secondary - light gray */
-    --secondary: 210 15% 95%;
-    --secondary-foreground: 220 25% 25%;
+    /* Secondary - refined gray */
+    --secondary: 220 13% 95%;
+    --secondary-foreground: 222 47% 20%;
 
     /* Muted - softer backgrounds */
-    --muted: 210 15% 96%;
-    --muted-foreground: 215 15% 45%;
+    --muted: 220 14% 96%;
+    --muted-foreground: 220 9% 46%;
 
     /* Accent - subtle highlight */
-    --accent: 210 20% 94%;
-    --accent-foreground: 220 25% 20%;
+    --accent: 220 14% 94%;
+    --accent-foreground: 222 47% 15%;
 
-    /* Destructive - muted red */
-    --destructive: 0 65% 50%;
+    /* Destructive - refined red */
+    --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
 
     /* Borders and inputs */
-    --border: 210 20% 88%;
-    --input: 210 20% 92%;
-    --ring: 220 60% 50%;
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 222 47% 31%;
 
-    --radius: 0.375rem;
+    --radius: 0.5rem;
 
-    /* Sidebar - file explorer style */
-    --sidebar-background: 210 15% 97%;
-    --sidebar-foreground: 220 20% 25%;
-    --sidebar-primary: 220 60% 35%;
+    /* Sidebar - subtle distinction */
+    --sidebar-background: 220 14% 96%;
+    --sidebar-foreground: 222 47% 20%;
+    --sidebar-primary: 222 47% 31%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 210 20% 93%;
-    --sidebar-accent-foreground: 220 25% 15%;
-    --sidebar-border: 210 20% 90%;
-    --sidebar-ring: 220 60% 50%;
+    --sidebar-accent: 220 14% 92%;
+    --sidebar-accent-foreground: 222 47% 11%;
+    --sidebar-border: 220 13% 90%;
+    --sidebar-ring: 222 47% 31%;
 
-    /* FileGRID status colors */
-    --status-draft: 45 90% 50%;
-    --status-draft-foreground: 45 90% 20%;
-    --status-final: 145 60% 40%;
+    /* Status colors - semantic and accessible */
+    --status-draft: 45 93% 47%;
+    --status-draft-foreground: 45 93% 15%;
+    --status-final: 142 71% 45%;
     --status-final-foreground: 0 0% 100%;
-    --status-superseded: 210 15% 60%;
+    --status-superseded: 220 9% 46%;
     --status-superseded-foreground: 0 0% 100%;
-    --status-archived: 0 0% 55%;
+    --status-archived: 220 9% 60%;
     --status-archived-foreground: 0 0% 100%;
 
-    /* Tree view specific */
-    --tree-line: 210 20% 85%;
-    --tree-hover: 210 25% 95%;
-    --tree-selected: 220 50% 95%;
+    /* Success teal accent */
+    --success: 168 76% 36%;
+    --success-foreground: 0 0% 100%;
+
+    /* Warning */
+    --warning: 38 92% 50%;
+    --warning-foreground: 38 92% 15%;
+
+    /* Surface hierarchy */
+    --surface-0: 0 0% 100%;
+    --surface-1: 220 14% 98%;
+    --surface-2: 220 13% 95%;
+    --surface-3: 220 12% 91%;
+
+    /* Feature accent colors */
+    --feature-calendar: 262 83% 58%;
+    --feature-recon: 168 76% 36%;
+    --feature-docs: 222 47% 50%;
+    --feature-checklists: 38 92% 50%;
+    --feature-meetings: 330 81% 60%;
   }
 
   .dark {
-    --background: 220 25% 8%;
+    --background: 222 47% 6%;
     --foreground: 210 20% 95%;
 
-    --card: 220 25% 10%;
+    --card: 222 47% 8%;
     --card-foreground: 210 20% 95%;
 
-    --popover: 220 25% 10%;
+    --popover: 222 47% 8%;
     --popover-foreground: 210 20% 95%;
 
     --primary: 210 50% 60%;
-    --primary-foreground: 220 25% 8%;
+    --primary-foreground: 222 47% 6%;
 
-    --secondary: 220 20% 18%;
+    --secondary: 222 30% 15%;
     --secondary-foreground: 210 20% 90%;
 
-    --muted: 220 20% 15%;
-    --muted-foreground: 215 15% 60%;
+    --muted: 222 30% 12%;
+    --muted-foreground: 220 9% 55%;
 
-    --accent: 220 20% 18%;
+    --accent: 222 30% 15%;
     --accent-foreground: 210 20% 95%;
 
-    --destructive: 0 60% 45%;
+    --destructive: 0 60% 50%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 20% 18%;
-    --input: 220 20% 18%;
+    --border: 222 30% 15%;
+    --input: 222 30% 15%;
     --ring: 210 50% 60%;
 
-    --sidebar-background: 220 25% 7%;
+    --sidebar-background: 222 47% 5%;
     --sidebar-foreground: 210 15% 85%;
     --sidebar-primary: 210 50% 60%;
-    --sidebar-primary-foreground: 220 25% 8%;
-    --sidebar-accent: 220 20% 15%;
+    --sidebar-primary-foreground: 222 47% 6%;
+    --sidebar-accent: 222 30% 12%;
     --sidebar-accent-foreground: 210 15% 90%;
-    --sidebar-border: 220 20% 15%;
+    --sidebar-border: 222 30% 12%;
     --sidebar-ring: 210 50% 60%;
 
     --status-draft: 45 80% 55%;
     --status-draft-foreground: 45 80% 10%;
-    --status-final: 145 55% 50%;
-    --status-final-foreground: 145 55% 10%;
-    --status-superseded: 210 15% 50%;
+    --status-final: 142 65% 50%;
+    --status-final-foreground: 142 65% 10%;
+    --status-superseded: 220 9% 50%;
     --status-superseded-foreground: 0 0% 100%;
-    --status-archived: 0 0% 45%;
+    --status-archived: 220 9% 45%;
     --status-archived-foreground: 0 0% 100%;
 
-    --tree-line: 220 20% 25%;
-    --tree-hover: 220 25% 15%;
-    --tree-selected: 220 40% 20%;
+    --success: 168 70% 45%;
+    --success-foreground: 0 0% 100%;
+
+    --warning: 38 85% 55%;
+    --warning-foreground: 38 85% 10%;
+
+    --surface-0: 222 47% 8%;
+    --surface-1: 222 47% 6%;
+    --surface-2: 222 30% 12%;
+    --surface-3: 222 30% 18%;
+
+    --feature-calendar: 262 80% 65%;
+    --feature-recon: 168 70% 45%;
+    --feature-docs: 210 50% 60%;
+    --feature-checklists: 38 85% 55%;
+    --feature-meetings: 330 75% 65%;
   }
 }
 
@@ -132,10 +161,35 @@
 
   body {
     @apply bg-background text-foreground antialiased;
+    font-feature-settings: "cv11", "ss01";
+    font-variation-settings: "opsz" 32;
+  }
+
+  /* Typography scale */
+  .heading-xl {
+    @apply text-3xl font-semibold tracking-tight;
+    letter-spacing: -0.02em;
+  }
+
+  .heading-lg {
+    @apply text-xl font-semibold tracking-tight;
+    letter-spacing: -0.01em;
+  }
+
+  .heading-md {
+    @apply text-base font-medium;
+  }
+
+  .body-default {
+    @apply text-sm leading-relaxed;
+  }
+
+  .body-small {
+    @apply text-xs leading-normal text-muted-foreground;
   }
 }
 
-/* Custom scrollbar for file explorer feel */
+/* Custom scrollbar - minimal and refined */
 @layer utilities {
   .scrollbar-thin {
     scrollbar-width: thin;
@@ -153,10 +207,114 @@
   
   .scrollbar-thin::-webkit-scrollbar-thumb {
     background-color: hsl(var(--border));
-    border-radius: 3px;
+    border-radius: 9999px;
   }
   
   .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-    background-color: hsl(var(--muted-foreground));
+    background-color: hsl(var(--muted-foreground) / 0.5);
+  }
+
+  /* Frosted glass effect */
+  .glass {
+    @apply bg-background/80 backdrop-blur-xl;
+  }
+
+  .glass-subtle {
+    @apply bg-background/60 backdrop-blur-md;
+  }
+
+  /* Focus ring refinement */
+  .focus-ring {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background;
+  }
+
+  /* Hover lift effect */
+  .hover-lift {
+    @apply transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md;
+  }
+
+  /* Active state for nav items */
+  .nav-active {
+    @apply relative before:absolute before:inset-y-1 before:left-0 before:w-0.5 before:rounded-full before:bg-primary;
+  }
+
+  /* Card hover state */
+  .card-interactive {
+    @apply transition-all duration-200 hover:border-primary/20 hover:shadow-sm;
+  }
+
+  /* Subtle gradient backgrounds */
+  .gradient-subtle {
+    background: linear-gradient(
+      180deg,
+      hsl(var(--background)) 0%,
+      hsl(var(--muted)) 100%
+    );
+  }
+}
+
+/* Animation keyframes */
+@layer utilities {
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes fade-out {
+    from {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    to {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+  }
+
+  @keyframes scale-in {
+    from {
+      opacity: 0;
+      transform: scale(0.96);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  @keyframes slide-in-from-left {
+    from {
+      transform: translateX(-100%);
+    }
+    to {
+      transform: translateX(0);
+    }
+  }
+
+  @keyframes slide-out-to-left {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(-100%);
+    }
+  }
+
+  .animate-fade-in {
+    animation: fade-in 0.2s ease-out;
+  }
+
+  .animate-scale-in {
+    animation: scale-in 0.15s ease-out;
+  }
+
+  .animate-slide-in {
+    animation: slide-in-from-left 0.25s ease-out;
   }
 }

@@ -15,7 +15,8 @@ import {
   Clock,
   Trash2,
   Pencil,
-  Plus
+  Plus,
+  ExternalLink
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
@@ -119,11 +120,28 @@ function TreeItem({ node, level, selectedId, onSelect, pendingCounts, onEditObje
   const canEdit = node.type === 'object';
   const canAddChild = node.type === 'process' || node.type === 'area';
 
-  const handleClick = () => {
+  const handleClick = (e: React.MouseEvent) => {
+    // Support Ctrl/Cmd+Click to open in new tab
+    if ((e.ctrlKey || e.metaKey) && node.type === 'object') {
+      const feature = getFeatureForNode(node);
+      if (feature) {
+        window.open(`${feature}?objectId=${node.id}`, '_blank');
+        return;
+      }
+    }
+    
     if (hasChildren) {
       setIsExpanded(!isExpanded);
     }
     onSelect(node);
+  };
+
+  const getFeatureForNode = (node: TreeNode): string | null => {
+    // Determine which feature this node belongs to based on type
+    if (node.type === 'pbc-request' || node.type === 'pbc-item') return '/pbc';
+    if (node.type === 'reconciliation-account') return '/reconciliations';
+    if (node.type === 'object') return '/documents';
+    return null;
   };
 
   const handleDoubleClick = () => {
@@ -296,6 +314,13 @@ function TreeItem({ node, level, selectedId, onSelect, pendingCounts, onEditObje
     </div>
   );
 
+  const handleOpenInNewTab = () => {
+    const feature = getFeatureForNode(node);
+    if (feature && node.type === 'object') {
+      window.open(`${feature}?objectId=${node.id}`, '_blank');
+    }
+  };
+
   return (
     <div>
       {canDelete || canEdit || canAddChild ? (
@@ -304,6 +329,15 @@ function TreeItem({ node, level, selectedId, onSelect, pendingCounts, onEditObje
             {treeButton}
           </ContextMenuTrigger>
           <ContextMenuContent>
+            {node.type === 'object' && (
+              <>
+                <ContextMenuItem onClick={handleOpenInNewTab}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Open in New Tab
+                </ContextMenuItem>
+                <ContextMenuSeparator />
+              </>
+            )}
             {canAddChild && (
               <ContextMenuItem onClick={handleAddChild}>
                 <Plus className="mr-2 h-4 w-4" />

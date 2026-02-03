@@ -2,7 +2,7 @@ import { CalendarClock } from 'lucide-react';
 import { FeatureLayout, FeatureContent, FeatureEmptyState } from '@/components/layout/FeatureLayout';
 import { WorkspaceFilterBar } from '@/components/layout/WorkspaceFilterBar';
 import { useModule } from '@/contexts/ModuleContext';
-import { ChecklistWorkspace } from '@/components/checklists/ChecklistWorkspace';
+import { MonthCloseWorkspace } from '@/components/monthclose/MonthCloseWorkspace';
 
 export function CloseCalendarPage() {
   const { selectedEntity, selectedPeriod } = useModule();
@@ -31,7 +31,7 @@ export function CloseCalendarPage() {
       filterBar={<WorkspaceFilterBar />}
     >
       <FeatureContent noPadding>
-        <ChecklistWorkspace
+        <MonthCloseWorkspace
           entityId={selectedEntity.id}
           periodId={selectedPeriod?.id}
         />
@@ -39,3 +39,4 @@ export function CloseCalendarPage() {
     </FeatureLayout>
   );
 }
+

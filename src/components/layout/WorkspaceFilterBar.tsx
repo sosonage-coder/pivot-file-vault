@@ -1,5 +1,6 @@
 import { HierarchicalDatePicker } from '@/components/filegrid/HierarchicalDatePicker';
 import { DimensionSelector, PivotDimension } from '@/components/filegrid/DimensionSelector';
+import { ViewModeToggle, ViewMode } from './ViewModeToggle';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { usePeriods } from '@/hooks/usePeriods';
@@ -16,6 +17,10 @@ const STATUS_OPTIONS: { value: DocumentStatus; label: string }[] = [
 interface WorkspaceFilterBarProps {
   showStatusFilter?: boolean;
   showDimensionSelectors?: boolean;
+  showViewModeToggle?: boolean;
+  viewMode?: ViewMode;
+  onViewModeChange?: (mode: ViewMode) => void;
+  availableViewModes?: ViewMode[];
   statusList?: DocumentStatus[];
   onStatusChange?: (statusList: DocumentStatus[]) => void;
   pivotRowDimension?: PivotDimension | null;
@@ -27,6 +32,10 @@ interface WorkspaceFilterBarProps {
 export function WorkspaceFilterBar({
   showStatusFilter = false,
   showDimensionSelectors = false,
+  showViewModeToggle = false,
+  viewMode = 'list',
+  onViewModeChange,
+  availableViewModes = ['dashboard', 'list', 'kanban'],
   statusList = [],
   onStatusChange,
   pivotRowDimension,
@@ -79,7 +88,16 @@ export function WorkspaceFilterBar({
   };
 
   return (
-    <div className="flex items-center gap-6 flex-wrap">
+    <div className="flex items-center gap-4 flex-wrap">
+      {/* View Mode Toggle */}
+      {showViewModeToggle && onViewModeChange && (
+        <ViewModeToggle
+          value={viewMode}
+          onChange={onViewModeChange}
+          availableModes={availableViewModes}
+        />
+      )}
+
       {/* Hierarchical Date Picker */}
       <HierarchicalDatePicker
         periods={periods}
@@ -134,3 +152,6 @@ export function WorkspaceFilterBar({
     </div>
   );
 }
+
+export type { ViewMode };
+

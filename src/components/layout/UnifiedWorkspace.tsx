@@ -51,6 +51,8 @@ type ReconViewMode = 'dashboard' | 'workspace';
 
 const DEFAULT_FILTERS: PivotFilters = {
   statusList: [],
+  selectedYear: null,
+  selectedMonthPeriodIds: [],
   periodId: null,
   areaId: null,
   objectId: null,

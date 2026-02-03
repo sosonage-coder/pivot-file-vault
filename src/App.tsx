@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ModuleProvider } from "@/contexts/ModuleContext";
+import { SidebarSelectionProvider } from "@/contexts/SidebarSelectionContext";
 import { AppLayout } from "@/components/layout/AppLayout";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
@@ -25,24 +26,26 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <ModuleProvider>
-            <Routes>
-              {/* Main app with feature-first layout */}
-              <Route element={<AppLayout />}>
-                <Route index element={<Navigate to="/close" replace />} />
-                <Route path="/close/*" element={<CloseCalendarPage />} />
-                <Route path="/reconciliations/*" element={<ReconciliationsPage />} />
-                <Route path="/documents/*" element={<DocumentsPage />} />
-                <Route path="/pbc/*" element={<PBCRequestsPage />} />
-                <Route path="/checklists/*" element={<ChecklistsPage />} />
-                <Route path="/meetings/*" element={<MeetingsPage />} />
-              </Route>
-              
-              {/* Auth route (no layout) */}
-              <Route path="/auth" element={<Auth />} />
-              
-              {/* Catch-all */}
-              <Route path="*" element={<NotFound />} />
-            </Routes>
+            <SidebarSelectionProvider>
+              <Routes>
+                {/* Main app with feature-first layout */}
+                <Route element={<AppLayout />}>
+                  <Route index element={<Navigate to="/close" replace />} />
+                  <Route path="/close/*" element={<CloseCalendarPage />} />
+                  <Route path="/reconciliations/*" element={<ReconciliationsPage />} />
+                  <Route path="/documents/*" element={<DocumentsPage />} />
+                  <Route path="/pbc/*" element={<PBCRequestsPage />} />
+                  <Route path="/checklists/*" element={<ChecklistsPage />} />
+                  <Route path="/meetings/*" element={<MeetingsPage />} />
+                </Route>
+                
+                {/* Auth route (no layout) */}
+                <Route path="/auth" element={<Auth />} />
+                
+                {/* Catch-all */}
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </SidebarSelectionProvider>
           </ModuleProvider>
         </BrowserRouter>
       </TooltipProvider>

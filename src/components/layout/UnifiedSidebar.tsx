@@ -1,0 +1,423 @@
+import { useState, useEffect, useMemo } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import {
+  CalendarClock,
+  Scale,
+  FileText,
+  ClipboardList,
+  CheckSquare,
+  Users,
+  Settings,
+  LogOut,
+  ChevronLeft,
+  ChevronRight,
+  Building2,
+  Calendar,
+  Search,
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Separator } from '@/components/ui/separator';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { useAuth } from '@/contexts/AuthContext';
+import { useModule } from '@/contexts/ModuleContext';
+import { useSidebarSelection } from '@/contexts/SidebarSelectionContext';
+import { useEntities } from '@/hooks/useEntities';
+import { usePeriods } from '@/hooks/usePeriods';
+import { useFeatureFolderStructure } from '@/hooks/useFeatureFolderStructure';
+import { usePendingApprovalCounts } from '@/hooks/useApprovals';
+import { UnifiedFolderTree } from '@/components/filegrid/UnifiedFolderTree';
+import type { FeatureId } from '@/hooks/useActiveFeature';
+import type { TreeNode } from '@/types/filegrid';
+
+const FEATURES = [
+  {
+    id: 'close' as FeatureId,
+    label: 'Close',
+    icon: CalendarClock,
+    path: '/close',
+    color: 'text-violet-500',
+    bgColor: 'bg-violet-500/10',
+  },
+  {
+    id: 'reconciliations' as FeatureId,
+    label: 'Recons',
+    icon: Scale,
+    path: '/reconciliations',
+    color: 'text-teal-500',
+    bgColor: 'bg-teal-500/10',
+  },
+  {
+    id: 'documents' as FeatureId,
+    label: 'Docs',
+    icon: FileText,
+    path: '/documents',
+    color: 'text-blue-500',
+    bgColor: 'bg-blue-500/10',
+  },
+  {
+    id: 'pbc' as FeatureId,
+    label: 'PBC',
+    icon: ClipboardList,
+    path: '/pbc',
+    color: 'text-amber-500',
+    bgColor: 'bg-amber-500/10',
+  },
+  {
+    id: 'checklists' as FeatureId,
+    label: 'Lists',
+    icon: CheckSquare,
+    path: '/checklists',
+    color: 'text-emerald-500',
+    bgColor: 'bg-emerald-500/10',
+  },
+  {
+    id: 'meetings' as FeatureId,
+    label: 'Meet',
+    icon: Users,
+    path: '/meetings',
+    color: 'text-pink-500',
+    bgColor: 'bg-pink-500/10',
+    disabled: true,
+  },
+];
+
+interface UnifiedSidebarProps {
+  collapsed?: boolean;
+  onCollapsedChange?: (collapsed: boolean) => void;
+}
+
+export function UnifiedSidebar({ collapsed = false, onCollapsedChange }: UnifiedSidebarProps) {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { user, signOut } = useAuth();
+  const { selectedEntity, setSelectedEntity, selectedPeriod, setSelectedPeriod } = useModule();
+  const { selectedNode, setSelectedNode } = useSidebarSelection();
+  const { data: entities = [] } = useEntities();
+  const { data: periods = [] } = usePeriods();
+  
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Auto-select first entity/period
+  useEffect(() => {
+    if (entities.length > 0 && !selectedEntity) {
+      setSelectedEntity(entities[0]);
+    }
+  }, [entities, selectedEntity, setSelectedEntity]);
+
+  useEffect(() => {
+    if (periods.length > 0 && !selectedPeriod) {
+      setSelectedPeriod(periods[0]);
+    }
+  }, [periods, selectedPeriod, setSelectedPeriod]);
+
+  const activeFeature = FEATURES.find(f => location.pathname.startsWith(f.path))?.id || 'close';
+  
+  // Determine if we need a folder tree for this feature
+  const showFolderTree = activeFeature === 'documents' || activeFeature === 'pbc';
+  const featureType = activeFeature === 'pbc' ? 'pbc' : 'documents';
+
+  // Fetch folder tree data
+  const { data: folderTree = [], isLoading: isLoadingTree } = useFeatureFolderStructure({
+    entityId: selectedEntity?.id || null,
+    periodId: selectedPeriod?.id || null,
+    featureType: featureType,
+  });
+
+  // Get pending approval counts
+  const { data: pendingCounts = {} } = usePendingApprovalCounts(selectedEntity?.id || null);
+
+  // Filter nodes by search query
+  const filteredNodes = useMemo(() => {
+    if (!searchQuery.trim()) return folderTree;
+    
+    const lowerQuery = searchQuery.toLowerCase();
+    
+    const filterNodes = (nodes: TreeNode[]): TreeNode[] => {
+      return nodes.reduce<TreeNode[]>((acc, node) => {
+        const matchesQuery = node.name.toLowerCase().includes(lowerQuery);
+        const filteredChildren = node.children ? filterNodes(node.children) : undefined;
+        
+        if (matchesQuery || (filteredChildren && filteredChildren.length > 0)) {
+          acc.push({
+            ...node,
+            children: filteredChildren,
+          });
+        }
+        
+        return acc;
+      }, []);
+    };
+    
+    return filterNodes(folderTree);
+  }, [folderTree, searchQuery]);
+
+  const handleFeatureClick = (feature: typeof FEATURES[0]) => {
+    if (!feature.disabled) {
+      navigate(feature.path);
+      // Clear selection when switching features
+      setSelectedNode(null);
+      setSearchQuery('');
+    }
+  };
+
+  const handleNodeSelect = (node: TreeNode) => {
+    setSelectedNode(node);
+  };
+
+  return (
+    <aside
+      className={cn(
+        'flex flex-col border-r bg-sidebar-background transition-all duration-300 ease-in-out',
+        collapsed ? 'w-16' : 'w-72'
+      )}
+    >
+      {/* Logo */}
+      <div className={cn('flex h-14 items-center border-b px-4', collapsed && 'justify-center px-2')}>
+        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
+          <span className="text-sm font-bold text-primary-foreground">F</span>
+        </div>
+        {!collapsed && (
+          <span className="ml-2.5 text-lg font-semibold tracking-tight">FileGRID</span>
+        )}
+      </div>
+
+      {/* Context Selectors */}
+      {!collapsed && (
+        <div className="space-y-2 border-b p-3">
+          <Select
+            value={selectedEntity?.id || ''}
+            onValueChange={(value) => {
+              const entity = entities.find(e => e.id === value);
+              if (entity) setSelectedEntity(entity);
+            }}
+          >
+            <SelectTrigger className="h-8 text-sm">
+              <Building2 className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
+              <SelectValue placeholder="Select entity" />
+            </SelectTrigger>
+            <SelectContent>
+              {entities.map((entity) => (
+                <SelectItem key={entity.id} value={entity.id}>
+                  {entity.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select
+            value={selectedPeriod?.id || ''}
+            onValueChange={(value) => {
+              const period = periods.find(p => p.id === value);
+              if (period) setSelectedPeriod(period);
+            }}
+          >
+            <SelectTrigger className="h-8 text-sm">
+              <Calendar className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
+              <SelectValue placeholder="Select period" />
+            </SelectTrigger>
+            <SelectContent>
+              {periods.map((period) => (
+                <SelectItem key={period.id} value={period.id}>
+                  {period.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
+      {/* Collapsed Context Indicators */}
+      {collapsed && (
+        <div className="flex flex-col items-center gap-2 border-b py-3">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="flex h-8 w-8 items-center justify-center rounded-md bg-muted">
+                <Building2 className="h-4 w-4 text-muted-foreground" />
+              </div>
+            </TooltipTrigger>
+            <TooltipContent side="right">
+              {selectedEntity?.name || 'No entity selected'}
+            </TooltipContent>
+          </Tooltip>
+        </div>
+      )}
+
+      {/* Feature Navigation Tabs */}
+      <div className={cn('border-b p-2', collapsed && 'px-1')}>
+        <div className={cn('grid gap-1', collapsed ? 'grid-cols-1' : 'grid-cols-3')}>
+          {FEATURES.map((feature) => {
+            const Icon = feature.icon;
+            const isActive = activeFeature === feature.id;
+
+            const tabButton = (
+              <button
+                key={feature.id}
+                onClick={() => handleFeatureClick(feature)}
+                disabled={feature.disabled}
+                className={cn(
+                  'flex flex-col items-center justify-center gap-0.5 rounded-md p-2 text-xs font-medium transition-all',
+                  'hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                  isActive && 'bg-accent ring-1 ring-primary/20',
+                  feature.disabled && 'cursor-not-allowed opacity-50',
+                  collapsed && 'p-2'
+                )}
+              >
+                <div
+                  className={cn(
+                    'flex h-6 w-6 items-center justify-center rounded transition-colors',
+                    isActive ? feature.bgColor : ''
+                  )}
+                >
+                  <Icon
+                    className={cn(
+                      'h-4 w-4 transition-colors',
+                      isActive ? feature.color : 'text-muted-foreground'
+                    )}
+                  />
+                </div>
+                {!collapsed && (
+                  <span className={cn('text-[10px]', !isActive && 'text-muted-foreground')}>
+                    {feature.label}
+                  </span>
+                )}
+              </button>
+            );
+
+            if (collapsed) {
+              return (
+                <Tooltip key={feature.id}>
+                  <TooltipTrigger asChild>{tabButton}</TooltipTrigger>
+                  <TooltipContent side="right">
+                    {feature.label}
+                    {feature.disabled && ' (Coming soon)'}
+                  </TooltipContent>
+                </Tooltip>
+              );
+            }
+
+            return tabButton;
+          })}
+        </div>
+      </div>
+
+      {/* Context-Aware Content Panel */}
+      {!collapsed && showFolderTree && (
+        <div className="flex flex-col flex-1 overflow-hidden">
+          {/* Search */}
+          <div className="p-2 border-b">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Search..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="h-8 pl-8 text-sm"
+              />
+            </div>
+          </div>
+
+          {/* Folder Tree */}
+          <ScrollArea className="flex-1">
+            <div className="p-2">
+              {isLoadingTree ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                </div>
+              ) : (
+                <UnifiedFolderTree
+                  nodes={filteredNodes}
+                  selectedId={selectedNode?.id || null}
+                  onSelect={handleNodeSelect}
+                  pendingCounts={pendingCounts}
+                />
+              )}
+            </div>
+          </ScrollArea>
+        </div>
+      )}
+
+      {/* Empty state for non-tree features when expanded */}
+      {!collapsed && !showFolderTree && (
+        <ScrollArea className="flex-1">
+          <div className="p-4 text-center text-sm text-muted-foreground">
+            {activeFeature === 'close' && 'Close Calendar workspace'}
+            {activeFeature === 'reconciliations' && 'Reconciliations workspace'}
+            {activeFeature === 'checklists' && 'Checklists workspace'}
+            {activeFeature === 'meetings' && 'Meetings (coming soon)'}
+          </div>
+        </ScrollArea>
+      )}
+
+      {/* Collapsed scroll area */}
+      {collapsed && <div className="flex-1" />}
+
+      {/* Footer */}
+      <div className="border-t p-2">
+        <Button
+          variant="ghost"
+          size="sm"
+          className={cn('w-full justify-start gap-2', collapsed && 'justify-center px-2')}
+          onClick={() => onCollapsedChange?.(!collapsed)}
+        >
+          {collapsed ? (
+            <ChevronRight className="h-4 w-4" />
+          ) : (
+            <>
+              <ChevronLeft className="h-4 w-4" />
+              <span className="text-muted-foreground">Collapse</span>
+            </>
+          )}
+        </Button>
+
+        <Separator className="my-2" />
+
+        <div className={cn('flex items-center gap-2', collapsed && 'flex-col')}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className={cn('flex-1 justify-start gap-2', collapsed && 'w-full justify-center px-2')}
+              >
+                <Settings className="h-4 w-4" />
+                {!collapsed && <span>Settings</span>}
+              </Button>
+            </TooltipTrigger>
+            {collapsed && <TooltipContent side="right">Settings</TooltipContent>}
+          </Tooltip>
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={signOut}
+                className={cn(collapsed && 'w-full justify-center px-2')}
+              >
+                <LogOut className="h-4 w-4" />
+                {!collapsed && <span className="sr-only">Sign out</span>}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="right">
+              Sign out{user?.email && ` (${user.email})`}
+            </TooltipContent>
+          </Tooltip>
+        </div>
+      </div>
+    </aside>
+  );
+}

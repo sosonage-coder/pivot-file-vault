@@ -131,7 +131,59 @@ export function useFeatureFolderStructure({
         }
       }
 
-      // Build tree: Process → Area → Object (no department grouping)
+      // Build tree based on feature type
+      // For PBC: flatten to Area → Object (skip Process level)
+      // For Documents: keep Process → Area → Object
+      
+      if (featureType === 'pbc') {
+        // PBC: Return Areas directly at root level (skip Process)
+        const areaNodes: TreeNode[] = [];
+        
+        for (const area of areas) {
+          const areaObjects = objects.filter(o => o.area_id === area.id);
+          const process = area.processes;
+          
+          const objectNodes: TreeNode[] = areaObjects.map(obj => {
+            const count = countsByObject[obj.id] || 0;
+            return {
+              id: obj.id,
+              name: obj.name,
+              type: 'object' as const,
+              itemCount: count,
+              metadata: {
+                department_id: process.departments.id,
+                process_id: process.id,
+                area_id: area.id,
+                entity_id: entityId,
+                requires_approval: obj.requires_approval || false,
+              },
+            };
+          });
+
+          const areaItemCount = objectNodes.reduce(
+            (sum, o) => sum + (o.itemCount || 0),
+            0
+          );
+
+          areaNodes.push({
+            id: area.id,
+            name: area.name,
+            type: 'area' as const,
+            children: objectNodes.length > 0 ? objectNodes : undefined,
+            itemCount: areaItemCount,
+            metadata: {
+              department_id: process.departments.id,
+              process_id: process.id,
+              entity_id: entityId,
+              template_id: area.template_id,
+            },
+          });
+        }
+
+        return areaNodes;
+      }
+
+      // Documents: Process → Area → Object (original hierarchy)
       const processNodes: TreeNode[] = [];
 
       for (const process of (processes as ProcessWithDepartment[]) || []) {
@@ -151,8 +203,7 @@ export function useFeatureFolderStructure({
               id: obj.id,
               name: obj.name,
               type: 'object' as const,
-              documentCount: featureType === 'documents' ? count : undefined,
-              itemCount: featureType === 'pbc' ? count : undefined,
+              documentCount: count,
               metadata: {
                 department_id: process.departments.id,
                 process_id: process.id,
@@ -164,7 +215,7 @@ export function useFeatureFolderStructure({
           });
 
           const areaItemCount = objectNodes.reduce(
-            (sum, o) => sum + ((featureType === 'documents' ? o.documentCount : o.itemCount) || 0),
+            (sum, o) => sum + (o.documentCount || 0),
             0
           );
 
@@ -173,8 +224,7 @@ export function useFeatureFolderStructure({
             name: area.name,
             type: 'area' as const,
             children: objectNodes.length > 0 ? objectNodes : undefined,
-            documentCount: featureType === 'documents' ? areaItemCount : undefined,
-            itemCount: featureType === 'pbc' ? areaItemCount : undefined,
+            documentCount: areaItemCount,
             metadata: {
               department_id: process.departments.id,
               process_id: process.id,
@@ -192,8 +242,7 @@ export function useFeatureFolderStructure({
             name: process.name,
             type: 'process' as const,
             children: areaNodes,
-            documentCount: featureType === 'documents' ? processItemCount : undefined,
-            itemCount: featureType === 'pbc' ? processItemCount : undefined,
+            documentCount: processItemCount,
             metadata: {
               department_id: process.departments.id,
               department_name: process.departments.name,

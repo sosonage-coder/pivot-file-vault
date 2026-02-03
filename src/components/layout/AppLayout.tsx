@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { AppSidebar } from './AppSidebar';
+import { SidebarSelectionProvider } from '@/contexts/SidebarSelectionContext';
+import { UnifiedSidebar } from './UnifiedSidebar';
 
 export function AppLayout() {
   const { user, loading: authLoading } = useAuth();
@@ -35,14 +36,16 @@ export function AppLayout() {
   }
 
   return (
-    <div className="flex h-screen w-full bg-background">
-      <AppSidebar
-        collapsed={sidebarCollapsed}
-        onCollapsedChange={setSidebarCollapsed}
-      />
-      <main className="flex-1 overflow-hidden">
-        <Outlet />
-      </main>
-    </div>
+    <SidebarSelectionProvider>
+      <div className="flex h-screen w-full bg-background">
+        <UnifiedSidebar
+          collapsed={sidebarCollapsed}
+          onCollapsedChange={setSidebarCollapsed}
+        />
+        <main className="flex-1 overflow-hidden">
+          <Outlet />
+        </main>
+      </div>
+    </SidebarSelectionProvider>
   );
 }

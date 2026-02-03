@@ -1,28 +1,17 @@
 import { useState } from 'react';
-import { ClipboardList, Plus, Search } from 'lucide-react';
+import { ClipboardList, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { FeatureLayout, FeatureContent, FeatureEmptyState } from '@/components/layout/FeatureLayout';
-import { FeatureSplitLayout } from '@/components/layout/FeatureSplitLayout';
-import { UnifiedFolderTree } from '@/components/filegrid/UnifiedFolderTree';
 import { PbcChecklistWorkspace } from '@/components/pbc/PbcChecklistWorkspace';
 import { CreatePbcRequestModal } from '@/components/pbc/CreatePbcRequestModal';
 import { useModule } from '@/contexts/ModuleContext';
-import { useFeatureFolderStructure } from '@/hooks/useFeatureFolderStructure';
+import { useSidebarSelection } from '@/contexts/SidebarSelectionContext';
 import { usePbcTree } from '@/hooks/usePbcTree';
-import type { TreeNode } from '@/types/filegrid';
 
 export function PBCRequestsPage() {
   const { selectedEntity, selectedPeriod } = useModule();
-  const [selectedNode, setSelectedNode] = useState<TreeNode | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
+  const { selectedNode } = useSidebarSelection();
   const [showAddRequest, setShowAddRequest] = useState(false);
-
-  const { data: folderTree = [], isLoading: isLoadingTree } = useFeatureFolderStructure({
-    entityId: selectedEntity?.id || null,
-    periodId: selectedPeriod?.id || null,
-    featureType: 'pbc',
-  });
 
   // Get PBC requests for selected object
   const { tree: pbcTree, isLoading: isLoadingPbc } = usePbcTree({
@@ -35,10 +24,6 @@ export function PBCRequestsPage() {
   const objectRequests = pbcTree
     .flatMap(node => collectRequestsForObject(node, selectedObjectId))
     .filter(Boolean);
-
-  const handleNodeSelect = (node: TreeNode) => {
-    setSelectedNode(node);
-  };
 
   const handleFulfillRequest = async (requestId: string, fileUrl: string) => {
     // This will be handled by the PbcChecklistWorkspace
@@ -75,60 +60,41 @@ export function PBCRequestsPage() {
         )
       }
     >
-      <FeatureContent noPadding>
-        <FeatureSplitLayout
-          sidebarHeader={
-            <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Search..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="h-8 pl-8 text-sm"
-              />
-            </div>
-          }
-          sidebar={
-            isLoadingTree ? (
-              <div className="flex items-center justify-center py-8">
-                <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-              </div>
-            ) : (
-              <UnifiedFolderTree
-                nodes={filterNodes(folderTree, searchQuery)}
-                selectedId={selectedNode?.id || null}
-                onSelect={handleNodeSelect}
-              />
-            )
-          }
-        >
-          {selectedNode?.type === 'object' ? (
-            <PbcChecklistWorkspace
-              objectNode={selectedNode}
-              requests={objectRequests.map(req => ({
-                id: req.id,
-                label: req.label,
-                status: req.status,
-                assignee_id: req.assignee_id,
-                due_date: req.due_date,
-                notes: req.notes,
-                priority: req.priority,
-              }))}
-              isLoading={isLoadingPbc}
-              onFulfillRequest={handleFulfillRequest}
-              onAddRequest={() => setShowAddRequest(true)}
-              entityId={selectedEntity.id}
-            />
-          ) : (
-            <div className="flex h-full flex-col items-center justify-center p-8 text-center">
-              <ClipboardList className="h-12 w-12 text-muted-foreground/40" />
-              <h3 className="mt-4 text-lg font-medium">Select an object</h3>
-              <p className="mt-1 max-w-sm text-sm text-muted-foreground">
-                Choose an object from the folder tree to view and manage its PBC requests
-              </p>
-            </div>
-          )}
-        </FeatureSplitLayout>
+      <FeatureContent>
+        {selectedNode?.type === 'object' ? (
+          <PbcChecklistWorkspace
+            objectNode={selectedNode}
+            requests={objectRequests.map(req => ({
+              id: req.id,
+              label: req.label,
+              status: req.status,
+              assignee_id: req.assignee_id,
+              due_date: req.due_date,
+              notes: req.notes,
+              priority: req.priority,
+            }))}
+            isLoading={isLoadingPbc}
+            onFulfillRequest={handleFulfillRequest}
+            onAddRequest={() => setShowAddRequest(true)}
+            entityId={selectedEntity.id}
+          />
+        ) : selectedNode?.type === 'area' ? (
+          <div className="flex h-full flex-col items-center justify-center p-8 text-center">
+            <ClipboardList className="h-12 w-12 text-muted-foreground/40" />
+            <h3 className="mt-4 text-lg font-medium">Select an object</h3>
+            <p className="mt-1 max-w-sm text-sm text-muted-foreground">
+              Expand "{selectedNode.name}" and select an object to view its PBC requests
+            </p>
+          </div>
+        ) : (
+          <div className="flex h-full flex-col items-center justify-center p-8 text-center">
+            <ClipboardList className="h-12 w-12 text-muted-foreground/40" />
+            <h3 className="mt-4 text-lg font-medium">Select an object</h3>
+            <p className="mt-1 max-w-sm text-sm text-muted-foreground">
+              Choose an area and object from the sidebar to view and manage PBC requests
+            </p>
+          </div>
+        )}
       </FeatureContent>
 
       {showAddRequest && selectedObjectId && selectedPeriod && (
@@ -143,27 +109,6 @@ export function PBCRequestsPage() {
       )}
     </FeatureLayout>
   );
-}
-
-// Helper function to filter nodes by search query
-function filterNodes(nodes: TreeNode[], query: string): TreeNode[] {
-  if (!query.trim()) return nodes;
-  
-  const lowerQuery = query.toLowerCase();
-  
-  return nodes.reduce<TreeNode[]>((acc, node) => {
-    const matchesQuery = node.name.toLowerCase().includes(lowerQuery);
-    const filteredChildren = node.children ? filterNodes(node.children, query) : undefined;
-    
-    if (matchesQuery || (filteredChildren && filteredChildren.length > 0)) {
-      acc.push({
-        ...node,
-        children: filteredChildren,
-      });
-    }
-    
-    return acc;
-  }, []);
 }
 
 // Helper to collect requests for a specific object from the PBC tree

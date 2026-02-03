@@ -1,171 +1,115 @@
 
 
-# Feature Separation + Compliance Calendar Plan
+# Fix Reconciliation Tree in Sidebar + New Tab UX Analysis
+
+## Problem Summary
+
+You're right - we already built the `ReconciliationTree` component (with Category → Area → Account hierarchy), but it's **NOT connected to the UnifiedSidebar**. Currently:
+
+- Sidebar only shows trees for Documents and PBC (line 139 of UnifiedSidebar)
+- ReconciliationsPage always shows dashboard (passes `null` as reconciliationId)
+- The tree exists but is orphaned
+
+---
+
+## Fix 1: Add Reconciliation Tree to Sidebar
+
+### Changes to UnifiedSidebar.tsx
+
+Current code:
+```typescript
+const showFolderTree = activeFeature === 'documents' || activeFeature === 'pbc';
+```
+
+Needs to become:
+```typescript
+const showFolderTree = activeFeature === 'documents' || activeFeature === 'pbc' || activeFeature === 'reconciliations';
+```
+
+But the reconciliation tree has a **different structure** (it groups by account category, not by Process → Area), so we need to:
+
+1. Add the reconciliation feature type to `useFeatureFolderStructure` hook, OR
+2. Use the existing `useReconciliationTree` hook directly in the sidebar
+
+The cleaner approach is option 2 - conditionally render `ReconciliationTree` when on the reconciliations feature.
+
+### Changes to ReconciliationsPage.tsx
+
+Currently:
+```typescript
+<ReconciliationWorkspace
+  reconciliationId={null}
+  entityId={selectedEntity.id}
+  ...
+/>
+```
+
+Needs to consume `selectedNode` from `useSidebarSelection()` context to pass the selected reconciliation ID.
+
+---
+
+## Fix 2: New Tab UX Analysis
+
+Opening features in new browser tabs could help in specific scenarios:
+
+| Feature | Open in New Tab? | Reasoning |
+|---------|------------------|-----------|
+| Reconciliations | Yes (optional) | Users often compare reconciliations side-by-side |
+| Documents | No | Standard navigation is fine |
+| PBC Requests | Yes (optional) | Auditors may want to view request in one tab while uploading in another |
+| Compliance | No | Calendar view is contextual |
+| Checklists | Maybe | Power users might want checklist + recon open together |
+| Meetings | No | Single context |
+
+### Implementation Options
+
+**Option A: Ctrl/Cmd+Click to open in new tab**
+- Standard web behavior
+- No UI changes needed
+- Works with React Router via `<a href>` instead of `navigate()`
+
+**Option B: Explicit "Open in New Tab" button**
+- Add a small icon button next to selected items
+- More discoverable but adds visual clutter
+
+**Option C: Right-click context menu**
+- "Open in New Tab" as a menu option
+- Familiar pattern from IDEs
+
+**Recommended: Option A + C**
+- Support Ctrl/Cmd+Click on tree items (standard web pattern)
+- Add right-click context menu for power users
+
+---
+
+## Technical Implementation
+
+### Files to Modify
+
+1. **`src/components/layout/UnifiedSidebar.tsx`**
+   - Add reconciliations to features that show sidebar content
+   - Import and render `ReconciliationTree` when `activeFeature === 'reconciliations'`
+   - Fetch reconciliations data using existing hooks
+
+2. **`src/pages/ReconciliationsPage.tsx`**
+   - Use `useSidebarSelection()` to get selected node
+   - Extract reconciliation ID from selected tree node
+   - Pass to `ReconciliationWorkspace`
+
+3. **`src/components/reconciliations/ReconciliationTree.tsx`** (optional enhancement)
+   - Add support for Ctrl/Cmd+Click to open in new tab
+   - Add right-click context menu with "Open in New Tab" option
+
+4. **`src/hooks/useReconciliationTree.ts`**
+   - May need to fetch reconciliations if not already available
+
+---
 
 ## Summary
 
-Based on your clarification, we need to implement:
-
-1. **Month Close** - Keep as a separate feature (already exists as "Close Calendar") with folder tree for close-related documents
-2. **Documents** - General document management for contracts, agreements, etc. (restructure folder tree)
-3. **Compliance Calendar** - NEW feature to track compliance deadlines and requirements
-
----
-
-## Current State vs. Target State
-
-```text
-CURRENT (6 features):
-+------------------------------------------+
-| Close Calendar  (uses ChecklistWorkspace)|
-| Reconciliations                          |
-| Documents       (Process -> Area -> Obj) |
-| PBC Requests    (Area -> Object)         |
-| Checklists                               |
-| Meetings                                 |
-+------------------------------------------+
-
-TARGET (7 features):
-+------------------------------------------+
-| Month Close     (Close docs + tasks)     | <- Rename + add folder tree
-| Reconciliations                          |
-| Documents       (Contracts, agreements)  | <- Filter to general docs
-| PBC Requests    (Area -> Object)         | <- Already flattened
-| Compliance Cal  (NEW - deadlines)        | <- NEW feature
-| Checklists                               |
-| Meetings                                 |
-+------------------------------------------+
-```
-
----
-
-## Changes Overview
-
-### 1. Rename "Close Calendar" to "Month Close"
-
-Update the feature label and add a folder tree for close-related documents.
-
-Current behavior: Shows `ChecklistWorkspace` for close schedules
-New behavior: Shows close-specific folder tree in sidebar + ChecklistWorkspace with Kanban/Calendar views
-
-### 2. Documents Feature - General Documents Only
-
-Filter the Documents module to show ONLY general documents (contracts, agreements, vendor info, etc.) - excluding close-related process folders.
-
-This requires:
-- Adding a `document_category` or similar filter to distinguish close vs. general docs
-- OR filtering by Process type (e.g., exclude processes tagged as "close-related")
-
-### 3. New Compliance Calendar Feature
-
-A new module to track compliance deadlines:
-
-| Field | Description |
-|-------|-------------|
-| Compliance items | Lender covenants, regulatory filings, tax deadlines |
-| Due dates | Recurring or one-time deadlines |
-| Status | Pending, In Progress, Completed, Overdue |
-| Responsible party | Assignee |
-| Evidence | Linked documents proving compliance |
-
----
-
-## Files to Create
-
-1. **`src/pages/CompliancePage.tsx`** - New compliance calendar feature page
-2. **`src/components/compliance/ComplianceWorkspace.tsx`** - Main workspace with calendar/list views
-3. **`src/components/compliance/ComplianceItemModal.tsx`** - Create/edit compliance items
-4. **`src/hooks/useComplianceItems.ts`** - Data fetching hooks
-
-## Files to Modify
-
-1. **`src/hooks/useActiveFeature.ts`** - Add `compliance` feature ID, rename `close` label
-2. **`src/components/layout/UnifiedSidebar.tsx`** - Add compliance feature tab, update icons
-3. **`src/App.tsx`** - Add compliance route
-4. **`src/hooks/useFeatureFolderStructure.ts`** - Add `monthclose` feature type for close-specific folder tree
-
----
-
-## Database Changes
-
-A new table for compliance items:
-
-| Column | Type | Description |
-|--------|------|-------------|
-| id | uuid | Primary key |
-| entity_id | uuid | FK to entities |
-| period_id | uuid | Optional FK to periods |
-| title | text | Compliance item name |
-| description | text | Details |
-| due_date | date | Deadline |
-| recurrence | text | monthly, quarterly, annual, one-time |
-| status | text | pending, in_progress, completed, overdue |
-| assigned_to | uuid | FK to profiles |
-| category | text | Lender, Tax, Regulatory, Internal |
-| evidence_document_ids | uuid[] | Links to documents |
-| created_at | timestamp | |
-| updated_at | timestamp | |
-
----
-
-## Technical Details
-
-### Feature Configuration Update
-
-```typescript
-// useActiveFeature.ts
-export type FeatureId = 'monthclose' | 'reconciliations' | 'documents' | 'pbc' | 'compliance' | 'checklists' | 'meetings';
-
-export const FEATURES: FeatureConfig[] = [
-  { id: 'monthclose', label: 'Month Close', path: '/close', shortcut: '1' },
-  { id: 'reconciliations', label: 'Reconciliations', path: '/reconciliations', shortcut: '2' },
-  { id: 'documents', label: 'Documents', path: '/documents', shortcut: '3' },
-  { id: 'pbc', label: 'PBC Requests', path: '/pbc', shortcut: '4' },
-  { id: 'compliance', label: 'Compliance', path: '/compliance', shortcut: '5' },
-  { id: 'checklists', label: 'Checklists', path: '/checklists', shortcut: '6' },
-  { id: 'meetings', label: 'Meetings', path: '/meetings', shortcut: '7' },
-];
-```
-
-### UnifiedSidebar Feature Tabs Update
-
-```typescript
-// Add compliance feature with Shield icon
-const FEATURES = [
-  { id: 'monthclose', label: 'Close', icon: CalendarClock, ... },
-  { id: 'reconciliations', label: 'Recons', icon: Scale, ... },
-  { id: 'documents', label: 'Docs', icon: FileText, ... },
-  { id: 'pbc', label: 'PBC', icon: ClipboardList, ... },
-  { id: 'compliance', label: 'Comply', icon: Shield, color: 'text-orange-500', ... },
-  { id: 'checklists', label: 'Lists', icon: CheckSquare, ... },
-  { id: 'meetings', label: 'Meet', icon: Users, disabled: true, ... },
-];
-```
-
-### Compliance Calendar UI
-
-The Compliance workspace will include:
-- **Calendar View**: Shows all compliance deadlines in a monthly calendar
-- **List View**: Sortable table of compliance items by due date
-- **Kanban View**: Columns for Pending, In Progress, Completed, Overdue
-- **Filters**: By category (Lender, Tax, Regulatory), status, assignee
-
-### Month Close Sidebar Content
-
-When "Month Close" is active, the sidebar will show:
-1. Close-specific folder tree (processes tagged as close-related)
-2. Active close schedules (checklists with start_date)
-
----
-
-## Implementation Order
-
-1. Create database migration for `compliance_items` table
-2. Create compliance hooks and types
-3. Create CompliancePage and ComplianceWorkspace components
-4. Update feature configuration (add compliance, rename close to monthclose)
-5. Update UnifiedSidebar with new features
-6. Add compliance route to App.tsx
-7. Update folder structure hook to support monthclose filtering
-8. Test all views (List, Kanban, Calendar) work for both Month Close and Compliance
+| Issue | Fix |
+|-------|-----|
+| Recon tree not showing | Add reconciliations to sidebar tree rendering logic |
+| Can't select individual recons | Wire up `useSidebarSelection` in ReconciliationsPage |
+| New tab UX | Implement Ctrl+Click and right-click context menu |
 

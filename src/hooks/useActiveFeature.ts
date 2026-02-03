@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
-export type FeatureId = 'close' | 'reconciliations' | 'documents' | 'pbc' | 'checklists' | 'meetings';
+export type FeatureId = 'monthclose' | 'reconciliations' | 'documents' | 'pbc' | 'compliance' | 'checklists' | 'meetings';
 
 interface FeatureConfig {
   id: FeatureId;
@@ -11,12 +11,13 @@ interface FeatureConfig {
 }
 
 export const FEATURES: FeatureConfig[] = [
-  { id: 'close', label: 'Close Calendar', path: '/close', shortcut: '1' },
+  { id: 'monthclose', label: 'Month Close', path: '/close', shortcut: '1' },
   { id: 'reconciliations', label: 'Reconciliations', path: '/reconciliations', shortcut: '2' },
   { id: 'documents', label: 'Documents', path: '/documents', shortcut: '3' },
   { id: 'pbc', label: 'PBC Requests', path: '/pbc', shortcut: '4' },
-  { id: 'checklists', label: 'Checklists', path: '/checklists', shortcut: '5' },
-  { id: 'meetings', label: 'Meetings', path: '/meetings', shortcut: '6' },
+  { id: 'compliance', label: 'Compliance', path: '/compliance', shortcut: '5' },
+  { id: 'checklists', label: 'Checklists', path: '/checklists', shortcut: '6' },
+  { id: 'meetings', label: 'Meetings', path: '/meetings', shortcut: '7' },
 ];
 
 export function useActiveFeature() {
@@ -24,7 +25,7 @@ export function useActiveFeature() {
   const navigate = useNavigate();
   
   // Derive active feature from current path
-  const activeFeature = FEATURES.find(f => location.pathname.startsWith(f.path))?.id || 'close';
+  const activeFeature = FEATURES.find(f => location.pathname.startsWith(f.path))?.id || 'monthclose';
   
   const setActiveFeature = useCallback((featureId: FeatureId) => {
     const feature = FEATURES.find(f => f.id === featureId);

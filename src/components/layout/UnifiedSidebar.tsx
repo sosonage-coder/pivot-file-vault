@@ -14,6 +14,7 @@ import {
   Building2,
   Calendar,
   Search,
+  Shield,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -45,7 +46,7 @@ import type { TreeNode } from '@/types/filegrid';
 
 const FEATURES = [
   {
-    id: 'close' as FeatureId,
+    id: 'monthclose' as FeatureId,
     label: 'Close',
     icon: CalendarClock,
     path: '/close',
@@ -75,6 +76,14 @@ const FEATURES = [
     path: '/pbc',
     color: 'text-amber-500',
     bgColor: 'bg-amber-500/10',
+  },
+  {
+    id: 'compliance' as FeatureId,
+    label: 'Comply',
+    icon: Shield,
+    path: '/compliance',
+    color: 'text-orange-500',
+    bgColor: 'bg-orange-500/10',
   },
   {
     id: 'checklists' as FeatureId,
@@ -124,7 +133,7 @@ export function UnifiedSidebar({ collapsed = false, onCollapsedChange }: Unified
     }
   }, [periods, selectedPeriod, setSelectedPeriod]);
 
-  const activeFeature = FEATURES.find(f => location.pathname.startsWith(f.path))?.id || 'close';
+  const activeFeature = FEATURES.find(f => location.pathname.startsWith(f.path))?.id || 'monthclose';
   
   // Determine if we need a folder tree for this feature
   const showFolderTree = activeFeature === 'documents' || activeFeature === 'pbc';
@@ -354,8 +363,9 @@ export function UnifiedSidebar({ collapsed = false, onCollapsedChange }: Unified
       {!collapsed && !showFolderTree && (
         <ScrollArea className="flex-1">
           <div className="p-4 text-center text-sm text-muted-foreground">
-            {activeFeature === 'close' && 'Close Calendar workspace'}
+            {activeFeature === 'monthclose' && 'Month Close workspace'}
             {activeFeature === 'reconciliations' && 'Reconciliations workspace'}
+            {activeFeature === 'compliance' && 'Compliance Calendar workspace'}
             {activeFeature === 'checklists' && 'Checklists workspace'}
             {activeFeature === 'meetings' && 'Meetings (coming soon)'}
           </div>

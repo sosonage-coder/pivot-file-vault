@@ -1,10 +1,15 @@
 import { Scale } from 'lucide-react';
 import { FeatureLayout, FeatureContent, FeatureEmptyState } from '@/components/layout/FeatureLayout';
 import { useModule } from '@/contexts/ModuleContext';
+import { useSidebarSelection } from '@/contexts/SidebarSelectionContext';
 import { ReconciliationWorkspace } from '@/components/reconciliations/ReconciliationWorkspace';
 
 export function ReconciliationsPage() {
   const { selectedEntity, selectedPeriod } = useModule();
+  const { selectedNode } = useSidebarSelection();
+
+  // Extract reconciliation ID from sidebar selection
+  const selectedReconciliationId = (selectedNode?.metadata?.reconciliationId as string | undefined) || null;
 
   if (!selectedEntity) {
     return (
@@ -30,7 +35,7 @@ export function ReconciliationsPage() {
     >
       <FeatureContent noPadding>
         <ReconciliationWorkspace
-          reconciliationId={null}
+          reconciliationId={selectedReconciliationId}
           entityId={selectedEntity.id}
           periodId={selectedPeriod?.id}
         />

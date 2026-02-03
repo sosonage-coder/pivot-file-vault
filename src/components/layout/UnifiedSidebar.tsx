@@ -40,9 +40,13 @@ import { useEntities } from '@/hooks/useEntities';
 import { usePeriods } from '@/hooks/usePeriods';
 import { useFeatureFolderStructure } from '@/hooks/useFeatureFolderStructure';
 import { usePendingApprovalCounts } from '@/hooks/useApprovals';
+import { useReconciliations } from '@/hooks/useReconciliations';
+import { useReconciliationTree } from '@/hooks/useReconciliationTree';
 import { UnifiedFolderTree } from '@/components/filegrid/UnifiedFolderTree';
+import { ReconciliationTree } from '@/components/reconciliations/ReconciliationTree';
 import type { FeatureId } from '@/hooks/useActiveFeature';
 import type { TreeNode } from '@/types/filegrid';
+import type { ReconciliationTreeNode } from '@/hooks/useReconciliationTree';
 
 const FEATURES = [
   {
@@ -137,14 +141,22 @@ export function UnifiedSidebar({ collapsed = false, onCollapsedChange }: Unified
   
   // Determine if we need a folder tree for this feature
   const showFolderTree = activeFeature === 'documents' || activeFeature === 'pbc';
+  const showReconciliationTree = activeFeature === 'reconciliations';
   const featureType = activeFeature === 'pbc' ? 'pbc' : 'documents';
 
-  // Fetch folder tree data
+  // Fetch folder tree data (for documents/pbc)
   const { data: folderTree = [], isLoading: isLoadingTree } = useFeatureFolderStructure({
     entityId: selectedEntity?.id || null,
     periodId: selectedPeriod?.id || null,
     featureType: featureType,
   });
+
+  // Fetch reconciliation data (for reconciliations tree)
+  const { data: reconciliations = [], isLoading: isLoadingReconciliations } = useReconciliations(
+    showReconciliationTree ? selectedEntity?.id || null : null,
+    selectedPeriod?.id
+  );
+  const reconciliationTree = useReconciliationTree(reconciliations);
 
   // Get pending approval counts
   const { data: pendingCounts = {} } = usePendingApprovalCounts(selectedEntity?.id || null);
@@ -185,6 +197,23 @@ export function UnifiedSidebar({ collapsed = false, onCollapsedChange }: Unified
 
   const handleNodeSelect = (node: TreeNode) => {
     setSelectedNode(node);
+  };
+
+  // Handle reconciliation tree selection - convert to TreeNode format
+  const handleReconciliationNodeSelect = (node: ReconciliationTreeNode) => {
+    if (node.type === 'account' && node.reconciliationId) {
+      // Convert to TreeNode format for compatibility with useSidebarSelection
+      const treeNode: TreeNode = {
+        id: node.reconciliationId,
+        name: node.name,
+        type: 'object', // Use 'object' type for reconciliation accounts
+        metadata: {
+          ...node.metadata,
+          reconciliationId: node.reconciliationId,
+        },
+      };
+      setSelectedNode(treeNode);
+    }
   };
 
   return (
@@ -359,12 +388,46 @@ export function UnifiedSidebar({ collapsed = false, onCollapsedChange }: Unified
         </div>
       )}
 
+      {/* Reconciliation Tree Panel */}
+      {!collapsed && showReconciliationTree && (
+        <div className="flex flex-col flex-1 overflow-hidden">
+          {/* Search */}
+          <div className="p-2 border-b">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Search accounts..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="h-8 pl-8 text-sm"
+              />
+            </div>
+          </div>
+
+          {/* Reconciliation Tree */}
+          <ScrollArea className="flex-1">
+            <div className="p-2">
+              {isLoadingReconciliations ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                </div>
+              ) : (
+                <ReconciliationTree
+                  nodes={reconciliationTree}
+                  selectedId={(selectedNode?.metadata?.reconciliationId as string | undefined) || selectedNode?.id || null}
+                  onSelect={handleReconciliationNodeSelect}
+                />
+              )}
+            </div>
+          </ScrollArea>
+        </div>
+      )}
+
       {/* Empty state for non-tree features when expanded */}
-      {!collapsed && !showFolderTree && (
+      {!collapsed && !showFolderTree && !showReconciliationTree && (
         <ScrollArea className="flex-1">
           <div className="p-4 text-center text-sm text-muted-foreground">
             {activeFeature === 'monthclose' && 'Month Close workspace'}
-            {activeFeature === 'reconciliations' && 'Reconciliations workspace'}
             {activeFeature === 'compliance' && 'Compliance Calendar workspace'}
             {activeFeature === 'checklists' && 'Checklists workspace'}
             {activeFeature === 'meetings' && 'Meetings (coming soon)'}

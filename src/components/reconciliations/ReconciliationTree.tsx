@@ -10,10 +10,17 @@ import {
   Clock,
   XCircle,
   Play,
-  Shield
+  Shield,
+  ExternalLink
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from '@/components/ui/context-menu';
 import type { ReconciliationTreeNode } from '@/hooks/useReconciliationTree';
 import type { ReconciliationStatus } from '@/types/reconciliations';
 
@@ -76,14 +83,26 @@ const statusConfig: Record<ReconciliationStatus, {
 function TreeItem({ node, level, selectedId, onSelect }: TreeItemProps) {
   const [isExpanded, setIsExpanded] = useState(level < 1);
   const hasChildren = node.children && node.children.length > 0;
-  const isSelected = selectedId === node.id;
+  const isSelected = selectedId === node.id || selectedId === node.reconciliationId;
   const Icon = iconMap[node.type];
   
-  const handleClick = () => {
+  const handleClick = (e: React.MouseEvent) => {
+    // Support Ctrl/Cmd+Click to open in new tab
+    if ((e.ctrlKey || e.metaKey) && node.type === 'account' && node.reconciliationId) {
+      window.open(`/reconciliations?id=${node.reconciliationId}`, '_blank');
+      return;
+    }
+    
     if (hasChildren) {
       setIsExpanded(!isExpanded);
     }
     onSelect(node);
+  };
+
+  const handleOpenInNewTab = () => {
+    if (node.type === 'account' && node.reconciliationId) {
+      window.open(`/reconciliations?id=${node.reconciliationId}`, '_blank');
+    }
   };
 
   // Calculate stats for non-account nodes
@@ -110,49 +129,70 @@ function TreeItem({ node, level, selectedId, onSelect }: TreeItemProps) {
 
   const stats = getChildStats();
 
+  const treeItemContent = (
+    <button
+      onClick={handleClick}
+      className={cn(
+        'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors',
+        'hover:bg-[hsl(var(--tree-hover))]',
+        isSelected && 'bg-[hsl(var(--tree-selected))] font-medium'
+      )}
+      style={{ paddingLeft: `${level * 12 + 8}px` }}
+    >
+      <span className="flex h-4 w-4 items-center justify-center">
+        {hasChildren ? (
+          isExpanded ? (
+            <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+          ) : (
+            <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+          )
+        ) : (
+          <span className="w-3.5" />
+        )}
+      </span>
+      
+      <Icon className={cn(
+        'h-4 w-4',
+        node.type === 'category' ? 'text-primary' : 
+        node.type === 'area' ? 'text-muted-foreground' : 'text-accent-foreground'
+      )} />
+      
+      <span className="flex-1 truncate">{node.name}</span>
+      
+      {/* Status indicator for accounts */}
+      {node.type === 'account' && node.status && (
+        <StatusIndicator status={node.status} variance={node.variance} />
+      )}
+      
+      {/* Stats for categories/areas */}
+      {stats && stats.total > 0 && (
+        <span className="text-xs text-muted-foreground tabular-nums">
+          {stats.certified}/{stats.total}
+        </span>
+      )}
+    </button>
+  );
+
+  // Wrap account nodes with context menu for "Open in New Tab"
+  const wrappedContent = node.type === 'account' ? (
+    <ContextMenu>
+      <ContextMenuTrigger asChild>
+        {treeItemContent}
+      </ContextMenuTrigger>
+      <ContextMenuContent>
+        <ContextMenuItem onClick={handleOpenInNewTab}>
+          <ExternalLink className="mr-2 h-4 w-4" />
+          Open in New Tab
+        </ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
+  ) : (
+    treeItemContent
+  );
+
   return (
     <div>
-      <button
-        onClick={handleClick}
-        className={cn(
-          'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors',
-          'hover:bg-[hsl(var(--tree-hover))]',
-          isSelected && 'bg-[hsl(var(--tree-selected))] font-medium'
-        )}
-        style={{ paddingLeft: `${level * 12 + 8}px` }}
-      >
-        <span className="flex h-4 w-4 items-center justify-center">
-          {hasChildren ? (
-            isExpanded ? (
-              <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-            ) : (
-              <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
-            )
-          ) : (
-            <span className="w-3.5" />
-          )}
-        </span>
-        
-        <Icon className={cn(
-          'h-4 w-4',
-          node.type === 'category' ? 'text-primary' : 
-          node.type === 'area' ? 'text-muted-foreground' : 'text-accent-foreground'
-        )} />
-        
-        <span className="flex-1 truncate">{node.name}</span>
-        
-        {/* Status indicator for accounts */}
-        {node.type === 'account' && node.status && (
-          <StatusIndicator status={node.status} variance={node.variance} />
-        )}
-        
-        {/* Stats for categories/areas */}
-        {stats && stats.total > 0 && (
-          <span className="text-xs text-muted-foreground tabular-nums">
-            {stats.certified}/{stats.total}
-          </span>
-        )}
-      </button>
+      {wrappedContent}
       
       {hasChildren && isExpanded && (
         <div className="relative">

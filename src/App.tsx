@@ -11,6 +11,7 @@ import NotFound from "./pages/NotFound";
 import { CloseCalendarPage } from "./pages/CloseCalendarPage";
 import { ReconciliationsPage } from "./pages/ReconciliationsPage";
 import { DocumentsPage } from "./pages/DocumentsPage";
+import { PBCRequestsPage } from "./pages/PBCRequestsPage";
 import { ChecklistsPage } from "./pages/ChecklistsPage";
 import { MeetingsPage } from "./pages/MeetingsPage";
 
@@ -31,6 +32,7 @@ const App = () => (
                 <Route path="/close/*" element={<CloseCalendarPage />} />
                 <Route path="/reconciliations/*" element={<ReconciliationsPage />} />
                 <Route path="/documents/*" element={<DocumentsPage />} />
+                <Route path="/pbc/*" element={<PBCRequestsPage />} />
                 <Route path="/checklists/*" element={<ChecklistsPage />} />
                 <Route path="/meetings/*" element={<MeetingsPage />} />
               </Route>

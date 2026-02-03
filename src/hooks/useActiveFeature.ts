@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
-export type FeatureId = 'close' | 'reconciliations' | 'documents' | 'checklists' | 'meetings';
+export type FeatureId = 'close' | 'reconciliations' | 'documents' | 'pbc' | 'checklists' | 'meetings';
 
 interface FeatureConfig {
   id: FeatureId;
@@ -14,8 +14,9 @@ export const FEATURES: FeatureConfig[] = [
   { id: 'close', label: 'Close Calendar', path: '/close', shortcut: '1' },
   { id: 'reconciliations', label: 'Reconciliations', path: '/reconciliations', shortcut: '2' },
   { id: 'documents', label: 'Documents', path: '/documents', shortcut: '3' },
-  { id: 'checklists', label: 'Checklists', path: '/checklists', shortcut: '4' },
-  { id: 'meetings', label: 'Meetings', path: '/meetings', shortcut: '5' },
+  { id: 'pbc', label: 'PBC Requests', path: '/pbc', shortcut: '4' },
+  { id: 'checklists', label: 'Checklists', path: '/checklists', shortcut: '5' },
+  { id: 'meetings', label: 'Meetings', path: '/meetings', shortcut: '6' },
 ];
 
 export function useActiveFeature() {

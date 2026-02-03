@@ -1,6 +1,7 @@
 import { FileText, Upload, FolderOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { FeatureLayout, FeatureContent, FeatureEmptyState } from '@/components/layout/FeatureLayout';
+import { WorkspaceFilterBar } from '@/components/layout/WorkspaceFilterBar';
 import { DocumentList } from '@/components/filegrid/DocumentList';
 import { UploadDocumentModal } from '@/components/filegrid/UploadDocumentModal';
 import { EditObjectModal } from '@/components/filegrid/EditObjectModal';
@@ -85,8 +86,9 @@ export function DocumentsPage() {
   return (
     <FeatureLayout
       title="Documents"
-      description={`${selectedEntity.name}${selectedPeriod ? ` • ${selectedPeriod.label}` : ''}`}
+      description={selectedEntity.name}
       icon={<FileText className="h-5 w-5" />}
+      filterBar={<WorkspaceFilterBar showStatusFilter />}
       actions={
         canUpload && (
           <Button onClick={() => setShowUpload(true)}>

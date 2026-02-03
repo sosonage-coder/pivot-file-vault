@@ -1,6 +1,6 @@
-import { CheckSquare, Plus } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { CheckSquare } from 'lucide-react';
 import { FeatureLayout, FeatureContent, FeatureEmptyState } from '@/components/layout/FeatureLayout';
+import { WorkspaceFilterBar } from '@/components/layout/WorkspaceFilterBar';
 import { useModule } from '@/contexts/ModuleContext';
 import { ChecklistWorkspace } from '@/components/checklists/ChecklistWorkspace';
 
@@ -26,8 +26,9 @@ export function ChecklistsPage() {
   return (
     <FeatureLayout
       title="Checklists"
-      description={`${selectedEntity.name}${selectedPeriod ? ` • ${selectedPeriod.label}` : ''}`}
+      description={selectedEntity.name}
       icon={<CheckSquare className="h-5 w-5" />}
+      filterBar={<WorkspaceFilterBar />}
     >
       <FeatureContent noPadding>
         <ChecklistWorkspace

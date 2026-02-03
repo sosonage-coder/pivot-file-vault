@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ClipboardList, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { FeatureLayout, FeatureContent, FeatureEmptyState } from '@/components/layout/FeatureLayout';
+import { WorkspaceFilterBar } from '@/components/layout/WorkspaceFilterBar';
 import { PbcChecklistWorkspace } from '@/components/pbc/PbcChecklistWorkspace';
 import { CreatePbcRequestModal } from '@/components/pbc/CreatePbcRequestModal';
 import { useModule } from '@/contexts/ModuleContext';
@@ -49,8 +50,9 @@ export function PBCRequestsPage() {
   return (
     <FeatureLayout
       title="PBC Requests"
-      description={`${selectedEntity.name}${selectedPeriod ? ` • ${selectedPeriod.label}` : ''}`}
+      description={selectedEntity.name}
       icon={<ClipboardList className="h-5 w-5" />}
+      filterBar={<WorkspaceFilterBar />}
       actions={
         selectedObjectId && (
           <Button onClick={() => setShowAddRequest(true)}>

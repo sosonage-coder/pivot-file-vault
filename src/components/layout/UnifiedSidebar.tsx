@@ -140,9 +140,9 @@ export function UnifiedSidebar({ collapsed = false, onCollapsedChange }: Unified
   const activeFeature = FEATURES.find(f => location.pathname.startsWith(f.path))?.id || 'monthclose';
   
   // Determine if we need a folder tree for this feature
-  const showFolderTree = activeFeature === 'documents' || activeFeature === 'pbc';
+  const showFolderTree = activeFeature === 'documents' || activeFeature === 'pbc' || activeFeature === 'monthclose';
   const showReconciliationTree = activeFeature === 'reconciliations';
-  const featureType = activeFeature === 'pbc' ? 'pbc' : 'documents';
+  const featureType = activeFeature === 'pbc' ? 'pbc' : activeFeature === 'monthclose' ? 'monthclose' : 'documents';
 
   // Fetch folder tree data (for documents/pbc)
   const { data: folderTree = [], isLoading: isLoadingTree } = useFeatureFolderStructure({
@@ -423,11 +423,9 @@ export function UnifiedSidebar({ collapsed = false, onCollapsedChange }: Unified
         </div>
       )}
 
-      {/* Empty state for non-tree features when expanded */}
       {!collapsed && !showFolderTree && !showReconciliationTree && (
         <ScrollArea className="flex-1">
           <div className="p-4 text-center text-sm text-muted-foreground">
-            {activeFeature === 'monthclose' && 'Month Close workspace'}
             {activeFeature === 'compliance' && 'Compliance Calendar workspace'}
             {activeFeature === 'checklists' && 'Checklists workspace'}
             {activeFeature === 'meetings' && 'Meetings (coming soon)'}

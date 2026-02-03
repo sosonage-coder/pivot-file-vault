@@ -15,6 +15,7 @@ import {
   Calendar,
   Search,
   Shield,
+  Plus,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -44,6 +45,7 @@ import { useReconciliations } from '@/hooks/useReconciliations';
 import { useReconciliationTree } from '@/hooks/useReconciliationTree';
 import { UnifiedFolderTree } from '@/components/filegrid/UnifiedFolderTree';
 import { ReconciliationTree } from '@/components/reconciliations/ReconciliationTree';
+import { CreateProcessModal } from '@/components/filegrid/CreateProcessModal';
 import type { FeatureId } from '@/hooks/useActiveFeature';
 import type { TreeNode } from '@/types/filegrid';
 import type { ReconciliationTreeNode } from '@/hooks/useReconciliationTree';
@@ -121,8 +123,8 @@ export function UnifiedSidebar({ collapsed = false, onCollapsedChange }: Unified
   const { selectedNode, setSelectedNode } = useSidebarSelection();
   const { data: entities = [] } = useEntities();
   const { data: periods = [] } = usePeriods();
-  
   const [searchQuery, setSearchQuery] = useState('');
+  const [showCreateProcess, setShowCreateProcess] = useState(false);
 
   // Auto-select first entity/period
   useEffect(() => {
@@ -355,8 +357,8 @@ export function UnifiedSidebar({ collapsed = false, onCollapsedChange }: Unified
       {/* Context-Aware Content Panel */}
       {!collapsed && showFolderTree && (
         <div className="flex flex-col flex-1 overflow-hidden">
-          {/* Search */}
-          <div className="p-2 border-b">
+          {/* Search + Add Process */}
+          <div className="p-2 border-b space-y-2">
             <div className="relative">
               <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
               <Input
@@ -366,6 +368,17 @@ export function UnifiedSidebar({ collapsed = false, onCollapsedChange }: Unified
                 className="h-8 pl-8 text-sm"
               />
             </div>
+            {selectedEntity && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowCreateProcess(true)}
+                className="w-full justify-start gap-2 h-8 text-muted-foreground hover:text-foreground"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Add Process
+              </Button>
+            )}
           </div>
 
           {/* Folder Tree */}
@@ -489,6 +502,15 @@ export function UnifiedSidebar({ collapsed = false, onCollapsedChange }: Unified
           </Tooltip>
         </div>
       </div>
+
+      {/* Create Process Modal */}
+      {selectedEntity && (
+        <CreateProcessModal
+          open={showCreateProcess}
+          onOpenChange={setShowCreateProcess}
+          entity={selectedEntity}
+        />
+      )}
     </aside>
   );
 }

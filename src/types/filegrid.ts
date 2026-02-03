@@ -187,12 +187,22 @@ export interface TreeNode {
   metadata?: Record<string, unknown>;
 }
 
+// Pivot dimension type for multi-dimensional views
+export type PivotDimension = 'period' | 'area' | 'object' | 'status' | 'document-type';
+
 // Pivot view filter state
 export interface PivotFilters {
   statusList: DocumentStatus[];
+  // Hierarchical date selection
+  selectedYear: string | null;
+  selectedMonthPeriodIds: string[];
+  // Legacy single period (for backwards compatibility)
   periodId: string | null;
   areaId: string | null;
   objectId: string | null;
+  // Multi-dimensional pivot configuration
+  pivotRowDimension?: PivotDimension;
+  pivotColDimension?: PivotDimension;
 }
 
 // Pivot view types

@@ -10,7 +10,10 @@ interface AreaWithProcess extends Area {
   processes: ProcessWithDepartment;
 }
 
-export type FeatureType = 'documents' | 'pbc';
+export type FeatureType = 'documents' | 'pbc' | 'monthclose';
+
+// Process names that belong to Month Close (excluded from Documents view)
+const MONTH_CLOSE_PROCESSES = ['month close', 'monthly close', 'close'];
 
 interface UseFeatureFolderStructureOptions {
   entityId: string | null;
@@ -44,8 +47,23 @@ export function useFeatureFolderStructure({
 
       if (processError) throw processError;
 
+      // Filter processes based on feature type
+      let filteredProcesses = (processes as ProcessWithDepartment[]) || [];
+      
+      if (featureType === 'documents') {
+        // Exclude Month Close processes from Documents view
+        filteredProcesses = filteredProcesses.filter(p => 
+          !MONTH_CLOSE_PROCESSES.some(mc => p.name.toLowerCase().includes(mc))
+        );
+      } else if (featureType === 'monthclose') {
+        // Only show Month Close processes
+        filteredProcesses = filteredProcesses.filter(p => 
+          MONTH_CLOSE_PROCESSES.some(mc => p.name.toLowerCase().includes(mc))
+        );
+      }
+
       // Fetch all areas for these processes
-      const processIds = (processes as ProcessWithDepartment[])?.map(p => p.id) || [];
+      const processIds = filteredProcesses.map(p => p.id);
       
       let areas: AreaWithProcess[] = [];
       if (processIds.length > 0) {
@@ -186,7 +204,7 @@ export function useFeatureFolderStructure({
       // Documents: Process → Area → Object (original hierarchy)
       const processNodes: TreeNode[] = [];
 
-      for (const process of (processes as ProcessWithDepartment[]) || []) {
+      for (const process of filteredProcesses) {
         const processAreas = areas.filter(a => a.process_id === process.id);
         
         if (processAreas.length === 0) continue;

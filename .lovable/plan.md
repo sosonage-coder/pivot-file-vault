@@ -1,332 +1,163 @@
 
+# Restore Folder Trees + Add PBC Feature
 
-# Premium UX/UI Redesign Plan
-## Feature-Centric Navigation with World-Class Design
+## Problem Summary
 
----
+The recent feature-first navigation redesign created a cleaner sidebar with 5 top-level modules, but the **Documents** and **PBC** feature pages are currently placeholders. The rich folder tree navigation (Department → Process → Area → Object) that existed before is missing, along with the PBC Requests functionality.
 
-## Executive Summary
+## What Needs to Be Done
 
-This redesign transforms FileGRID from a department-organized hierarchy into a **feature-first, task-oriented interface** that competes with modern SaaS leaders like Linear, Notion, and Figma. The goal is to create an interface that feels **calm, professional, and instantly intuitive** while maintaining powerful functionality.
+### 1. Add "PBC Requests" as a 6th Feature in Navigation
 
----
+Currently the sidebar shows:
+- Close Calendar
+- Reconciliations
+- Documents
+- Checklists
+- Meetings
 
-## Current State Analysis
+We'll add **PBC Requests** (ClipboardList icon) between Documents and Checklists, making 6 features total.
 
-**What exists today:**
-- Sidebar organized by: Entity > Department > Modules (Documents, PBC, Tasks, Reconciliations)
-- 4 modules nested under each department
-- Folder tree structure with process/area/object hierarchy
-- Dense, information-heavy layout
+### 2. Restore Folder Tree Inside Feature Workspaces
 
-**Pain points:**
-- Departments add cognitive overhead without clear value
-- Users must navigate deep hierarchies to reach features
-- Module switching feels buried within departments
-- Visual design lacks modern polish and whitespace
-
----
-
-## Design Vision
-
-**Core Philosophy:** "Less chrome, more context"
-
-### Design Principles
-
-1. **Feature-First Navigation** - Primary modules at top-level, not buried under departments
-2. **Contextual Density** - Dense where it matters, spacious where it calms
-3. **Progressive Disclosure** - Show complexity only when needed
-4. **Consistent Rhythm** - Predictable spacing and visual hierarchy
-5. **Delightful Micro-interactions** - Subtle animations that feel premium
-
----
-
-## Architecture Changes
-
-### Navigation Structure
-
-**Before (Department-Centric):**
-```text
-+---------------------------+
-| Entity Selector           |
-+---------------------------+
-| - Finance                 |
-|   - Documents             |
-|   - PBC Requests          |
-|   - Tasks                 |
-|   - Reconciliations       |
-| - Operations              |
-|   - Documents             |
-|   ...                     |
-+---------------------------+
-```
-
-**After (Feature-Centric):**
-```text
-+---------------------------+
-| [Logo] FileGRID           |
-+---------------------------+
-| Entity | Period           |
-+---------------------------+
-|                           |
-| Close Calendar    [icon]  |
-| Reconciliations   [icon]  |
-| Documents         [icon]  |
-| Checklists        [icon]  |
-| Meetings          [icon]  | (future)
-|                           |
-+---------------------------+
-| Settings          [icon]  |
-+---------------------------+
-```
-
-### Key Changes
-
-1. **Remove department grouping** from sidebar navigation
-2. **Elevate 5 core features** to top-level navigation
-3. **Keep entity/period context** compact in header or sidebar top
-4. **Each feature module** manages its own content hierarchy internally
-
----
-
-## Component Redesign
-
-### 1. New Global Sidebar (`AppSidebar.tsx`)
-
-**Features:**
-- Collapsible with smooth animation (icon-only mode)
-- Feature icons with active state highlighting
-- Subtle hover effects with tooltip on collapse
-- Entity/Period selector as compact dropdown at top
-- User profile/settings at bottom
-- Keyboard shortcut support (Cmd+1 for Close Calendar, etc.)
-
-**Visual Treatment:**
-- Frosted glass effect on hover (backdrop-blur)
-- Active item with left accent bar (primary color)
-- Icon-only mode shows tooltips
-- 56px collapsed width, 240px expanded
-
-### 2. Workspace Header Pattern
-
-Each feature module follows a consistent header pattern:
+Each feature that needs hierarchical navigation (Documents, PBC Requests, Reconciliations) will have a **resizable split layout**:
 
 ```text
-+------------------------------------------------+
-| [Back?] Feature Name              [View Toggle] |
-| [Breadcrumb / Context]            [+ Action]    |
-+------------------------------------------------+
-| [Tab Bar: Dashboard | List | Kanban | Calendar] |
-+------------------------------------------------+
++-------------------------------------------+
+| Feature Header (Documents)                 |
++-------------------------------------------+
+| Folder Tree  |  Content Area              |
+| (240px)      |  (flexible)                |
+|              |                             |
+| - Process    |  [Pivot View / List]       |
+|   - Area     |                             |
+|     - Object |                             |
++-------------------------------------------+
 ```
 
-### 3. Feature Module Layouts
+### 3. Feature-Specific Trees
 
-**Close Calendar (Checklists):**
-- Default: Timeline/Calendar view
-- Sidebar: Checklist selector
-- Focus mode for active close
-
-**Reconciliations:**
-- Default: Dashboard with key metrics
-- Tree navigation for accounts
-- Workspace with tabs (Recon, Evidence, History)
-
-**Documents:**
-- Default: Pivot view by period/area
-- Folder tree for drill-down
-- Quick filters for status
-
-**Checklists/Tasks:**
-- Default: Grid of checklist cards
-- Detail view with List/Kanban/Calendar tabs
-
-**Meetings** (placeholder for future):
-- Agenda management
-- Action items tracking
+| Feature | Tree Structure | Content |
+|---------|---------------|---------|
+| Documents | Process → Area → Object | Document list, pivot views, upload |
+| PBC Requests | Process → Area → Object | PBC checklist workspace |
+| Reconciliations | (Already has internal tree) | Reconciliation workspace |
 
 ---
 
-## Visual Design System Updates
+## Files to Create
 
-### Color Refinements
+1. **`src/pages/PBCRequestsPage.tsx`** - New feature page for PBC Requests
+2. **`src/components/layout/FeatureSplitLayout.tsx`** - Reusable split layout with resizable folder tree sidebar
 
-```css
-/* Enhanced Primary - deeper, more confident blue */
---primary: 222 47% 31%;        /* #2D4A6F - Navy */
---primary-foreground: 0 0% 100%;
+## Files to Modify
 
-/* Accent - subtle teal for success states */
---accent-success: 168 76% 36%; /* Teal for "done" states */
+1. **`src/App.tsx`** - Add `/pbc/*` route for PBC Requests
+2. **`src/components/layout/AppSidebar.tsx`** - Add PBC Requests to navigation (Cmd+6 shortcut)
+3. **`src/hooks/useActiveFeature.ts`** - Add 'pbc' feature type
+4. **`src/pages/DocumentsPage.tsx`** - Replace placeholder with full implementation including folder tree
+5. **`src/components/layout/FeatureLayout.tsx`** - Enhance to optionally support sidebar content
 
-/* Surface hierarchy */
---surface-0: 0 0% 100%;        /* Cards */
---surface-1: 220 14% 98%;      /* Page background */
---surface-2: 220 13% 95%;      /* Sidebar */
---surface-3: 220 12% 91%;      /* Elevated/hover */
+---
+
+## Technical Details
+
+### Navigation Update (AppSidebar.tsx)
+
+```typescript
+const FEATURES = [
+  { id: 'close', label: 'Close Calendar', icon: CalendarClock, path: '/close' },
+  { id: 'reconciliations', label: 'Reconciliations', icon: Scale, path: '/reconciliations' },
+  { id: 'documents', label: 'Documents', icon: FileText, path: '/documents' },
+  { id: 'pbc', label: 'PBC Requests', icon: ClipboardList, path: '/pbc' },  // NEW
+  { id: 'checklists', label: 'Checklists', icon: CheckSquare, path: '/checklists' },
+  { id: 'meetings', label: 'Meetings', icon: Users, path: '/meetings' },
+];
 ```
 
-### Typography Scale
+### Feature Split Layout
 
-```css
-/* More breathing room, cleaner hierarchy */
---font-display: 'Inter', sans-serif;
+The layout uses `react-resizable-panels` (already installed) for a resizable sidebar within each feature:
 
-/* Headings */
-.heading-xl   { font-size: 1.875rem; font-weight: 600; letter-spacing: -0.02em; }
-.heading-lg   { font-size: 1.25rem;  font-weight: 600; letter-spacing: -0.01em; }
-.heading-md   { font-size: 1rem;     font-weight: 500; }
-
-/* Body */
-.body-default { font-size: 0.875rem; line-height: 1.5; }
-.body-small   { font-size: 0.75rem;  line-height: 1.4; color: var(--muted-foreground); }
+```text
++------------------+---------------------------+
+| Folder Tree      | Content Area              |
+| (min: 200px)     | (flexible)                |
+| (default: 280px) |                           |
+| (collapsible)    |                           |
++------------------+---------------------------+
 ```
 
-### Spacing System
+### Documents Page Implementation
 
-```css
-/* 4px base unit for tighter control */
---space-1: 0.25rem;  /* 4px */
---space-2: 0.5rem;   /* 8px */
---space-3: 0.75rem;  /* 12px */
---space-4: 1rem;     /* 16px */
---space-6: 1.5rem;   /* 24px */
---space-8: 2rem;     /* 32px */
---space-12: 3rem;    /* 48px */
+The Documents page will include:
+- Left panel: `UnifiedFolderTree` filtered to show only Document-relevant nodes (Process → Area → Object)
+- Right panel: `DocumentList` or `PivotView` based on selected view
+- Header actions: View selector, Upload button, Clone Period
+
+### PBC Requests Page Implementation
+
+The PBC page will include:
+- Left panel: Same folder tree structure, showing PBC request counts per object
+- Right panel: `PbcChecklistWorkspace` for the selected object
+- Header actions: Add Request button
+
+---
+
+## Data Flow
+
+```text
+AppSidebar (feature nav)
+    ↓
+DocumentsPage / PBCRequestsPage
+    ↓
+FeatureSplitLayout
+    ├── UnifiedFolderTree (filtered by feature type)
+    └── Content Component (DocumentList, PbcChecklistWorkspace, etc.)
 ```
 
-### Component Refinements
+### Folder Structure Hook
 
-**Cards:**
-- Reduced border radius (6px instead of 8px)
-- Lighter borders (98% opacity)
-- Subtle box-shadow on hover
+The existing `useUnifiedFolderStructure` hook already builds the tree with all data. Each feature page will filter the tree to show only relevant node types:
 
-**Buttons:**
-- Primary: Solid navy with white text
-- Secondary: Ghost with subtle hover
-- Destructive: Red-500 with hover state
-
-**Badges:**
-- Pill shape (full rounded)
-- Muted backgrounds
-- Status-specific colors maintained
+- **Documents**: Shows process/area/object with document counts
+- **PBC Requests**: Shows process/area/object with PBC request counts
 
 ---
 
-## Technical Implementation
+## Sample Data Preserved
 
-### Files to Create
+The existing database already contains:
+- Finance → Monthly Close → Banking → Chase Operating (3 docs, 3 PBC)
+- Finance → Monthly Close → Banking → Chase Payroll (2 docs, 1 PBC)  
+- Finance → Monthly Close → Fixed Assets → Depreciation (1 doc)
+- Finance → Monthly Close → Journals → Accruals (2 docs)
+- HR → Employee Onboarding → Forms, Policies
+- Legal → Contract Management → Active/Expired Contracts
 
-1. `src/components/layout/AppSidebar.tsx` - New feature-centric sidebar
-2. `src/components/layout/FeatureLayout.tsx` - Consistent workspace wrapper
-3. `src/components/layout/WorkspaceHeader.tsx` - Standardized header
-4. `src/components/navigation/FeatureNav.tsx` - Feature navigation items
-5. `src/hooks/useActiveFeature.ts` - Feature state management
-
-### Files to Modify
-
-1. `src/App.tsx` - Route restructuring for feature-first
-2. `src/components/layout/AppLayout.tsx` - New layout with AppSidebar
-3. `src/index.css` - Design system updates
-4. `src/contexts/ModuleContext.tsx` - Add active feature state
-5. `src/components/checklists/ChecklistWorkspace.tsx` - Adapt to new layout
-6. `src/components/reconciliations/ReconciliationWorkspace.tsx` - Adapt
-7. `src/components/layout/UnifiedWorkspace.tsx` - Refactor for feature-first
-
-### Files to Remove/Deprecate
-
-1. `src/components/layout/SharedSidebar.tsx` - Replaced by AppSidebar
-2. `src/hooks/useUnifiedFolderStructure.ts` - Simplify, remove department grouping
+All this data will be visible in the restored folder trees.
 
 ---
 
-## Implementation Phases
+## Implementation Order
 
-### Phase 1: Foundation (This Sprint)
-1. Create new AppSidebar with feature-first navigation
-2. Update AppLayout to use new sidebar structure
-3. Remove department layer from navigation logic
-4. Update CSS design tokens
-
-### Phase 2: Feature Modules
-5. Refactor ChecklistWorkspace for standalone use
-6. Refactor ReconciliationWorkspace with internal tree
-7. Create Documents feature with its own tree
-8. Wire up PBC as standalone feature
-
-### Phase 3: Polish
-9. Add micro-animations (sidebar collapse, page transitions)
-10. Implement keyboard navigation
-11. Add responsive behavior for mobile
-12. Final visual polish pass
+1. Create `FeatureSplitLayout` component (resizable panels)
+2. Update `AppSidebar` to add PBC Requests feature
+3. Update `useActiveFeature` hook
+4. Rebuild `DocumentsPage` with folder tree and full functionality
+5. Create `PBCRequestsPage` with folder tree and PBC workspace
+6. Add route for `/pbc/*`
 
 ---
 
-## Feature Navigation Mapping
+## Keyboard Shortcuts (Updated)
 
-| Feature | Icon | Path | Keyboard |
-|---------|------|------|----------|
-| Close Calendar | `CalendarClock` | `/close` | Cmd+1 |
-| Reconciliations | `Scale` | `/reconciliations` | Cmd+2 |
-| Documents | `FileText` | `/documents` | Cmd+3 |
-| Checklists | `CheckSquare` | `/checklists` | Cmd+4 |
-| Meetings | `Users` | `/meetings` | Cmd+5 |
-
----
-
-## Migration Strategy
-
-### Data Layer
-- No database changes required
-- Department associations remain in tables for filtering
-- Features filter by entity/period, not department
-
-### UI Layer
-- ModuleContext extended with `activeFeature` state
-- Each feature workspace receives entity/period from context
-- Internal filtering happens within each feature
-
----
-
-## Success Metrics
-
-**Qualitative:**
-- Users describe it as "clean" and "obvious"
-- No training required to find features
-- "Looks like a modern product"
-
-**Quantitative:**
-- Reduced clicks to reach any feature (max 2 clicks)
-- Faster time-to-task completion
-- Improved user satisfaction scores
-
----
-
-## Technical Notes
-
-### Remove Department from Navigation
-The `useUnifiedFolderStructure` hook currently groups by department. We will:
-1. Create a simpler `useFeatureData` hook per feature
-2. Each feature fetches its own data with entity/period filters
-3. Department becomes a filter option, not a structural element
-
-### Sidebar State Persistence
-- Use localStorage or cookie for collapsed state
-- Remember last active feature per entity
-- Preserve scroll position in feature workspaces
-
----
-
-## Summary
-
-This redesign shifts FileGRID from a hierarchical, department-first model to a feature-first, task-oriented interface that puts the 5 core capabilities front and center:
-
-1. **Close Calendar** - Month-end timeline management
-2. **Reconciliations** - Account reconciliation workflow
-3. **Documents** - File management and approvals
-4. **Checklists** - Task and checklist management
-5. **Meetings** - (Future) Meeting agenda and action items
-
-The result is a cleaner, more intuitive interface that competes with best-in-class financial SaaS products while maintaining FileGRID's powerful functionality.
+| Shortcut | Feature |
+|----------|---------|
+| Cmd+1 | Close Calendar |
+| Cmd+2 | Reconciliations |
+| Cmd+3 | Documents |
+| Cmd+4 | PBC Requests |
+| Cmd+5 | Checklists |
+| Cmd+6 | Meetings |
 

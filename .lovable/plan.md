@@ -1,187 +1,171 @@
 
 
-# Unified Sidebar + PBC Flattening Plan
+# Feature Separation + Compliance Calendar Plan
 
 ## Summary
 
-This plan addresses three issues:
-1. Merge the folder tree and feature navigation into a **single sidebar** (eliminate the split-panel layout)
-2. **Flatten PBC tree** to show Areas directly (skip Process level like "Monthly Close")
-3. Ensure **Checklist views** (List, Kanban, Calendar) are accessible without confusion
+Based on your clarification, we need to implement:
+
+1. **Month Close** - Keep as a separate feature (already exists as "Close Calendar") with folder tree for close-related documents
+2. **Documents** - General document management for contracts, agreements, etc. (restructure folder tree)
+3. **Compliance Calendar** - NEW feature to track compliance deadlines and requirements
 
 ---
 
-## Current Architecture Problem
+## Current State vs. Target State
 
 ```text
-Current Layout (Too Much):
-+--------+------------+----------------------+
-| Main   | Folder     |                      |
-| Side   | Tree       |  Content Area        |
-| bar    | (240px)    |                      |
-| (60px) |            |                      |
-+--------+------------+----------------------+
-```
+CURRENT (6 features):
++------------------------------------------+
+| Close Calendar  (uses ChecklistWorkspace)|
+| Reconciliations                          |
+| Documents       (Process -> Area -> Obj) |
+| PBC Requests    (Area -> Object)         |
+| Checklists                               |
+| Meetings                                 |
++------------------------------------------+
 
-**Proposed Layout (Single Sidebar):**
-```text
-+------------------------+--------------------+
-| Unified Sidebar        |                    |
-| - Entity/Period        |                    |
-| - Feature Tabs         |   Content Area     |
-| - Folder Tree          |                    |
-| (280px, collapsible)   |                    |
-+------------------------+--------------------+
+TARGET (7 features):
++------------------------------------------+
+| Month Close     (Close docs + tasks)     | <- Rename + add folder tree
+| Reconciliations                          |
+| Documents       (Contracts, agreements)  | <- Filter to general docs
+| PBC Requests    (Area -> Object)         | <- Already flattened
+| Compliance Cal  (NEW - deadlines)        | <- NEW feature
+| Checklists                               |
+| Meetings                                 |
++------------------------------------------+
 ```
 
 ---
 
 ## Changes Overview
 
-### 1. Unified Sidebar Architecture
+### 1. Rename "Close Calendar" to "Month Close"
 
-Replace the current two-panel approach with a **context-aware single sidebar**:
+Update the feature label and add a folder tree for close-related documents.
 
-- **Header Section**: Logo, Entity selector, Period selector (compact)
-- **Feature Navigation**: Horizontal tabs or compact vertical list showing active feature
-- **Context Panel**: Folder tree OR feature-specific content depending on active feature
+Current behavior: Shows `ChecklistWorkspace` for close schedules
+New behavior: Shows close-specific folder tree in sidebar + ChecklistWorkspace with Kanban/Calendar views
 
-| Feature | Sidebar Content |
-|---------|-----------------|
-| Close Calendar | Checklist list (cards) |
-| Reconciliations | Reconciliation tree |
-| Documents | Folder tree (Process → Area → Object) |
-| PBC Requests | Folder tree (Areas → Objects only) |
-| Checklists | Checklist list |
-| Meetings | (placeholder) |
+### 2. Documents Feature - General Documents Only
 
-### 2. PBC Tree Flattening
+Filter the Documents module to show ONLY general documents (contracts, agreements, vendor info, etc.) - excluding close-related process folders.
 
-Modify `useFeatureFolderStructure` hook to **skip the Process level** for PBC:
+This requires:
+- Adding a `document_category` or similar filter to distinguish close vs. general docs
+- OR filtering by Process type (e.g., exclude processes tagged as "close-related")
 
-**Before:**
-```text
-Monthly Close (Process)
-  └─ Banking (Area)
-      └─ Chase Operating (Object)
-```
+### 3. New Compliance Calendar Feature
 
-**After:**
-```text
-Banking (Area)
-  └─ Chase Operating (Object)
-Fixed Assets (Area)
-  └─ Depreciation (Object)
-```
+A new module to track compliance deadlines:
 
-This is done by changing the tree building logic to return Area nodes at the root level for PBC feature type.
-
-### 3. Checklist Views Visibility
-
-The Kanban/Calendar views already exist in `ChecklistDetailView`. The confusion is:
-- `ChecklistWorkspace` shows a grid of checklist cards
-- You must click a card to enter `ChecklistDetailView` which has the view tabs
-
-To make this clearer, we'll:
-- Add a visual hint on cards ("Click to view List/Kanban/Calendar")
-- Consider showing a "quick preview" of the selected checklist in the sidebar
+| Field | Description |
+|-------|-------------|
+| Compliance items | Lender covenants, regulatory filings, tax deadlines |
+| Due dates | Recurring or one-time deadlines |
+| Status | Pending, In Progress, Completed, Overdue |
+| Responsible party | Assignee |
+| Evidence | Linked documents proving compliance |
 
 ---
 
 ## Files to Create
 
-1. **`src/components/layout/UnifiedSidebar.tsx`** - New single sidebar with context-aware content
+1. **`src/pages/CompliancePage.tsx`** - New compliance calendar feature page
+2. **`src/components/compliance/ComplianceWorkspace.tsx`** - Main workspace with calendar/list views
+3. **`src/components/compliance/ComplianceItemModal.tsx`** - Create/edit compliance items
+4. **`src/hooks/useComplianceItems.ts`** - Data fetching hooks
 
 ## Files to Modify
 
-1. **`src/components/layout/AppLayout.tsx`** - Use UnifiedSidebar instead of split layout
-2. **`src/hooks/useFeatureFolderStructure.ts`** - Flatten tree for PBC (Areas at root)
-3. **`src/pages/DocumentsPage.tsx`** - Remove split layout, use single-panel content
-4. **`src/pages/PBCRequestsPage.tsx`** - Remove split layout, use single-panel content
-5. **`src/components/checklists/ChecklistWorkspace.tsx`** - Add visual hints for view discovery
+1. **`src/hooks/useActiveFeature.ts`** - Add `compliance` feature ID, rename `close` label
+2. **`src/components/layout/UnifiedSidebar.tsx`** - Add compliance feature tab, update icons
+3. **`src/App.tsx`** - Add compliance route
+4. **`src/hooks/useFeatureFolderStructure.ts`** - Add `monthclose` feature type for close-specific folder tree
 
-## Files to Remove
+---
 
-1. **`src/components/layout/FeatureSplitLayout.tsx`** - No longer needed
+## Database Changes
+
+A new table for compliance items:
+
+| Column | Type | Description |
+|--------|------|-------------|
+| id | uuid | Primary key |
+| entity_id | uuid | FK to entities |
+| period_id | uuid | Optional FK to periods |
+| title | text | Compliance item name |
+| description | text | Details |
+| due_date | date | Deadline |
+| recurrence | text | monthly, quarterly, annual, one-time |
+| status | text | pending, in_progress, completed, overdue |
+| assigned_to | uuid | FK to profiles |
+| category | text | Lender, Tax, Regulatory, Internal |
+| evidence_document_ids | uuid[] | Links to documents |
+| created_at | timestamp | |
+| updated_at | timestamp | |
 
 ---
 
 ## Technical Details
 
-### UnifiedSidebar Structure
-
-```text
-+----------------------------+
-| [Logo] FileGRID      [<>]  |  <- Collapse toggle
-+----------------------------+
-| Entity: Acme Corp     [v]  |  <- Dropdown
-| Period: Dec 2024      [v]  |
-+----------------------------+
-| [Close] [Recon] [Docs]     |  <- Feature tabs (horizontal)
-| [PBC] [Lists] [Meet]       |
-+----------------------------+
-|                            |
-|  Context Content:          |
-|  - Folder tree for Docs    |
-|  - Folder tree for PBC     |
-|  - Checklist cards         |
-|  - Recon tree              |
-|                            |
-+----------------------------+
-| [Settings] [Sign out]      |
-+----------------------------+
-```
-
-### PBC Flattening Logic
-
-In `useFeatureFolderStructure.ts`, for PBC feature type:
+### Feature Configuration Update
 
 ```typescript
-// Instead of: Process → Area → Object
-// Return: Area → Object (skip Process level)
+// useActiveFeature.ts
+export type FeatureId = 'monthclose' | 'reconciliations' | 'documents' | 'pbc' | 'compliance' | 'checklists' | 'meetings';
 
-if (featureType === 'pbc') {
-  // Return area nodes directly as root level
-  return areaNodes; // Not wrapped in processNodes
-}
+export const FEATURES: FeatureConfig[] = [
+  { id: 'monthclose', label: 'Month Close', path: '/close', shortcut: '1' },
+  { id: 'reconciliations', label: 'Reconciliations', path: '/reconciliations', shortcut: '2' },
+  { id: 'documents', label: 'Documents', path: '/documents', shortcut: '3' },
+  { id: 'pbc', label: 'PBC Requests', path: '/pbc', shortcut: '4' },
+  { id: 'compliance', label: 'Compliance', path: '/compliance', shortcut: '5' },
+  { id: 'checklists', label: 'Checklists', path: '/checklists', shortcut: '6' },
+  { id: 'meetings', label: 'Meetings', path: '/meetings', shortcut: '7' },
+];
 ```
 
-### Documents Page (Without Split)
+### UnifiedSidebar Feature Tabs Update
 
 ```typescript
-// DocumentsPage.tsx - simplified
-export function DocumentsPage() {
-  // Content area shows documents based on selected node from sidebar
-  return (
-    <FeatureLayout title="Documents">
-      <DocumentList
-        areaId={selectedNode?.type === 'area' ? selectedNode.id : null}
-        objectId={selectedNode?.type === 'object' ? selectedNode.id : null}
-      />
-    </FeatureLayout>
-  );
-}
+// Add compliance feature with Shield icon
+const FEATURES = [
+  { id: 'monthclose', label: 'Close', icon: CalendarClock, ... },
+  { id: 'reconciliations', label: 'Recons', icon: Scale, ... },
+  { id: 'documents', label: 'Docs', icon: FileText, ... },
+  { id: 'pbc', label: 'PBC', icon: ClipboardList, ... },
+  { id: 'compliance', label: 'Comply', icon: Shield, color: 'text-orange-500', ... },
+  { id: 'checklists', label: 'Lists', icon: CheckSquare, ... },
+  { id: 'meetings', label: 'Meet', icon: Users, disabled: true, ... },
+];
 ```
 
-The folder tree selection now comes from UnifiedSidebar context, not an internal split panel.
+### Compliance Calendar UI
 
----
+The Compliance workspace will include:
+- **Calendar View**: Shows all compliance deadlines in a monthly calendar
+- **List View**: Sortable table of compliance items by due date
+- **Kanban View**: Columns for Pending, In Progress, Completed, Overdue
+- **Filters**: By category (Lender, Tax, Regulatory), status, assignee
 
-## User Experience Improvements
+### Month Close Sidebar Content
 
-1. **Single sidebar** reduces cognitive load - one navigation panel to understand
-2. **Feature tabs** at top of sidebar provide quick switching (like Slack channels)
-3. **PBC flattening** reduces one click to reach Areas
-4. **Checklist views** remain unchanged but with clearer visual cues
+When "Month Close" is active, the sidebar will show:
+1. Close-specific folder tree (processes tagged as close-related)
+2. Active close schedules (checklists with start_date)
 
 ---
 
 ## Implementation Order
 
-1. Create `UnifiedSidebar` component with feature tabs + context panel
-2. Update `AppLayout` to use UnifiedSidebar
-3. Modify `useFeatureFolderStructure` to flatten PBC tree
-4. Update feature pages (Documents, PBC) to use sidebar selection context
-5. Remove `FeatureSplitLayout`
-6. Add visual hints to checklist cards
+1. Create database migration for `compliance_items` table
+2. Create compliance hooks and types
+3. Create CompliancePage and ComplianceWorkspace components
+4. Update feature configuration (add compliance, rename close to monthclose)
+5. Update UnifiedSidebar with new features
+6. Add compliance route to App.tsx
+7. Update folder structure hook to support monthclose filtering
+8. Test all views (List, Kanban, Calendar) work for both Month Close and Compliance
 

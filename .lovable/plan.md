@@ -1,246 +1,183 @@
 
 
-# Enhanced Pivot Filters, Dashboards, and Process Creation Plan
+# Fix Process Creation, Add Missing Sidebar Trees, Move Filters to Horizontal View
 
-## Summary
+## Issues Identified
 
-Based on your requirements, we need to implement:
+### Issue 1: Process "Add" only shows for some features
+The `showFolderTree` condition in `UnifiedSidebar.tsx` only includes `documents`, `pbc`, and `monthclose`:
+```typescript
+const showFolderTree = activeFeature === 'documents' || activeFeature === 'pbc' || activeFeature === 'monthclose';
+```
+The "+ Add Process" button is inside this block, so it's only visible for those features.
 
-1. **Multi-Dimensional Pivot Filter** - Select 2-3 dimensions for cross-tabulation views
-2. **Dashboard Strategy** - Central dashboard vs. per-feature dashboards
-3. **Hierarchical Date Selector** - Year → Month with multi-select capability
-4. **Process Creation** - How to add main folders (Processes) via the sidebar
+### Issue 2: Filters are cluttering the sidebar
+The sidebar currently contains Entity/Period selectors. The plan calls for filters (especially the new hierarchical date picker with multi-month selection) to move to a horizontal bar in the workspace.
+
+### Issue 3: Pivot Filter Bar not visible
+The `PivotFilterBar` is only rendered in `UnifiedWorkspace.tsx` when viewing a pivot view - but users navigating via the per-feature pages (`DocumentsPage.tsx`, `PBCRequestsPage.tsx`) don't see it because those pages don't use `UnifiedWorkspace`.
+
+### Issue 4: Add Process requires too many steps
+Current flow: Department dropdown → Template dropdown → Name input
+User wants: Simple input field (like AddFolderModal) - just type a name
 
 ---
 
-## Current State Analysis
+## Solution Overview
 
-### Existing Pivot Filter
-The current `PivotFilterBar.tsx` supports:
-- Status checkboxes (multi-select: Draft, Final, Superseded, Archived)
-- Period dropdown (single select)
-- Area dropdown (single select)
+### 1. Simplify "Add Process" Modal
+Create a new `SimpleAddProcessModal` that works like the `AddFolderModal`:
+- Single input field for process name
+- Auto-select a default department (e.g., "Finance" or first available)
+- No template required (template_id is nullable)
+- Creates empty process that user can add Areas to manually
 
-### Existing Periods
-Database contains periods with types: `month`, `quarter`, `year`
-- Months: 2025-01 through 2025-12
-- Quarters: Q1-2025 through Q4-2025
-- Year: FY-2025
+### 2. Show Folder Tree + Add Process for ALL Features
+Update `UnifiedSidebar.tsx` to show the folder tree section for all features that need structural navigation:
+- `documents`
+- `pbc`
+- `monthclose`
+- `reconciliations` (uses its own tree but should also allow process creation)
+- `checklists`
+- `compliance`
 
-### Existing Dashboards
-- `ReconciliationDashboard` - Shows variances, pending reviews, bottlenecks, completion by area
-- `TaskDashboard` - Shows overdue, upcoming, completion rate, status breakdown
+### 3. Move Filters from Sidebar to Horizontal Header Bar
+Remove Entity/Period selectors from the sidebar and add them to:
+- A horizontal filter bar at the top of each workspace
+- Keep Entity selector in sidebar (global context)
+- Move Period/Year/Month selection to the horizontal workspace filter bar
 
----
-
-## Proposed Solutions
-
-### 1. Multi-Dimensional Pivot Filter
-
-Create a new enhanced filter component that allows selecting 2-3 dimensions for pivot views:
-
-```text
-+-------------------------------------------------------------------+
-| Dimensions:                                                        |
-| [Row: Period ▾]  [Column: Area ▾]  [+ Add Layer]                  |
-|                                                                    |
-| Filters:                                                           |
-| [Status: □Draft □Final □Superseded □Archived]                      |
-| [Year: 2025 ▾] [Months: □Jan □Feb ... ☑All]                       |
-+-------------------------------------------------------------------+
-```
-
-| Dimension Options | Description |
-|-------------------|-------------|
-| Period | Group by month/quarter |
-| Area | Group by process area |
-| Object | Group by specific account/entity |
-| Status | Group by document status |
-| Document Type | Group by file type |
-
-### 2. Dashboard Strategy
-
-**Recommendation: Hybrid Approach**
-
-| Dashboard | Purpose | Location |
-|-----------|---------|----------|
-| Global Command Center | Cross-feature metrics, alerts | New `/dashboard` route or header widget |
-| Reconciliation Dashboard | Variance analysis, bottlenecks | When no recon selected |
-| Task Dashboard | Overdue, completion tracking | When no task selected |
-| Compliance Dashboard | Upcoming deadlines, overdue items | When no item selected |
-| Month Close Dashboard | Close status, blockers | When no folder selected |
-
-Each feature shows its dashboard when nothing is selected, but we can add a "Command Center" view accessible from the header.
-
-### 3. Hierarchical Date Selector
-
-Replace the flat period dropdown with a two-level selector:
-
-```text
-+---------------------------+
-| Year: [2025 ▾]           |
-+---------------------------+
-| Months:                   |
-| ☑ All  ☐ Clear            |
-| ☑ Jan ☑ Feb ☐ Mar ☐ Apr  |
-| ☐ May ☐ Jun ☐ Jul ☐ Aug  |
-| ☐ Sep ☐ Oct ☐ Nov ☐ Dec  |
-+---------------------------+
-```
-
-**Features:**
-- Select year first (filters available months)
-- Multi-select months within that year
-- "All" checkbox to select/deselect all months
-- Visual indication of selected count
-
-### 4. Process Creation Flow
-
-Processes are created via the `CreateProcessModal` component. Here's how to expose it:
-
-**Current Method:**
-The modal exists but needs a trigger. Add a "+" button at the top of the sidebar tree.
-
-**Proposed Sidebar Enhancement:**
-
-```text
-+----------------------------------+
-| Entity: [Acme Corp ▾]           |
-| Year: [2025 ▾] Months: [3 sel]  |
-+----------------------------------+
-| [+ Add Process]  [🔍 Search]    |
-+----------------------------------+
-| ▼ Monthly Close (Process)       |
-|   ▼ General Ledger (Area)       |
-|     📄 Cash (Object)            |
-+----------------------------------+
-```
+### 4. Integrate PivotFilterBar in Feature Pages
+Add the filter bar (with hierarchical date picker) to `DocumentsPage.tsx` and other pages that need it, making it always visible in the workspace area.
 
 ---
 
 ## Files to Modify
 
-1. **`src/components/filegrid/PivotFilterBar.tsx`**
-   - Add hierarchical date selector (Year → Months with multi-select)
-   - Add dimension selector for pivot rows/columns
+### 1. Create `src/components/filegrid/SimpleAddProcessModal.tsx`
+A simplified modal with just a name input:
+```text
++----------------------------------+
+| Add Process                      |
++----------------------------------+
+| Process Name: [______________]   |
+|                                  |
+| [Cancel]              [Create]   |
++----------------------------------+
+```
 
-2. **`src/components/layout/UnifiedSidebar.tsx`**
-   - Replace single period dropdown with Year + Month multi-select
-   - Add "+ Add Process" button that opens CreateProcessModal
-
-3. **`src/types/filegrid.ts`**
-   - Extend `PivotFilters` to support:
-     - `selectedYears: string[]`
-     - `selectedMonths: string[]`
-     - `pivotRowDimension`, `pivotColumnDimension`
-
-4. **`src/components/filegrid/HierarchicalDatePicker.tsx`** (New)
-   - Reusable year/month multi-select component
-
-5. **`src/components/filegrid/DimensionSelector.tsx`** (New)
-   - Dropdown to pick pivot dimensions
-
-6. **`src/hooks/usePivotDocuments.ts`**
-   - Update to support multi-period filtering
-
----
-
-## Database Considerations
-
-No schema changes needed - the `periods` table already has:
-- `type` field (month, quarter, year)
-- `start_date` and `end_date` for filtering
-- `label` for display (e.g., "2025-01", "Q1-2025", "FY-2025")
-
----
-
-## Implementation Details
-
-### Hierarchical Date Picker Component
-
+### 2. Modify `src/hooks/useAdminMutations.ts`
+Add a new `useCreateProcess` hook that creates a process without requiring a template:
 ```typescript
-interface HierarchicalDatePickerProps {
-  years: string[];              // ["2025", "2024"]
-  selectedYear: string | null;
-  selectedMonths: string[];     // ["2025-01", "2025-02"]
-  onYearChange: (year: string) => void;
-  onMonthsChange: (months: string[]) => void;
+interface SimpleCreateProcessData {
+  name: string;
+  entity_id: string;
+  department_id?: string; // Optional - use default
 }
 ```
 
-**Logic:**
-1. Extract unique years from periods data
-2. When year changes, filter months to that year
-3. Allow multi-select of months via checkboxes
-4. Pass selected period IDs to parent filter
+### 3. Modify `src/components/layout/UnifiedSidebar.tsx`
+- Replace `CreateProcessModal` with `SimpleAddProcessModal`
+- Show folder tree for more features (checklists, compliance)
+- Keep Entity selector in sidebar
+- Move Period selector to workspace header
 
-### Process Creation Button
+### 4. Modify `src/pages/DocumentsPage.tsx`
+Add horizontal filter bar with:
+- Year/Month hierarchical picker (from `HierarchicalDatePicker`)
+- View selector (already exists)
+- Status filters for pivot views
+- Dimension selectors when in pivot mode
 
-Add to `UnifiedSidebar.tsx`:
+### 5. Modify `src/pages/PBCRequestsPage.tsx`
+Add filter bar for period selection (Year → Month multi-select)
 
-```typescript
-// At top of tree section
-<Button
-  variant="ghost"
-  size="sm"
-  onClick={() => setShowCreateProcess(true)}
-  className="w-full justify-start"
->
-  <Plus className="h-4 w-4 mr-2" />
-  Add Process
-</Button>
-
-<CreateProcessModal
-  open={showCreateProcess}
-  onOpenChange={setShowCreateProcess}
-  entity={selectedEntity}
-/>
-```
-
-### Multi-Dimension Pivot View
-
-The enhanced pivot will support selecting which dimension appears on rows vs columns:
-
-| Row \ Column | Jan 2025 | Feb 2025 | Mar 2025 |
-|--------------|----------|----------|----------|
-| Cash Area    | 5 docs   | 3 docs   | 7 docs   |
-| AP Area      | 2 docs   | 4 docs   | 1 doc    |
-| GL Area      | 8 docs   | 6 docs   | 9 docs   |
+### 6. Modify other feature pages
+Add similar filter bars to:
+- `CloseCalendarPage.tsx`
+- `ReconciliationsPage.tsx`
+- `CompliancePage.tsx`
+- `ChecklistsPage.tsx`
 
 ---
 
-## Technical Implementation
+## Technical Implementation Details
 
-### Filter State Update
-
+### Simple Process Creation Hook
 ```typescript
-// Extended PivotFilters type
-export interface PivotFilters {
-  statusList: DocumentStatus[];
-  selectedYear: string | null;
-  selectedMonthPeriodIds: string[];  // Multi-select months
-  areaId: string | null;
-  objectId: string | null;
-  pivotRowDimension?: 'period' | 'area' | 'object' | 'status';
-  pivotColDimension?: 'period' | 'area' | 'object' | 'status';
+export function useCreateProcess() {
+  return useMutation({
+    mutationFn: async (data: { name: string; entity_id: string }) => {
+      // Get default department (Finance) or first available
+      const { data: depts } = await supabase
+        .from('departments')
+        .select('id')
+        .order('name')
+        .limit(1);
+      
+      const { data: process, error } = await supabase
+        .from('processes')
+        .insert({
+          name: data.name,
+          entity_id: data.entity_id,
+          department_id: depts?.[0]?.id,
+          template_id: null, // No template
+        })
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return process;
+    },
+  });
 }
 ```
 
-### Query Modification
+### Horizontal Filter Bar Pattern
+Each feature page will include a filter header:
+```text
++-----------------------------------------------------------------------+
+| [Year: 2025 ▾] [Months: Jan, Feb, Mar... ▾]  [Status: □D □F □S □A]   |
++-----------------------------------------------------------------------+
+|                        [Main Content Area]                            |
++-----------------------------------------------------------------------+
+```
 
-The `usePivotDocuments` hook will be updated to:
-1. Accept array of period IDs instead of single ID
-2. Use `.in('period_id', selectedMonthPeriodIds)` for filtering
+### Sidebar Simplification
+Before:
+```text
++------------------------+
+| Entity: [Acme ▾]      |
+| Period: [2025-01 ▾]   |  <- Remove this
++------------------------+
+| + Add Process          |
+| [Folder Tree]          |
++------------------------+
+```
+
+After:
+```text
++------------------------+
+| Entity: [Acme ▾]      |
++------------------------+
+| + Add Process          |
+| [Folder Tree]          |
++------------------------+
+```
+
+Period selection moves to the workspace horizontal bar.
 
 ---
 
-## Summary Table
+## Summary of Changes
 
-| Feature | Component | Status |
-|---------|-----------|--------|
-| Year/Month hierarchical picker | `HierarchicalDatePicker.tsx` | New |
-| Multi-month selection | `PivotFilterBar.tsx` | Modify |
-| Dimension selector | `DimensionSelector.tsx` | New |
-| Process creation button | `UnifiedSidebar.tsx` | Modify |
-| Per-feature dashboards | Already exist for Recons/Tasks | Add for Compliance/Close |
+| Change | File(s) | Description |
+|--------|---------|-------------|
+| Create simple add process modal | `SimpleAddProcessModal.tsx` | Single input, no dropdowns |
+| Add simple create hook | `useAdminMutations.ts` | No template/department selection |
+| Show folder tree for all features | `UnifiedSidebar.tsx` | Enable for compliance, checklists |
+| Remove Period from sidebar | `UnifiedSidebar.tsx` | Only keep Entity selector |
+| Add filter bar to Documents | `DocumentsPage.tsx` | Hierarchical date picker + view selector |
+| Add filter bar to PBC | `PBCRequestsPage.tsx` | Year/Month multi-select |
+| Add filter bar to other pages | `CloseCalendarPage.tsx`, etc. | Consistent filter pattern |
 

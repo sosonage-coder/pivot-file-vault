@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { SidebarSelectionProvider } from '@/contexts/SidebarSelectionContext';
 import { UnifiedSidebar } from './UnifiedSidebar';
 
 export function AppLayout() {
@@ -36,16 +35,14 @@ export function AppLayout() {
   }
 
   return (
-    <SidebarSelectionProvider>
-      <div className="flex h-screen w-full bg-background">
-        <UnifiedSidebar
-          collapsed={sidebarCollapsed}
-          onCollapsedChange={setSidebarCollapsed}
-        />
-        <main className="flex-1 overflow-hidden">
-          <Outlet />
-        </main>
-      </div>
-    </SidebarSelectionProvider>
+    <div className="flex h-screen w-full bg-background">
+      <UnifiedSidebar
+        collapsed={sidebarCollapsed}
+        onCollapsedChange={setSidebarCollapsed}
+      />
+      <main className="flex-1 overflow-hidden">
+        <Outlet />
+      </main>
+    </div>
   );
 }

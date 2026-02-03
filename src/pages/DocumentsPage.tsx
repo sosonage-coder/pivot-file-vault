@@ -1,32 +1,20 @@
-import { useState } from 'react';
-import { FileText, Upload, Search, FolderOpen } from 'lucide-react';
+import { FileText, Upload, FolderOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { FeatureLayout, FeatureContent, FeatureEmptyState } from '@/components/layout/FeatureLayout';
-import { FeatureSplitLayout } from '@/components/layout/FeatureSplitLayout';
-import { UnifiedFolderTree } from '@/components/filegrid/UnifiedFolderTree';
 import { DocumentList } from '@/components/filegrid/DocumentList';
 import { UploadDocumentModal } from '@/components/filegrid/UploadDocumentModal';
 import { EditObjectModal } from '@/components/filegrid/EditObjectModal';
 import { useModule } from '@/contexts/ModuleContext';
-import { useFeatureFolderStructure } from '@/hooks/useFeatureFolderStructure';
+import { useSidebarSelection } from '@/contexts/SidebarSelectionContext';
 import { useDocuments } from '@/hooks/useDocuments';
-import { usePendingApprovalCounts } from '@/hooks/useApprovals';
 import { useObject } from '@/hooks/useObjects';
-import type { TreeNode } from '@/types/filegrid';
+import { useState } from 'react';
 
 export function DocumentsPage() {
   const { selectedEntity, selectedPeriod } = useModule();
-  const [selectedNode, setSelectedNode] = useState<TreeNode | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
+  const { selectedNode } = useSidebarSelection();
   const [showUpload, setShowUpload] = useState(false);
   const [editingObjectId, setEditingObjectId] = useState<string | null>(null);
-
-  const { data: folderTree = [], isLoading: isLoadingTree } = useFeatureFolderStructure({
-    entityId: selectedEntity?.id || null,
-    periodId: selectedPeriod?.id || null,
-    featureType: 'documents',
-  });
 
   // Get selected area or object for document filtering
   const selectedAreaId = selectedNode?.type === 'area' 
@@ -44,21 +32,8 @@ export function DocumentsPage() {
     objectId: selectedObjectId,
   });
 
-  // Get pending approval counts per object
-  const { data: pendingCounts = {} } = usePendingApprovalCounts(selectedEntity?.id || null);
-
   // Fetch object data for edit modal
   const { data: editingObject } = useObject(editingObjectId);
-
-  const handleNodeSelect = (node: TreeNode) => {
-    setSelectedNode(node);
-  };
-
-  const handleEditObject = (node: TreeNode) => {
-    if (node.type === 'object') {
-      setEditingObjectId(node.id);
-    }
-  };
 
   if (!selectedEntity) {
     return (
@@ -93,6 +68,20 @@ export function DocumentsPage() {
         }
       : null;
 
+  // Build breadcrumb text from node metadata
+  const getBreadcrumb = () => {
+    if (!selectedNode) return '';
+    const parts: string[] = [];
+    
+    if (selectedNode.metadata?.department_name) {
+      parts.push(selectedNode.metadata.department_name as string);
+    }
+    
+    parts.push(selectedNode.name);
+    
+    return parts.join(' / ');
+  };
+
   return (
     <FeatureLayout
       title="Documents"
@@ -107,53 +96,24 @@ export function DocumentsPage() {
         )
       }
     >
-      <FeatureContent noPadding>
-        <FeatureSplitLayout
-          sidebarHeader={
-            <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Search folders..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="h-8 pl-8 text-sm"
-              />
+      <FeatureContent>
+        {selectedNode ? (
+          <div>
+            <div className="mb-4 flex items-center gap-2 text-sm text-muted-foreground">
+              <FolderOpen className="h-4 w-4" />
+              <span>{getBreadcrumb()}</span>
             </div>
-          }
-          sidebar={
-            isLoadingTree ? (
-              <div className="flex items-center justify-center py-8">
-                <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-              </div>
-            ) : (
-              <UnifiedFolderTree
-                nodes={filterNodes(folderTree, searchQuery)}
-                selectedId={selectedNode?.id || null}
-                onSelect={handleNodeSelect}
-                pendingCounts={pendingCounts}
-                onEditObject={handleEditObject}
-              />
-            )
-          }
-        >
-          {selectedNode ? (
-            <div className="p-6">
-              <div className="mb-4 flex items-center gap-2 text-sm text-muted-foreground">
-                <FolderOpen className="h-4 w-4" />
-                <span>{getBreadcrumb(selectedNode)}</span>
-              </div>
-              <DocumentList documents={documents} isLoading={isLoadingDocs} />
-            </div>
-          ) : (
-            <div className="flex h-full flex-col items-center justify-center p-8 text-center">
-              <FileText className="h-12 w-12 text-muted-foreground/40" />
-              <h3 className="mt-4 text-lg font-medium">Select a folder</h3>
-              <p className="mt-1 max-w-sm text-sm text-muted-foreground">
-                Choose a process, area, or object from the folder tree to view documents
-              </p>
-            </div>
-          )}
-        </FeatureSplitLayout>
+            <DocumentList documents={documents} isLoading={isLoadingDocs} />
+          </div>
+        ) : (
+          <div className="flex h-full flex-col items-center justify-center p-8 text-center">
+            <FileText className="h-12 w-12 text-muted-foreground/40" />
+            <h3 className="mt-4 text-lg font-medium">Select a folder</h3>
+            <p className="mt-1 max-w-sm text-sm text-muted-foreground">
+              Choose a process, area, or object from the sidebar to view documents
+            </p>
+          </div>
+        )}
       </FeatureContent>
 
       {showUpload && uploadAreaNode && selectedPeriod && (
@@ -174,38 +134,4 @@ export function DocumentsPage() {
       />
     </FeatureLayout>
   );
-}
-
-// Helper function to filter nodes by search query
-function filterNodes(nodes: TreeNode[], query: string): TreeNode[] {
-  if (!query.trim()) return nodes;
-  
-  const lowerQuery = query.toLowerCase();
-  
-  return nodes.reduce<TreeNode[]>((acc, node) => {
-    const matchesQuery = node.name.toLowerCase().includes(lowerQuery);
-    const filteredChildren = node.children ? filterNodes(node.children, query) : undefined;
-    
-    if (matchesQuery || (filteredChildren && filteredChildren.length > 0)) {
-      acc.push({
-        ...node,
-        children: filteredChildren,
-      });
-    }
-    
-    return acc;
-  }, []);
-}
-
-// Helper to build breadcrumb text from node metadata
-function getBreadcrumb(node: TreeNode): string {
-  const parts: string[] = [];
-  
-  if (node.metadata?.department_name) {
-    parts.push(node.metadata.department_name as string);
-  }
-  
-  parts.push(node.name);
-  
-  return parts.join(' / ');
 }

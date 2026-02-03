@@ -105,6 +105,10 @@ function ChecklistCard({
             {checklist.description}
           </CardDescription>
         )}
+        {/* Visual hint for available views */}
+        <p className="mt-1 text-[10px] text-muted-foreground/60">
+          Click to open List • Kanban • Calendar views
+        </p>
       </CardHeader>
       <CardContent>
         <div className="space-y-3">

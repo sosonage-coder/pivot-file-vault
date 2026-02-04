@@ -5,17 +5,24 @@ import { WorkspaceFilterBar } from '@/components/layout/WorkspaceFilterBar';
 import { DocumentList } from '@/components/filegrid/DocumentList';
 import { UploadDocumentModal } from '@/components/filegrid/UploadDocumentModal';
 import { EditObjectModal } from '@/components/filegrid/EditObjectModal';
+import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useModule } from '@/contexts/ModuleContext';
 import { useSidebarSelection } from '@/contexts/SidebarSelectionContext';
 import { useDocuments } from '@/hooks/useDocuments';
 import { useObject } from '@/hooks/useObjects';
-import { useState } from 'react';
+import { useEntities } from '@/hooks/useEntities';
+import { isConsolidatedEntity } from '@/lib/entities';
 
 export function DocumentsPage() {
-  const { selectedEntity, selectedPeriod } = useModule();
+  const { selectedEntity, selectedPeriod, setSelectedEntity } = useModule();
   const { selectedNode } = useSidebarSelection();
+  const { data: entities = [] } = useEntities();
   const [showUpload, setShowUpload] = useState(false);
   const [editingObjectId, setEditingObjectId] = useState<string | null>(null);
+  const [searchParams] = useSearchParams();
+  const urlObjectId = searchParams.get('objectId');
+  const urlEntityId = searchParams.get('entityId');
 
   // Get selected area or object for document filtering
   const selectedAreaId = selectedNode?.type === 'area' 
@@ -26,11 +33,24 @@ export function DocumentsPage() {
   
   const selectedObjectId = selectedNode?.type === 'object' ? selectedNode.id : null;
 
+  useEffect(() => {
+    if (!urlEntityId || !entities.length) return;
+    if (selectedEntity?.id === urlEntityId) return;
+    const matchedEntity = entities.find(entity => entity.id === urlEntityId);
+    if (matchedEntity) {
+      setSelectedEntity(matchedEntity);
+    }
+  }, [entities, selectedEntity?.id, setSelectedEntity, urlEntityId]);
+
+  const { data: urlObject } = useObject(urlObjectId);
+  const activeObjectId = urlObjectId || selectedObjectId;
+  const activeAreaId = urlObject?.area_id || selectedAreaId;
+
   const { data: documents = [], isLoading: isLoadingDocs } = useDocuments({
-    areaId: selectedAreaId,
+    areaId: activeAreaId,
     entityId: selectedEntity?.id || null,
     periodId: selectedPeriod?.id || null,
-    objectId: selectedObjectId,
+    objectId: activeObjectId,
   });
 
   // Fetch object data for edit modal
@@ -47,6 +67,22 @@ export function DocumentsPage() {
           icon={<FileText className="h-8 w-8" />}
           title="No entity selected"
           description="Please select an entity from the sidebar to view documents"
+        />
+      </FeatureLayout>
+    );
+  }
+
+  if (isConsolidatedEntity(selectedEntity)) {
+    return (
+      <FeatureLayout
+        title="Documents"
+        description="File management and approvals"
+        icon={<FileText className="h-5 w-5" />}
+      >
+        <FeatureEmptyState
+          icon={<FileText className="h-8 w-8" />}
+          title="Select a specific entity"
+          description="Documents are available per entity. Choose an entity to view files."
         />
       </FeatureLayout>
     );
@@ -71,16 +107,23 @@ export function DocumentsPage() {
 
   // Build breadcrumb text from node metadata
   const getBreadcrumb = () => {
-    if (!selectedNode) return '';
-    const parts: string[] = [];
-    
-    if (selectedNode.metadata?.department_name) {
-      parts.push(selectedNode.metadata.department_name as string);
+    if (selectedNode) {
+      const parts: string[] = [];
+      
+      if (selectedNode.metadata?.department_name) {
+        parts.push(selectedNode.metadata.department_name as string);
+      }
+      
+      parts.push(selectedNode.name);
+      
+      return parts.join(' / ');
     }
-    
-    parts.push(selectedNode.name);
-    
-    return parts.join(' / ');
+
+    if (urlObject) {
+      return urlObject.name;
+    }
+
+    return '';
   };
 
   return (
@@ -99,7 +142,7 @@ export function DocumentsPage() {
       }
     >
       <FeatureContent>
-        {selectedNode ? (
+        {selectedNode || urlObject ? (
           <div>
             <div className="mb-4 flex items-center gap-2 text-sm text-muted-foreground">
               <FolderOpen className="h-4 w-4" />

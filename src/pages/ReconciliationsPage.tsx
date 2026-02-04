@@ -16,22 +16,24 @@ export function ReconciliationsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [viewMode, setViewMode] = useState<ViewMode>('dashboard');
   const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [selectedReconciliationId, setSelectedReconciliationId] = useState<string | null>(null);
 
   // Get reconciliation ID from URL params or sidebar selection
   const urlReconciliationId = searchParams.get('id');
   const sidebarReconciliationId = (selectedNode?.metadata?.reconciliationId as string | undefined) || null;
-  const selectedReconciliationId = urlReconciliationId || sidebarReconciliationId;
+  const activeReconciliationId = urlReconciliationId || sidebarReconciliationId || selectedReconciliationId;
 
   // When a reconciliation is selected from sidebar, show detail view
   useEffect(() => {
     if (sidebarReconciliationId && !urlReconciliationId) {
-      setViewMode('list');
+      setSelectedReconciliationId(sidebarReconciliationId);
     }
   }, [sidebarReconciliationId, urlReconciliationId]);
 
   // Reset to dashboard when entity changes
   useEffect(() => {
     setViewMode('dashboard');
+    setSelectedReconciliationId(null);
     setSearchParams({});
   }, [selectedEntity?.id, setSearchParams]);
 
@@ -52,28 +54,38 @@ export function ReconciliationsPage() {
   }
 
   const handleSelectReconciliation = (id: string) => {
+    setSelectedReconciliationId(id);
     setSearchParams({ id });
-    setViewMode('list');
   };
 
   const handleViewModeChange = (mode: ViewMode) => {
     setViewMode(mode);
     if (mode === 'dashboard') {
+      setSelectedReconciliationId(null);
       setSearchParams({});
     }
   };
 
+  const handleBackToDashboard = () => {
+    setSelectedReconciliationId(null);
+    setSearchParams({});
+    setViewMode('dashboard');
+  };
+
   const renderContent = () => {
-    if (selectedReconciliationId) {
+    // If a specific reconciliation is selected, show detail workspace
+    if (activeReconciliationId) {
       return (
         <ReconciliationWorkspace
-          reconciliationId={selectedReconciliationId}
+          reconciliationId={activeReconciliationId}
           entityId={selectedEntity.id}
           periodId={selectedPeriod?.id}
+          onClose={handleBackToDashboard}
         />
       );
     }
 
+    // Otherwise show dashboard
     return (
       <ReconciliationDashboard
         entityId={selectedEntity.id}
@@ -95,12 +107,14 @@ export function ReconciliationsPage() {
         </Button>
       }
       filterBar={
-        <WorkspaceFilterBar
-          showViewModeToggle
-          viewMode={viewMode}
-          onViewModeChange={handleViewModeChange}
-          availableViewModes={['dashboard', 'list']}
-        />
+        !activeReconciliationId ? (
+          <WorkspaceFilterBar
+            showViewModeToggle
+            viewMode={viewMode}
+            onViewModeChange={handleViewModeChange}
+            availableViewModes={['dashboard']}
+          />
+        ) : null
       }
     >
       <FeatureContent noPadding>

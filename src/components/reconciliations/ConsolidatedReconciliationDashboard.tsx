@@ -65,6 +65,7 @@ export function ConsolidatedReconciliationDashboard({
   };
 
   const dashboardData = showSampleData ? sampleData : data;
+  const hasLiveData = Boolean(data && data.totalReconciliations > 0);
 
   if (isLoading) {
     return (
@@ -97,6 +98,16 @@ export function ConsolidatedReconciliationDashboard({
 
   return (
     <div className="space-y-6 p-6">
+      <div className="flex items-center justify-end">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setShowSampleData((current) => !current)}
+          disabled={!hasLiveData}
+        >
+          {showSampleData ? 'View live data' : 'View sample data'}
+        </Button>
+      </div>
       <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">

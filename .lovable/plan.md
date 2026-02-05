@@ -1,75 +1,73 @@
 
 
-## Fix Git Merge Conflict Markers and CI Workflow
+## Add Second Test Entity for Consolidated Dashboard Testing
 
 ### Summary
-The conflict markers from the GitHub merge have **already been resolved** in Lovable's copy of `ConsolidatedReconciliationDashboard.tsx`. The file correctly contains the sample-data design with `useState`, `sampleData`, `dashboardData`, and all UI references properly use `dashboardData.*`.
-
-However, the **CI workflow file has broken YAML indentation** that needs to be fixed.
+Add a second entity "Acme Retail" to the database along with sample reconciliation data so the "All Entities (Consolidated)" option appears in the entity selector and the Consolidated Reconciliation Dashboard can be tested.
 
 ---
 
 ### Current State
-
-| File | Status |
-|------|--------|
-| `ConsolidatedReconciliationDashboard.tsx` | Clean - no conflict markers, sample-data design present |
-| `.github/workflows/conflict-marker-check.yml` | Broken YAML indentation |
+- Only one entity exists: "Acme Corp"
+- The consolidated view option only appears when `entities.length > 1`
+- No reconciliation data exists for testing the consolidated dashboard
 
 ---
 
 ### Changes Required
 
-#### 1. Fix CI Workflow YAML Indentation
+#### 1. Insert New Entity
+Add "Acme Retail" to the `entities` table:
 
-**File:** `.github/workflows/conflict-marker-check.yml`
-
-The `run:` block has incorrect indentation. Fix by properly indenting the shell script:
-
-```yaml
-name: Conflict Marker Check
-
-on:
-  pull_request:
-  push:
-    branches: [main, work]
-
-jobs:
-  conflict-marker-check:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Fail on conflict markers
-        run: |
-          if git grep -n -E '^(<<<<<<<|=======|>>>>>>>)' -- . ':!.github/workflows/*'; then
-            echo "Conflict markers detected. Please resolve before merging."
-            exit 1
-          fi
+```sql
+INSERT INTO entities (name, active)
+VALUES ('Acme Retail', true);
 ```
 
-**Key fixes:**
-- Proper 10-space indentation for the shell script content under `run: |`
-- Changed `--exclude=` to `:!` pathspec syntax (more reliable for excluding paths in `git grep`)
+#### 2. Create Supporting Data Structure
+For the new entity to be useful, create:
+- A process linked to the entity
+- An area linked to the process
+- An object (account) for reconciliations
+- A period for the reconciliation
+
+#### 3. Add Sample Reconciliations
+Insert sample reconciliation records for both entities with varied statuses:
+
+| Entity | Account | Status | GL Balance | Variance |
+|--------|---------|--------|------------|----------|
+| Acme Corp | Cash - Operating | approved | 125,000 | 1,250 |
+| Acme Corp | Accounts Receivable | in_progress | 89,500 | 3,400 |
+| Acme Retail | Cash - Main | approved | 78,000 | 890 |
+| Acme Retail | Inventory | pending_review | 156,000 | 5,200 |
+| Acme Retail | Prepaid Expenses | not_started | 23,000 | 0 |
 
 ---
 
 ### Technical Details
 
-#### Why the current workflow is broken
-- YAML requires consistent indentation for multi-line strings under `|`
-- The current file has the `if` statement starting at column 0 instead of being indented under `run: |`
-- This causes YAML parse errors and the workflow won't execute
+#### Database Operations (via insert tool)
+1. Insert entity record
+2. Insert department/process/area/object records for the new entity
+3. Get or create a period record
+4. Insert reconciliation records for both entities
 
-#### The pathspec change
-- `--exclude=` is not a valid `git grep` option
-- Using `:!path` pathspec syntax correctly excludes paths from the search
-- `:!.github/workflows/*` excludes the workflow files themselves from being scanned
+#### Expected Result
+- Entity selector will show "All Entities (Consolidated)" option
+- Selecting it displays the `ConsolidatedReconciliationDashboard` component
+- Dashboard shows:
+  - Total Reconciliations: 5
+  - Completion Rate: 40% (2 approved out of 5)
+  - Pending Review: 1
+  - Rejected: 0
+  - Entity breakdown table with Acme Corp and Acme Retail rows
 
 ---
 
-### Verification After Fix
-1. Push the corrected workflow file to GitHub
-2. The CI check should pass (no conflict markers in codebase)
-3. The Consolidated Reconciliation Dashboard will work with sample-data toggle functionality
+### Verification Steps
+1. Navigate to `/reconciliations`
+2. Open the entity selector dropdown
+3. Verify "All Entities (Consolidated)" option appears
+4. Select it and confirm the consolidated dashboard displays
+5. Check entity breakdown table shows both entities with correct stats
 

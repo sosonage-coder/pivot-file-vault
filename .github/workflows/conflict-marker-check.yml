@@ -1,0 +1,23 @@
+name: Conflict Marker Check
+
+on:
+  pull_request:
+  push:
+    branches: [main, work]
+
+jobs:
+  conflict-marker-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Fail on conflict markers
+        run: |
+          if git grep -n -I \
+            -e '^<<<<<<< ' \
+            -e '^=======$' \
+            -e '^>>>>>>> ' \
+            -- . ':(exclude).github/workflows/conflict-marker-check.yml'; then
+            echo "Conflict markers detected. Please resolve before merging."
+            exit 1
+          fi

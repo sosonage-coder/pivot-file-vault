@@ -46,6 +46,7 @@ import { useReconciliationTree } from '@/hooks/useReconciliationTree';
 import { UnifiedFolderTree } from '@/components/filegrid/UnifiedFolderTree';
 import { ReconciliationTree } from '@/components/reconciliations/ReconciliationTree';
 import { SimpleAddProcessModal } from '@/components/filegrid/SimpleAddProcessModal';
+import { CONSOLIDATED_ENTITY, isConsolidatedEntity } from '@/lib/entities';
 import type { FeatureId } from '@/hooks/useActiveFeature';
 import type { TreeNode } from '@/types/filegrid';
 import type { ReconciliationTreeNode } from '@/hooks/useReconciliationTree';
@@ -125,6 +126,7 @@ export function UnifiedSidebar({ collapsed = false, onCollapsedChange }: Unified
   const [searchQuery, setSearchQuery] = useState('');
   const [showCreateProcess, setShowCreateProcess] = useState(false);
   const [navigationOpen, setNavigationOpen] = useState(true);
+  const isConsolidated = selectedEntity ? isConsolidatedEntity(selectedEntity) : false;
 
   // Auto-select first entity
   useEffect(() => {
@@ -136,9 +138,12 @@ export function UnifiedSidebar({ collapsed = false, onCollapsedChange }: Unified
   const activeFeature = FEATURES.find(f => location.pathname.startsWith(f.path))?.id || 'monthclose';
   
   // Show folder tree for all features that use structural navigation
-  const showFolderTree = ['documents', 'pbc', 'monthclose', 'compliance', 'checklists'].includes(activeFeature);
-  const showReconciliationTree = activeFeature === 'reconciliations';
+  const showFolderTree = ['documents', 'pbc', 'monthclose', 'compliance', 'checklists'].includes(activeFeature)
+    && !isConsolidated;
+  const showReconciliationTree = activeFeature === 'reconciliations' && !isConsolidated;
   const featureType = activeFeature === 'pbc' ? 'pbc' : activeFeature === 'monthclose' ? 'monthclose' : 'documents';
+
+  const entitiesWithConsolidated = entities.length > 1 ? [CONSOLIDATED_ENTITY, ...entities] : entities;
 
   // Fetch folder tree data
   const { data: folderTree = [], isLoading: isLoadingTree } = useFeatureFolderStructure({
@@ -235,7 +240,7 @@ export function UnifiedSidebar({ collapsed = false, onCollapsedChange }: Unified
             <Select
               value={selectedEntity?.id || ''}
               onValueChange={(value) => {
-                const entity = entities.find(e => e.id === value);
+                const entity = entitiesWithConsolidated.find(e => e.id === value);
                 if (entity) setSelectedEntity(entity);
               }}
             >
@@ -244,7 +249,7 @@ export function UnifiedSidebar({ collapsed = false, onCollapsedChange }: Unified
                 <SelectValue placeholder="Entity" />
               </SelectTrigger>
               <SelectContent>
-                {entities.map((entity) => (
+                {entitiesWithConsolidated.map((entity) => (
                   <SelectItem key={entity.id} value={entity.id} className="text-xs">
                     {entity.name}
                   </SelectItem>
@@ -473,7 +478,11 @@ export function UnifiedSidebar({ collapsed = false, onCollapsedChange }: Unified
       {!collapsed && !showFolderTree && !showReconciliationTree && (
         <ScrollArea className="flex-1">
           <div className="p-4 text-center text-sm text-muted-foreground">
-            {activeFeature === 'meetings' && 'Meetings (coming soon)'}
+            {isConsolidated
+              ? 'Consolidated view is available in Reconciliations.'
+              : activeFeature === 'meetings'
+                ? 'Meetings (coming soon)'
+                : null}
           </div>
         </ScrollArea>
       )}

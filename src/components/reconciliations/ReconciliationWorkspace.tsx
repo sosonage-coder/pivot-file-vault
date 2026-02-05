@@ -9,6 +9,7 @@ import {
   AlertTriangle,
   FileText,
   Plus,
+  ExternalLink,
   ChevronDown,
   Loader2
 } from 'lucide-react';
@@ -191,6 +192,12 @@ export function ReconciliationWorkspace({ reconciliationId, entityId, periodId }
     });
   };
 
+  const handlePopOut = () => {
+    if (!reconciliation) return;
+    const entityParam = reconciliation.entity_id ? `&entityId=${reconciliation.entity_id}` : '';
+    window.open(`/reconciliations?id=${reconciliation.id}${entityParam}`, '_blank');
+  };
+
   return (
     <ScrollArea className="flex-1">
       <div className="p-6 space-y-6">
@@ -220,6 +227,11 @@ export function ReconciliationWorkspace({ reconciliationId, entityId, periodId }
               <StatusIcon className="h-3.5 w-3.5" />
               {config.label}
             </Badge>
+
+            <Button variant="outline" size="sm" onClick={handlePopOut}>
+              <ExternalLink className="mr-1.5 h-4 w-4" />
+              Pop Out
+            </Button>
             
             {availableTransitions.length > 0 && (
               <DropdownMenu>

@@ -13,7 +13,8 @@ jobs:
         uses: actions/checkout@v4
       - name: Fail on conflict markers
         run: |
-          if git grep -n "<<<<<<<\\|>>>>>>>[^>]\\{3\\}" -- .; then
+if git grep -n -E '^(<<<<<<<|=======|>>>>>>>)' -- . --exclude='.github/workflows/*'; then
+
             echo "Conflict markers detected. Please resolve before merging."
             exit 1
           fi

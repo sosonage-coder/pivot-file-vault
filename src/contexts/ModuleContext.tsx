@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, ReactNode } from 'react';
 import type { Entity, Period } from '@/types/filegrid';
+import { isConsolidatedEntity } from '@/lib/entities';
 
 interface ModuleContextType {
   selectedEntity: Entity | null;
@@ -18,11 +19,18 @@ export function ModuleProvider({ children }: ModuleProviderProps) {
   const [selectedEntity, setSelectedEntity] = useState<Entity | null>(null);
   const [selectedPeriod, setSelectedPeriod] = useState<Period | null>(null);
 
+  const handleSetSelectedEntity = (entity: Entity | null) => {
+    if (isConsolidatedEntity(entity)) {
+      setSelectedPeriod(null);
+    }
+    setSelectedEntity(entity);
+  };
+
   return (
     <ModuleContext.Provider
       value={{
         selectedEntity,
-        setSelectedEntity,
+        setSelectedEntity: handleSetSelectedEntity,
         selectedPeriod,
         setSelectedPeriod,
       }}

@@ -25,11 +25,6 @@ import { useReconciliations, useReconciliationStats } from '@/hooks/useReconcili
 import { useExpectedDocuments } from '@/hooks/useExpectedDocuments';
 import { useTasks } from '@/hooks/useTasks';
 import { isConsolidatedEntity } from '@/lib/entities';
-import { Activity, ArrowRight, Building2, CalendarClock, CheckSquare, ClipboardList, FileText, Scale, Shield, Users } from 'lucide-react';
-import { FeatureContent, FeatureLayout } from '@/components/layout/FeatureLayout';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { useModule } from '@/contexts/ModuleContext';
 
 const QUICK_LINKS = [
   {
@@ -108,14 +103,8 @@ export function CommandCenterPage() {
 
   const { data: reconciliations = [] } = useReconciliations(selectedEntityId, selectedPeriodId);
   const { data: reconciliationStats } = useReconciliationStats(selectedEntityId, selectedPeriodId);
-  const { data: expectedDocuments = [] } = useExpectedDocuments(selectedEntityId, selectedPeriodId);
-  const { data: myTasks = [] } = useTasks(selectedEntityId, {
-    periodId: selectedPeriodId,
-    assigneeId: user?.id ?? null,
-  });
-export function CommandCenterPage() {
-  const navigate = useNavigate();
-  const { selectedEntity, selectedPeriod } = useModule();
+  const { data: expectedDocuments = [] } = useExpectedDocuments({ entityId: selectedEntityId, periodId: selectedPeriodId });
+  const { data: myTasks = [] } = useTasks(selectedEntityId);
 
   const contextualSummary = useMemo(() => {
     return [

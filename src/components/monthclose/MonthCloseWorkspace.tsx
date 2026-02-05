@@ -7,9 +7,13 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { ChecklistWorkspace } from '@/components/checklists/ChecklistWorkspace';
+import { ChecklistItemModal } from '@/components/checklists/ChecklistItemModal';
 import { CloseCalendarView } from '@/components/checklists/CloseCalendarView';
-import { useTaskChecklists, useChecklistStats, useChecklistItems } from '@/hooks/useTaskChecklists';
+import { DocumentList } from '@/components/filegrid/DocumentList';
+import { useTaskChecklists, useChecklistStats, useChecklistItems, useUpdateItem } from '@/hooks/useTaskChecklists';
+import { useDocuments } from '@/hooks/useDocuments';
 import { parseISO, differenceInDays, addDays, format } from 'date-fns';
+import type { TaskChecklistItem } from '@/types/task-checklists';
 
 interface MonthCloseWorkspaceProps {
   entityId: string;
@@ -19,6 +23,7 @@ interface MonthCloseWorkspaceProps {
 export function MonthCloseWorkspace({ entityId, periodId }: MonthCloseWorkspaceProps) {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [selectedChecklistId, setSelectedChecklistId] = useState<string | null>(null);
+  const [selectedCalendarItem, setSelectedCalendarItem] = useState<TaskChecklistItem | null>(null);
   
   // Fetch all checklists for dashboard - look for close schedules (those with start_date)
   const { data: checklists = [], isLoading } = useTaskChecklists(entityId, {
@@ -39,6 +44,14 @@ export function MonthCloseWorkspace({ entityId, periodId }: MonthCloseWorkspaceP
 
   // Fetch items for the active close schedule
   const { data: scheduleItems = [] } = useChecklistItems(activeSchedule?.id || null);
+  const updateItem = useUpdateItem();
+
+  const { data: closeDocuments = [], isLoading: isLoadingCloseDocuments } = useDocuments({
+    entityId,
+    periodId: periodId ?? null,
+  });
+
+  const monthlyCloseDocuments = useMemo(() => closeDocuments.filter((document) => document.areas?.processes?.name === 'Monthly Close'), [closeDocuments]);
 
   if (isLoading) {
     return (
@@ -104,7 +117,7 @@ export function MonthCloseWorkspace({ entityId, periodId }: MonthCloseWorkspaceP
                   startDate={activeSchedule.start_date}
                   durationDays={activeSchedule.duration_days}
                   onSelectItem={(item) => {
-                    console.log('Selected item:', item);
+                    setSelectedCalendarItem(item);
                   }}
                 />
               ) : (
@@ -130,15 +143,40 @@ export function MonthCloseWorkspace({ entityId, periodId }: MonthCloseWorkspaceP
         </TabsContent>
 
         <TabsContent value="documents" className="flex-1 m-0">
-          <div className="flex items-center justify-center h-64 text-muted-foreground">
-            <div className="text-center">
-              <FolderOpen className="mx-auto h-12 w-12 mb-3 opacity-50" />
-              <p className="font-medium">Documents View</p>
-              <p className="text-sm">Use the sidebar to browse closing documents</p>
+          <ScrollArea className="h-full">
+            <div className="p-6 space-y-4">
+              <div>
+                <h3 className="text-lg font-semibold">Monthly Close Documents</h3>
+                <p className="text-sm text-muted-foreground">
+                  Documents filtered to the Monthly Close process for the selected entity and period.
+                </p>
+              </div>
+              <DocumentList documents={monthlyCloseDocuments} isLoading={isLoadingCloseDocuments} />
             </div>
-          </div>
+          </ScrollArea>
         </TabsContent>
       </Tabs>
+
+      <ChecklistItemModal
+        open={!!selectedCalendarItem}
+        onOpenChange={(open) => {
+          if (!open) setSelectedCalendarItem(null);
+        }}
+        mode="quick_list"
+        sections={[]}
+        item={selectedCalendarItem}
+        hasRelativeDays
+        onSave={async (data) => {
+          if (!selectedCalendarItem || !activeSchedule) return;
+          await updateItem.mutateAsync({
+            itemId: selectedCalendarItem.id,
+            checklistId: activeSchedule.id,
+            updates: data,
+          });
+          setSelectedCalendarItem(null);
+        }}
+        isLoading={updateItem.isPending}
+      />
     </div>
   );
 }

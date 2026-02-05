@@ -31,7 +31,7 @@ export function AppLayout() {
 
   // Redirect root to default feature
   if (location.pathname === '/') {
-    return <Navigate to="/close" replace />;
+    return <Navigate to="/command-center" replace />;
   }
 
   return (

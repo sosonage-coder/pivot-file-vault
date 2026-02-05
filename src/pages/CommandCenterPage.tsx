@@ -108,6 +108,8 @@ export function CommandCenterPage() {
     periodId: selectedPeriodId,
     assigneeId: user?.id ?? null,
   });
+  const { data: expectedDocuments = [] } = useExpectedDocuments({ entityId: selectedEntityId, periodId: selectedPeriodId });
+  const { data: myTasks = [] } = useTasks(selectedEntityId);
 
   const contextualSummary = useMemo(() => {
     return [

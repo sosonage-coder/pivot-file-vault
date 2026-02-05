@@ -132,9 +132,7 @@ export function AppSidebar({ collapsed = false, onCollapsedChange }: AppSidebarP
   const activeFeature = FEATURES.find(f => location.pathname.startsWith(f.path))?.id || 'command-center';
 
   const handleFeatureClick = (feature: typeof FEATURES[0]) => {
-    if (!feature.disabled) {
-      navigate(feature.path);
-    }
+    navigate(feature.path);
   };
 
   return (
@@ -244,13 +242,11 @@ export function AppSidebar({ collapsed = false, onCollapsedChange }: AppSidebarP
               <button
                 key={feature.id}
                 onClick={() => handleFeatureClick(feature)}
-                disabled={feature.disabled}
                 className={cn(
                   'group flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all',
                   'hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                   isActive && 'bg-accent text-accent-foreground',
                   isActive && 'relative before:absolute before:inset-y-1.5 before:left-0 before:w-0.5 before:rounded-full before:bg-primary',
-                  feature.disabled && 'cursor-not-allowed opacity-50',
                   collapsed && 'justify-center px-2'
                 )}
               >
@@ -274,9 +270,6 @@ export function AppSidebar({ collapsed = false, onCollapsedChange }: AppSidebarP
                     {feature.label}
                   </span>
                 )}
-                {!collapsed && feature.disabled && (
-                  <span className="ml-auto text-xs text-muted-foreground">Soon</span>
-                )}
               </button>
             );
 
@@ -286,9 +279,6 @@ export function AppSidebar({ collapsed = false, onCollapsedChange }: AppSidebarP
                   <TooltipTrigger asChild>{navItem}</TooltipTrigger>
                   <TooltipContent side="right" className="flex items-center gap-2">
                     {feature.label}
-                    {feature.disabled && (
-                      <span className="text-xs text-muted-foreground">(Coming soon)</span>
-                    )}
                   </TooltipContent>
                 </Tooltip>
               );

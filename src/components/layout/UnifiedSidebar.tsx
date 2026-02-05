@@ -196,12 +196,10 @@ export function UnifiedSidebar({ collapsed = false, onCollapsedChange }: Unified
   }, [folderTree, searchQuery]);
 
   const handleFeatureClick = (feature: typeof FEATURES[0]) => {
-    if (!feature.disabled) {
-      navigate(feature.path);
-      // Clear selection when switching features
-      setSelectedNode(null);
-      setSearchQuery('');
-    }
+    navigate(feature.path);
+    // Clear selection when switching features
+    setSelectedNode(null);
+    setSearchQuery('');
   };
 
   const handleNodeSelect = (node: TreeNode) => {
@@ -296,12 +294,10 @@ export function UnifiedSidebar({ collapsed = false, onCollapsedChange }: Unified
                 <TooltipTrigger asChild>
                   <button
                     onClick={() => handleFeatureClick(feature)}
-                    disabled={feature.disabled}
                     className={cn(
                       'flex items-center justify-center rounded-md p-1.5 transition-all',
                       'hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                       isActive && 'bg-accent ring-1 ring-primary/20',
-                      feature.disabled && 'cursor-not-allowed opacity-50',
                       !collapsed && 'flex-col gap-0.5'
                     )}
                   >
@@ -330,7 +326,6 @@ export function UnifiedSidebar({ collapsed = false, onCollapsedChange }: Unified
                 </TooltipTrigger>
                 <TooltipContent side={collapsed ? 'right' : 'bottom'} className="text-xs">
                   {feature.label}
-                  {feature.disabled && ' (Coming soon)'}
                 </TooltipContent>
               </Tooltip>
             );
@@ -493,8 +488,6 @@ export function UnifiedSidebar({ collapsed = false, onCollapsedChange }: Unified
                 : activeFeature === 'command-center'
                   ? 'Command Center provides a launchpad into each workspace.'
                   : null}
-                ? 'Meetings (coming soon)'
-                : null}
           </div>
         </ScrollArea>
       )}

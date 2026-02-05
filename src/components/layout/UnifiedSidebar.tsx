@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
+  Activity,
   CalendarClock,
   Scale,
   FileText,
@@ -52,6 +53,14 @@ import type { TreeNode } from '@/types/filegrid';
 import type { ReconciliationTreeNode } from '@/hooks/useReconciliationTree';
 
 const FEATURES = [
+  {
+    id: 'command-center' as FeatureId,
+    label: 'Center',
+    icon: Activity,
+    path: '/command-center',
+    color: 'text-indigo-500',
+    bgColor: 'bg-indigo-500/10',
+  },
   {
     id: 'monthclose' as FeatureId,
     label: 'Close',
@@ -107,7 +116,6 @@ const FEATURES = [
     path: '/meetings',
     color: 'text-pink-500',
     bgColor: 'bg-pink-500/10',
-    disabled: true,
   },
 ];
 
@@ -135,7 +143,7 @@ export function UnifiedSidebar({ collapsed = false, onCollapsedChange }: Unified
     }
   }, [entities, selectedEntity, setSelectedEntity]);
 
-  const activeFeature = FEATURES.find(f => location.pathname.startsWith(f.path))?.id || 'monthclose';
+  const activeFeature = FEATURES.find(f => location.pathname.startsWith(f.path))?.id || 'command-center';
   
   // Show folder tree for all features that use structural navigation
   const showFolderTree = ['documents', 'pbc', 'monthclose', 'compliance', 'checklists'].includes(activeFeature)
@@ -481,6 +489,10 @@ export function UnifiedSidebar({ collapsed = false, onCollapsedChange }: Unified
             {isConsolidated
               ? 'Consolidated view is available in Reconciliations.'
               : activeFeature === 'meetings'
+                ? 'Use Meetings to run agendas, decisions, and action tracking.'
+                : activeFeature === 'command-center'
+                  ? 'Command Center provides a launchpad into each workspace.'
+                  : null}
                 ? 'Meetings (coming soon)'
                 : null}
           </div>

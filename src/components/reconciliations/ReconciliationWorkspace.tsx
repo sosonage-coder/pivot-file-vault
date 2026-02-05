@@ -9,9 +9,11 @@ import {
   AlertTriangle,
   FileText,
   Plus,
+  ExternalLink,
   ChevronDown,
   Loader2
 } from 'lucide-react';
+import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -91,6 +93,8 @@ const statusConfig: Record<ReconciliationStatus, {
   },
 };
 
+const MATERIALITY_THRESHOLD = 1000;
+
 const workflowTransitions: Record<ReconciliationStatus, ReconciliationStatus[]> = {
   not_started: ['in_progress'],
   in_progress: ['pending_review'],
@@ -166,6 +170,7 @@ export function ReconciliationWorkspace({ reconciliationId, entityId, periodId }
 
   const variance = (parseFloat(glBalance) || 0) - (parseFloat(subBalance) || 0);
   const hasVariance = variance !== 0;
+  const isMaterialVariance = Math.abs(variance) > MATERIALITY_THRESHOLD;
 
   // Editable if not yet approved/certified
   const isEditable = !['approved', 'certified'].includes(currentStatus);
@@ -174,6 +179,20 @@ export function ReconciliationWorkspace({ reconciliationId, entityId, periodId }
   const template = reconciliation.reconciliation_templates as ReconciliationTemplate | null;
 
   const handleStatusChange = (newStatus: ReconciliationStatus) => {
+    const requiresControlProof = ['pending_review', 'approved', 'certified'].includes(newStatus);
+
+    if (requiresControlProof && isMaterialVariance) {
+      if (!varianceExplanation.trim()) {
+        toast.error(`Variance explanation is required when variance exceeds ${MATERIALITY_THRESHOLD.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })}.`);
+        return;
+      }
+
+      if (attachments.length === 0) {
+        toast.error('Attach at least one evidence document before moving a material variance for review/approval.');
+        return;
+      }
+    }
+
     updateReconciliation.mutate({
       id: reconciliation.id,
       updates: { status: newStatus },
@@ -189,6 +208,12 @@ export function ReconciliationWorkspace({ reconciliationId, entityId, periodId }
         variance_explanation: varianceExplanation || null,
       },
     });
+  };
+
+  const handlePopOut = () => {
+    if (!reconciliation) return;
+    const entityParam = reconciliation.entity_id ? `&entityId=${reconciliation.entity_id}` : '';
+    window.open(`/reconciliations?id=${reconciliation.id}${entityParam}`, '_blank');
   };
 
   return (
@@ -220,6 +245,11 @@ export function ReconciliationWorkspace({ reconciliationId, entityId, periodId }
               <StatusIcon className="h-3.5 w-3.5" />
               {config.label}
             </Badge>
+
+            <Button variant="outline" size="sm" onClick={handlePopOut}>
+              <ExternalLink className="mr-1.5 h-4 w-4" />
+              Pop Out
+            </Button>
             
             {availableTransitions.length > 0 && (
               <DropdownMenu>
@@ -294,18 +324,26 @@ export function ReconciliationWorkspace({ reconciliationId, entityId, periodId }
             </div>
             
             {hasVariance && (
-              <div>
-                <Label htmlFor="variance-explanation">Variance Explanation</Label>
-                <Textarea
-                  id="variance-explanation"
-                  value={varianceExplanation}
-                  onChange={(e) => setVarianceExplanation(e.target.value)}
-                  placeholder="Explain the variance..."
-                  className="mt-1.5"
-                  rows={3}
-                  disabled={!isEditable}
-                />
-              </div>
+              <>
+                <div className="rounded-md border border-amber-400/50 bg-amber-50/60 p-3 text-xs text-amber-900 dark:border-amber-700/40 dark:bg-amber-950/20 dark:text-amber-200">
+                  <div className="font-medium">Controls rule for material variances</div>
+                  <div className="mt-1">
+                    Variances above {MATERIALITY_THRESHOLD.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })} require both an explanation and at least one evidence document before review/approval.
+                  </div>
+                </div>
+                <div>
+                  <Label htmlFor="variance-explanation">Variance Explanation</Label>
+                  <Textarea
+                    id="variance-explanation"
+                    value={varianceExplanation}
+                    onChange={(e) => setVarianceExplanation(e.target.value)}
+                    placeholder="Explain the variance..."
+                    className="mt-1.5"
+                    rows={3}
+                    disabled={!isEditable}
+                  />
+                </div>
+              </>
             )}
             
             {isEditable && (

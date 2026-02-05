@@ -33,11 +33,10 @@ import {
   Calendar,
   MessageSquare,
   Paperclip,
-  X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
-import { usePbcAttachments, useUploadPbcAttachment, useDeletePbcAttachment } from '@/hooks/usePbcAttachments';
+import { usePbcAttachments, useUploadPbcAttachment, useDeletePbcAttachment, usePbcEvidenceDocuments } from '@/hooks/usePbcAttachments';
 import { usePbcComments, useAddPbcComment } from '@/hooks/usePbcComments';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
@@ -86,6 +85,7 @@ export function PbcRequestDetailModal({
   // Hooks
   const { data: attachments = [], isLoading: attachmentsLoading } = usePbcAttachments(request.id);
   const { data: comments = [], isLoading: commentsLoading } = usePbcComments(request.id);
+  const { data: linkedEvidenceDocuments = [], isLoading: linkedEvidenceLoading } = usePbcEvidenceDocuments(request.id, entityId);
   const uploadAttachment = useUploadPbcAttachment();
   const deleteAttachment = useDeletePbcAttachment();
   const addComment = useAddPbcComment();
@@ -337,7 +337,44 @@ export function PbcRequestDetailModal({
               )}
             </div>
 
+
             <Separator />
+
+            <div className="space-y-3">
+              <label className="text-sm font-medium flex items-center gap-2">
+                <FileText className="h-4 w-4 text-muted-foreground" />
+                Linked Evidence Documents ({linkedEvidenceDocuments.length})
+              </label>
+
+              {linkedEvidenceLoading ? (
+                <div className="flex items-center justify-center py-4">
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                </div>
+              ) : linkedEvidenceDocuments.length === 0 ? (
+                <div className="text-center py-4 text-sm text-muted-foreground border rounded-lg border-dashed">
+                  No documents linked to uploaded evidence yet
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {linkedEvidenceDocuments.map((document) => (
+                    <div key={document.id} className="flex items-center justify-between rounded-lg border p-3">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium truncate">{document.logical_name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {document.document_types?.name || 'Document'} • {document.periods?.label || 'No period'}
+                        </p>
+                      </div>
+                      <Button variant="ghost" size="sm" asChild>
+                        <a href={document.external_file_url} target="_blank" rel="noopener noreferrer">
+                          <Download className="mr-1 h-4 w-4" />
+                          Open
+                        </a>
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
 
             {/* Comments Section */}
             <div className="space-y-3">

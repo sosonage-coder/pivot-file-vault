@@ -22,15 +22,16 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
-import { Loader2, FileCheck } from 'lucide-react';
+import { Loader2, FileCheck, Upload } from 'lucide-react';
 import { useCreateDocument } from '@/hooks/useCreateDocument';
 import { useUpdatePBCStatus } from '@/hooks/usePBCItems';
+import { useUploadPbcFile } from '@/hooks/usePbcAttachments';
 import { toast } from '@/hooks/use-toast';
 import type { DocumentStatus } from '@/types/filegrid';
 
 const formSchema = z.object({
   status: z.enum(['Draft', 'Final'] as const),
-  externalFileUrl: z.string().url('Must be a valid URL'),
+  externalFileUrl: z.string().optional(),
   notes: z.string().optional(),
 });
 
@@ -59,6 +60,9 @@ interface FulfillPBCModalProps {
 export function FulfillPBCModal({ open, onOpenChange, pbcItem }: FulfillPBCModalProps) {
   const createDocument = useCreateDocument();
   const updatePBCStatus = useUpdatePBCStatus();
+  const uploadPbcFile = useUploadPbcFile();
+  const [evidenceMode, setEvidenceMode] = useState<'url' | 'upload'>('url');
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -73,13 +77,30 @@ export function FulfillPBCModal({ open, onOpenChange, pbcItem }: FulfillPBCModal
     if (!pbcItem) return;
 
     try {
-      // Generate logical name from object (if exists) and document type
+      let externalFileUrl = values.externalFileUrl?.trim() || '';
+
+      if (evidenceMode === 'upload') {
+        if (!uploadFile) {
+          toast({ title: 'Please select a file to upload', variant: 'destructive' });
+          return;
+        }
+
+        const uploaded = await uploadPbcFile.mutateAsync({
+          file: uploadFile,
+          folder: `pbc-item-${pbcItem.id}`,
+        });
+        externalFileUrl = uploaded.publicUrl;
+      }
+
+      if (!externalFileUrl || (evidenceMode === 'url' && !/^https?:\/\//.test(externalFileUrl))) {
+        toast({ title: 'Please provide a valid evidence URL', variant: 'destructive' });
+        return;
+      }
+
       const objectName = pbcItem.objects?.name || 'General';
       const docTypeName = pbcItem.document_types.name;
       const logicalName = `${objectName}_${docTypeName}`;
 
-      // Get department_id from the process hierarchy
-      // We need to query it since it's not directly on the PBC item
       const { data: processData } = await import('@/integrations/supabase/client').then(
         ({ supabase }) => supabase
           .from('processes')
@@ -92,7 +113,6 @@ export function FulfillPBCModal({ open, onOpenChange, pbcItem }: FulfillPBCModal
         throw new Error('Could not find process information');
       }
 
-      // Create the document
       await createDocument.mutateAsync({
         logicalName,
         entityId: pbcItem.entity_id,
@@ -103,11 +123,10 @@ export function FulfillPBCModal({ open, onOpenChange, pbcItem }: FulfillPBCModal
         periodId: pbcItem.period_id,
         documentTypeId: pbcItem.document_type_id,
         status: values.status as DocumentStatus,
-        externalFileUrl: values.externalFileUrl,
+        externalFileUrl,
         notes: values.notes || null,
       });
 
-      // Update PBC status to Uploaded
       await updatePBCStatus.mutateAsync({
         id: pbcItem.id,
         status: 'Uploaded',
@@ -120,6 +139,8 @@ export function FulfillPBCModal({ open, onOpenChange, pbcItem }: FulfillPBCModal
       });
 
       form.reset();
+      setUploadFile(null);
+      setEvidenceMode('url');
       onOpenChange(false);
     } catch (error) {
       console.error('Error fulfilling PBC request:', error);
@@ -131,7 +152,7 @@ export function FulfillPBCModal({ open, onOpenChange, pbcItem }: FulfillPBCModal
     }
   };
 
-  const isSubmitting = createDocument.isPending || updatePBCStatus.isPending;
+  const isSubmitting = createDocument.isPending || updatePBCStatus.isPending || uploadPbcFile.isPending;
 
   if (!pbcItem) return null;
 
@@ -147,7 +168,6 @@ export function FulfillPBCModal({ open, onOpenChange, pbcItem }: FulfillPBCModal
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            {/* Pre-filled context (read-only) */}
             <div className="rounded-md bg-muted p-3 text-sm space-y-2">
               <div className="grid grid-cols-2 gap-x-4 gap-y-1">
                 <div>
@@ -174,43 +194,64 @@ export function FulfillPBCModal({ open, onOpenChange, pbcItem }: FulfillPBCModal
               </div>
             </div>
 
-            {/* External URL - auto-focused */}
-            <FormField
-              control={form.control}
-              name="externalFileUrl"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>File URL</FormLabel>
-                  <FormControl>
-                    <Input 
-                      placeholder="https://sharepoint.com/..." 
-                      autoFocus
-                      {...field} 
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            <div className="space-y-2">
+              <Label>Evidence Source</Label>
+              <RadioGroup value={evidenceMode} onValueChange={(v) => setEvidenceMode(v as 'url' | 'upload')}>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="url" id="evidence-url" />
+                  <Label htmlFor="evidence-url" className="font-normal">External URL</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="upload" id="evidence-upload" />
+                  <Label htmlFor="evidence-upload" className="font-normal">Upload File</Label>
+                </div>
+              </RadioGroup>
+            </div>
 
-            {/* Status */}
+            {evidenceMode === 'url' ? (
+              <FormField
+                control={form.control}
+                name="externalFileUrl"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Evidence URL *</FormLabel>
+                    <FormControl>
+                      <Input placeholder="https://..." {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            ) : (
+              <div className="space-y-2">
+                <Label htmlFor="uploadFile">Evidence File *</Label>
+                <Input
+                  id="uploadFile"
+                  type="file"
+                  onChange={(event) => setUploadFile(event.target.files?.[0] || null)}
+                />
+                {uploadFile && (
+                  <p className="text-xs text-muted-foreground flex items-center gap-1">
+                    <Upload className="h-3.5 w-3.5" />
+                    {uploadFile.name}
+                  </p>
+                )}
+              </div>
+            )}
+
             <FormField
               control={form.control}
               name="status"
               render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Status</FormLabel>
+                <FormItem className="space-y-2">
+                  <FormLabel>Document Status</FormLabel>
                   <FormControl>
-                    <RadioGroup
-                      onValueChange={field.onChange}
-                      value={field.value}
-                      className="flex gap-4"
-                    >
-                      <div className="flex items-center space-x-2">
+                    <RadioGroup value={field.value} onValueChange={field.onChange} className="grid grid-cols-2 gap-4">
+                      <div className="flex items-center space-x-2 rounded-md border p-2">
                         <RadioGroupItem value="Draft" id="fulfill-draft" />
                         <Label htmlFor="fulfill-draft" className="font-normal">Draft</Label>
                       </div>
-                      <div className="flex items-center space-x-2">
+                      <div className="flex items-center space-x-2 rounded-md border p-2">
                         <RadioGroupItem value="Final" id="fulfill-final" />
                         <Label htmlFor="fulfill-final" className="font-normal">Final</Label>
                       </div>
@@ -221,7 +262,6 @@ export function FulfillPBCModal({ open, onOpenChange, pbcItem }: FulfillPBCModal
               )}
             />
 
-            {/* Notes */}
             <FormField
               control={form.control}
               name="notes"
@@ -229,12 +269,7 @@ export function FulfillPBCModal({ open, onOpenChange, pbcItem }: FulfillPBCModal
                 <FormItem>
                   <FormLabel>Notes (optional)</FormLabel>
                   <FormControl>
-                    <Textarea
-                      placeholder="Additional context..."
-                      className="resize-none"
-                      rows={2}
-                      {...field}
-                    />
+                    <Textarea placeholder="Optional notes..." rows={3} {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -242,17 +277,18 @@ export function FulfillPBCModal({ open, onOpenChange, pbcItem }: FulfillPBCModal
             />
 
             <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => onOpenChange(false)}
-                disabled={isSubmitting}
-              >
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
                 Cancel
               </Button>
               <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Create Document
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  'Create & Mark Uploaded'
+                )}
               </Button>
             </DialogFooter>
           </form>

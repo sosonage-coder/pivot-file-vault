@@ -65,6 +65,8 @@ export function ConsolidatedReconciliationDashboard({
     ],
   };
 
+// Use real data when available; fall back to sample data if user requests it
+
   const dashboardData = showSampleData ? sampleData : data;
 
   if (isLoading) {

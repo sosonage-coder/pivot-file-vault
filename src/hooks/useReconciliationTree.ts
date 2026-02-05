@@ -17,6 +17,7 @@ export interface ReconciliationTreeNode {
     departmentId?: string;
     objectId?: string;
     periodLabel?: string;
+    entityId?: string;
   };
 }
 
@@ -122,6 +123,7 @@ export function useReconciliationTree(
               departmentId: recon.objects?.department_id,
               objectId: recon.object_id,
               periodLabel: recon.periods?.label,
+              entityId: recon.entity_id,
             },
           };
           areaNode.children!.push(accountNode);

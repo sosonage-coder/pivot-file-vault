@@ -3,6 +3,7 @@ import { format, parseISO } from 'date-fns';
 import {
   Plus,
   ClipboardList,
+  LayoutDashboard,
   LayoutList,
   CheckCircle2,
   Clock,
@@ -16,6 +17,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -52,6 +54,8 @@ interface ChecklistWorkspaceProps {
   departmentId?: string | null;
   periodId?: string | null;
 }
+
+type ChecklistViewMode = 'dashboard' | 'list';
 
 function ChecklistCard({
   checklist,
@@ -181,6 +185,7 @@ export function ChecklistWorkspace({
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [checklistToDelete, setChecklistToDelete] = useState<TaskChecklistWithRelations | null>(null);
+  const [viewMode, setViewMode] = useState<ChecklistViewMode>('dashboard');
 
   // Fetch checklists
   const { data: checklists = [], isLoading } = useTaskChecklists(entityId, {
@@ -243,6 +248,10 @@ export function ChecklistWorkspace({
     );
   }
 
+  const quickLists = checklists.filter(checklist => checklist.mode === 'quick_list');
+  const structuredLists = checklists.filter(checklist => checklist.mode !== 'quick_list');
+  const closeSchedules = checklists.filter(checklist => checklist.start_date);
+
   // Otherwise, show the checklist list
   return (
     <div className="flex flex-col h-full">
@@ -254,10 +263,24 @@ export function ChecklistWorkspace({
             Manage task lists and close schedules
           </p>
         </div>
-        <Button onClick={() => setCreateModalOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          New Checklist
-        </Button>
+        <div className="flex items-center gap-3">
+          <Tabs value={viewMode} onValueChange={(value) => setViewMode(value as ChecklistViewMode)}>
+            <TabsList>
+              <TabsTrigger value="dashboard" className="gap-1.5">
+                <LayoutDashboard className="h-4 w-4" />
+                Dashboard
+              </TabsTrigger>
+              <TabsTrigger value="list" className="gap-1.5">
+                <LayoutList className="h-4 w-4" />
+                List
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+          <Button onClick={() => setCreateModalOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            New Checklist
+          </Button>
+        </div>
       </div>
 
       {/* Content */}
@@ -279,6 +302,54 @@ export function ChecklistWorkspace({
               <Plus className="mr-2 h-4 w-4" />
               Create Checklist
             </Button>
+          </div>
+        ) : viewMode === 'dashboard' ? (
+          <div className="space-y-6">
+            <div className="grid gap-4 md:grid-cols-4">
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">Total Checklists</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-semibold">{checklists.length}</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">Close Schedules</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-semibold">{closeSchedules.length}</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">Quick Lists</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-semibold">{quickLists.length}</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">Structured Lists</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-semibold">{structuredLists.length}</div>
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {checklists.slice(0, 6).map((checklist) => (
+                <ChecklistCard
+                  key={checklist.id}
+                  checklist={checklist}
+                  onClick={() => setSelectedChecklist(checklist)}
+                  onDelete={() => handleDeleteChecklist(checklist)}
+                />
+              ))}
+            </div>
           </div>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

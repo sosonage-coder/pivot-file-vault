@@ -64,6 +64,8 @@ export function ConsolidatedReconciliationDashboard({
     ],
   };
 
+  const dashboardData = showSampleData ? sampleData : data;
+  const hasLiveData = Boolean(data && data.totalReconciliations > 0);
   const hasLiveData = Boolean(data && data.totalReconciliations > 0);
   const dashboardData = showSampleData ? sampleData : data;
 
@@ -103,11 +105,16 @@ export function ConsolidatedReconciliationDashboard({
           variant="outline"
           size="sm"
           onClick={() => setShowSampleData((current) => !current)}
+          disabled={!hasLiveData}
           disabled={!hasLiveData && !showSampleData}
         >
           {showSampleData ? 'View live data' : 'View sample data'}
         </Button>
       </div>
+      <div className="grid gap-4 md:grid-cols-4">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Total Reconciliations</CardTitle>
 
       <div className="grid gap-4 md:grid-cols-4">
         <Card>
@@ -120,6 +127,9 @@ export function ConsolidatedReconciliationDashboard({
             <div className="text-2xl font-semibold">{dashboardData.totalReconciliations}</div>
           </CardContent>
         </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Completion Rate</CardTitle>
 
         <Card>
           <CardHeader className="pb-2">
@@ -132,6 +142,9 @@ export function ConsolidatedReconciliationDashboard({
             <Progress value={dashboardData.completionRate} className="mt-2 h-2" />
           </CardContent>
         </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Pending Review</CardTitle>
 
         <Card>
           <CardHeader className="pb-2">

@@ -103,6 +103,7 @@ export function CommandCenterPage() {
 
   const { data: reconciliations = [] } = useReconciliations(selectedEntityId, selectedPeriodId);
   const { data: reconciliationStats } = useReconciliationStats(selectedEntityId, selectedPeriodId);
+  const { data: expectedDocuments = [] } = useExpectedDocuments(selectedEntityId, selectedPeriodId);
   const { data: expectedDocuments = [] } = useExpectedDocuments({ entityId: selectedEntityId, periodId: selectedPeriodId });
   const { data: myTasks = [] } = useTasks(selectedEntityId, {
     periodId: selectedPeriodId,

@@ -493,6 +493,8 @@ export function UnifiedSidebar({ collapsed = false, onCollapsedChange }: Unified
                 : activeFeature === 'command-center'
                   ? 'Command Center provides a launchpad into each workspace.'
                   : null}
+                ? 'Meetings (coming soon)'
+                : null}
           </div>
         </ScrollArea>
       )}

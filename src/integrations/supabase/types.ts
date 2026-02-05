@@ -539,36 +539,45 @@ export type Database = {
       }
       objects: {
         Row: {
+          approver_name: string | null
           area_id: string
           created_at: string
           department_id: string
           entity_id: string
           id: string
           name: string
+          owner_name: string | null
           process_id: string
           requires_approval: boolean
+          reviewer_name: string | null
           updated_at: string
         }
         Insert: {
+          approver_name?: string | null
           area_id: string
           created_at?: string
           department_id: string
           entity_id: string
           id?: string
           name: string
+          owner_name?: string | null
           process_id: string
           requires_approval?: boolean
+          reviewer_name?: string | null
           updated_at?: string
         }
         Update: {
+          approver_name?: string | null
           area_id?: string
           created_at?: string
           department_id?: string
           entity_id?: string
           id?: string
           name?: string
+          owner_name?: string | null
           process_id?: string
           requires_approval?: boolean
+          reviewer_name?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -1292,6 +1301,41 @@ export type Database = {
             columns: ["template_id"]
             isOneToOne: false
             referencedRelation: "reconciliation_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reconciliation_review_checks: {
+        Row: {
+          reconciliation_id: string
+          sign_off_complete: boolean
+          support_attached: boolean
+          tie_out_complete: boolean
+          updated_at: string
+          variance_explained: boolean
+        }
+        Insert: {
+          reconciliation_id: string
+          sign_off_complete?: boolean
+          support_attached?: boolean
+          tie_out_complete?: boolean
+          updated_at?: string
+          variance_explained?: boolean
+        }
+        Update: {
+          reconciliation_id?: string
+          sign_off_complete?: boolean
+          support_attached?: boolean
+          tie_out_complete?: boolean
+          updated_at?: string
+          variance_explained?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reconciliation_review_checks_reconciliation_id_fkey"
+            columns: ["reconciliation_id"]
+            isOneToOne: true
+            referencedRelation: "reconciliations"
             referencedColumns: ["id"]
           },
         ]

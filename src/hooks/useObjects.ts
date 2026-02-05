@@ -78,11 +78,49 @@ interface CreateObjectInput {
   areaId: string;
 }
 
+interface OwnershipDefaults {
+  owner_name: string | null;
+  reviewer_name: string | null;
+  approver_name: string | null;
+  requires_approval: boolean;
+}
+
+function getOwnershipDefaults(objectName: string): OwnershipDefaults {
+  const normalized = objectName.toLowerCase();
+
+  if (/(cash|bank)/.test(normalized)) {
+    return {
+      owner_name: 'Team A',
+      reviewer_name: 'Controller',
+      approver_name: 'Finance Director',
+      requires_approval: true,
+    };
+  }
+
+  if (/(revenue|accrual)/.test(normalized)) {
+    return {
+      owner_name: 'Accounting',
+      reviewer_name: 'Controller',
+      approver_name: 'CAO',
+      requires_approval: true,
+    };
+  }
+
+  return {
+    owner_name: null,
+    reviewer_name: null,
+    approver_name: null,
+    requires_approval: false,
+  };
+}
+
 export function useCreateObject() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (input: CreateObjectInput) => {
+      const ownershipDefaults = getOwnershipDefaults(input.name);
+
       const { data, error } = await supabase
         .from('objects')
         .insert({
@@ -90,8 +128,9 @@ export function useCreateObject() {
           entity_id: input.entityId,
           department_id: input.departmentId,
           process_id: input.processId,
-          area_id: input.areaId
-        })
+          area_id: input.areaId,
+          ...ownershipDefaults,
+        } as any)
         .select()
         .single();
 
@@ -111,6 +150,9 @@ interface UpdateObjectInput {
   objectId: string;
   name: string;
   requiresApproval: boolean;
+  ownerName?: string | null;
+  reviewerName?: string | null;
+  approverName?: string | null;
 }
 
 export function useUpdateObject() {
@@ -123,7 +165,10 @@ export function useUpdateObject() {
         .update({
           name: input.name,
           requires_approval: input.requiresApproval,
-        })
+          owner_name: input.ownerName ?? null,
+          reviewer_name: input.reviewerName ?? null,
+          approver_name: input.approverName ?? null,
+        } as any)
         .eq('id', input.objectId)
         .select()
         .single();

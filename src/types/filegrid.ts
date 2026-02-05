@@ -78,9 +78,14 @@ export interface FileObject {
   process_id: string;
   area_id: string;
   requires_approval: boolean;
+  owner_name: string | null;
+  reviewer_name: string | null;
+  approver_name: string | null;
   created_at: string;
   updated_at: string;
 }
+
+export type DocumentWorkflowStage = 'Draft' | 'Ready for Review' | 'Reviewed' | 'Final';
 
 export interface DocumentApproval {
   id: string;

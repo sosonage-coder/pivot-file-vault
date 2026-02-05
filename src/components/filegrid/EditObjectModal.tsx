@@ -28,6 +28,9 @@ import type { FileObject } from '@/types/filegrid';
 const formSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   requiresApproval: z.boolean(),
+  ownerName: z.string().optional(),
+  reviewerName: z.string().optional(),
+  approverName: z.string().optional(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -54,6 +57,9 @@ export function EditObjectModal({ open, onOpenChange, object }: EditObjectModalP
       form.reset({
         name: object.name,
         requiresApproval: object.requires_approval || false,
+        ownerName: object.owner_name || '',
+        reviewerName: object.reviewer_name || '',
+        approverName: object.approver_name || '',
       });
     }
   }, [object, form]);
@@ -66,6 +72,9 @@ export function EditObjectModal({ open, onOpenChange, object }: EditObjectModalP
         objectId: object.id,
         name: values.name.trim(),
         requiresApproval: values.requiresApproval,
+        ownerName: values.ownerName?.trim() || null,
+        reviewerName: values.reviewerName?.trim() || null,
+        approverName: values.approverName?.trim() || null,
       });
 
       toast({
@@ -134,6 +143,50 @@ export function EditObjectModal({ open, onOpenChange, object }: EditObjectModalP
                 </FormItem>
               )}
             />
+
+            <div className="grid gap-3">
+              <FormField
+                control={form.control}
+                name="ownerName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Owner (Preparer)</FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g., Team A" {...field} value={field.value || ''} />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="reviewerName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Reviewer</FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g., Controller" {...field} value={field.value || ''} />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="approverName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Approver (Optional)</FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g., Finance Director" {...field} value={field.value || ''} />
+                    </FormControl>
+                    <FormDescription>
+                      Tip: use approval-required for high-risk objects (Revenue, Cash, Accruals) and material variances.
+                    </FormDescription>
+                  </FormItem>
+                )}
+              />
+            </div>
 
             <DialogFooter>
               <Button

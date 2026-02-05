@@ -11,6 +11,7 @@ import {
   LogOut,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   Building2,
   Search,
   Shield,
@@ -21,6 +22,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
   Tooltip,
   TooltipContent,
@@ -44,6 +46,7 @@ import { useReconciliationTree } from '@/hooks/useReconciliationTree';
 import { UnifiedFolderTree } from '@/components/filegrid/UnifiedFolderTree';
 import { ReconciliationTree } from '@/components/reconciliations/ReconciliationTree';
 import { SimpleAddProcessModal } from '@/components/filegrid/SimpleAddProcessModal';
+import { CONSOLIDATED_ENTITY, isConsolidatedEntity } from '@/lib/entities';
 import type { FeatureId } from '@/hooks/useActiveFeature';
 import type { TreeNode } from '@/types/filegrid';
 import type { ReconciliationTreeNode } from '@/hooks/useReconciliationTree';
@@ -122,6 +125,8 @@ export function UnifiedSidebar({ collapsed = false, onCollapsedChange }: Unified
   const { data: entities = [] } = useEntities();
   const [searchQuery, setSearchQuery] = useState('');
   const [showCreateProcess, setShowCreateProcess] = useState(false);
+  const [navigationOpen, setNavigationOpen] = useState(true);
+  const isConsolidated = selectedEntity ? isConsolidatedEntity(selectedEntity) : false;
 
   // Auto-select first entity
   useEffect(() => {
@@ -133,9 +138,12 @@ export function UnifiedSidebar({ collapsed = false, onCollapsedChange }: Unified
   const activeFeature = FEATURES.find(f => location.pathname.startsWith(f.path))?.id || 'monthclose';
   
   // Show folder tree for all features that use structural navigation
-  const showFolderTree = ['documents', 'pbc', 'monthclose', 'compliance', 'checklists'].includes(activeFeature);
-  const showReconciliationTree = activeFeature === 'reconciliations';
+  const showFolderTree = ['documents', 'pbc', 'monthclose', 'compliance', 'checklists'].includes(activeFeature)
+    && !isConsolidated;
+  const showReconciliationTree = activeFeature === 'reconciliations' && !isConsolidated;
   const featureType = activeFeature === 'pbc' ? 'pbc' : activeFeature === 'monthclose' ? 'monthclose' : 'documents';
+
+  const entitiesWithConsolidated = entities.length > 1 ? [CONSOLIDATED_ENTITY, ...entities] : entities;
 
   // Fetch folder tree data
   const { data: folderTree = [], isLoading: isLoadingTree } = useFeatureFolderStructure({
@@ -232,7 +240,7 @@ export function UnifiedSidebar({ collapsed = false, onCollapsedChange }: Unified
             <Select
               value={selectedEntity?.id || ''}
               onValueChange={(value) => {
-                const entity = entities.find(e => e.id === value);
+                const entity = entitiesWithConsolidated.find(e => e.id === value);
                 if (entity) setSelectedEntity(entity);
               }}
             >
@@ -241,7 +249,7 @@ export function UnifiedSidebar({ collapsed = false, onCollapsedChange }: Unified
                 <SelectValue placeholder="Entity" />
               </SelectTrigger>
               <SelectContent>
-                {entities.map((entity) => (
+                {entitiesWithConsolidated.map((entity) => (
                   <SelectItem key={entity.id} value={entity.id} className="text-xs">
                     {entity.name}
                   </SelectItem>
@@ -327,108 +335,154 @@ export function UnifiedSidebar({ collapsed = false, onCollapsedChange }: Unified
       {/* Context-Aware Content Panel - Show for all structural features */}
       {!collapsed && showFolderTree && (
         <div className="flex flex-col flex-1 overflow-hidden">
-          {/* Compact Search + Add Process Row */}
-          <div className="p-1.5 border-b flex items-center gap-1.5">
-            <div className="relative flex-1">
-              <Search className="absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Search..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="h-7 pl-7 text-xs"
-              />
+          <Collapsible
+            open={navigationOpen}
+            onOpenChange={setNavigationOpen}
+            className="flex flex-1 flex-col overflow-hidden"
+          >
+            <div className="flex items-center justify-between border-b px-2 py-1.5 text-[11px] font-medium text-muted-foreground">
+              <span>Navigation</span>
+              <CollapsibleTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-6 w-6">
+                  {navigationOpen ? (
+                    <ChevronDown className="h-3.5 w-3.5" />
+                  ) : (
+                    <ChevronRight className="h-3.5 w-3.5" />
+                  )}
+                </Button>
+              </CollapsibleTrigger>
             </div>
-            {selectedEntity && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setShowCreateProcess(true)}
-                    className="h-7 w-7 flex-shrink-0"
-                  >
-                    <Plus className="h-3.5 w-3.5" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="right">Add Process</TooltipContent>
-              </Tooltip>
-            )}
-          </div>
 
-          {/* Folder Tree */}
-          <ScrollArea className="flex-1">
-            <div className="p-2">
-              {isLoadingTree ? (
-                <div className="flex items-center justify-center py-8">
-                  <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+            <CollapsibleContent className="flex flex-1 flex-col overflow-hidden">
+              {/* Compact Search + Add Process Row */}
+              <div className="p-1.5 border-b flex items-center gap-1.5">
+                <div className="relative flex-1">
+                  <Search className="absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    placeholder="Search..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="h-7 pl-7 text-xs"
+                  />
                 </div>
-              ) : (
-                <UnifiedFolderTree
-                  nodes={filteredNodes}
-                  selectedId={selectedNode?.id || null}
-                  onSelect={handleNodeSelect}
-                  pendingCounts={pendingCounts}
-                />
-              )}
-            </div>
-          </ScrollArea>
+                {selectedEntity && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setShowCreateProcess(true)}
+                        className="h-7 w-7 flex-shrink-0"
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="right">Add Process</TooltipContent>
+                  </Tooltip>
+                )}
+              </div>
+
+              {/* Folder Tree */}
+              <ScrollArea className="flex-1">
+                <div className="p-2">
+                  {isLoadingTree ? (
+                    <div className="flex items-center justify-center py-8">
+                      <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                    </div>
+                  ) : (
+                    <UnifiedFolderTree
+                      nodes={filteredNodes}
+                      selectedId={selectedNode?.id || null}
+                      onSelect={handleNodeSelect}
+                      pendingCounts={pendingCounts}
+                    />
+                  )}
+                </div>
+              </ScrollArea>
+            </CollapsibleContent>
+          </Collapsible>
         </div>
       )}
 
       {/* Reconciliation Tree Panel */}
       {!collapsed && showReconciliationTree && (
         <div className="flex flex-col flex-1 overflow-hidden">
-          {/* Compact Search + Add Process Row */}
-          <div className="p-1.5 border-b flex items-center gap-1.5">
-            <div className="relative flex-1">
-              <Search className="absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Search accounts..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="h-7 pl-7 text-xs"
-              />
+          <Collapsible
+            open={navigationOpen}
+            onOpenChange={setNavigationOpen}
+            className="flex flex-1 flex-col overflow-hidden"
+          >
+            <div className="flex items-center justify-between border-b px-2 py-1.5 text-[11px] font-medium text-muted-foreground">
+              <span>Navigation</span>
+              <CollapsibleTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-6 w-6">
+                  {navigationOpen ? (
+                    <ChevronDown className="h-3.5 w-3.5" />
+                  ) : (
+                    <ChevronRight className="h-3.5 w-3.5" />
+                  )}
+                </Button>
+              </CollapsibleTrigger>
             </div>
-            {selectedEntity && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setShowCreateProcess(true)}
-                    className="h-7 w-7 flex-shrink-0"
-                  >
-                    <Plus className="h-3.5 w-3.5" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="right">Add Process</TooltipContent>
-              </Tooltip>
-            )}
-          </div>
 
-          {/* Reconciliation Tree */}
-          <ScrollArea className="flex-1">
-            <div className="p-2">
-              {isLoadingReconciliations ? (
-                <div className="flex items-center justify-center py-8">
-                  <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+            <CollapsibleContent className="flex flex-1 flex-col overflow-hidden">
+              {/* Compact Search + Add Process Row */}
+              <div className="p-1.5 border-b flex items-center gap-1.5">
+                <div className="relative flex-1">
+                  <Search className="absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    placeholder="Search accounts..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="h-7 pl-7 text-xs"
+                  />
                 </div>
-              ) : (
-                <ReconciliationTree
-                  nodes={reconciliationTree}
-                  selectedId={(selectedNode?.metadata?.reconciliationId as string | undefined) || selectedNode?.id || null}
-                  onSelect={handleReconciliationNodeSelect}
-                />
-              )}
-            </div>
-          </ScrollArea>
+                {selectedEntity && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setShowCreateProcess(true)}
+                        className="h-7 w-7 flex-shrink-0"
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="right">Add Process</TooltipContent>
+                  </Tooltip>
+                )}
+              </div>
+
+              {/* Reconciliation Tree */}
+              <ScrollArea className="flex-1">
+                <div className="p-2">
+                  {isLoadingReconciliations ? (
+                    <div className="flex items-center justify-center py-8">
+                      <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                    </div>
+                  ) : (
+                    <ReconciliationTree
+                      nodes={reconciliationTree}
+                      selectedId={(selectedNode?.metadata?.reconciliationId as string | undefined) || selectedNode?.id || null}
+                      onSelect={handleReconciliationNodeSelect}
+                    />
+                  )}
+                </div>
+              </ScrollArea>
+            </CollapsibleContent>
+          </Collapsible>
         </div>
       )}
 
       {!collapsed && !showFolderTree && !showReconciliationTree && (
         <ScrollArea className="flex-1">
           <div className="p-4 text-center text-sm text-muted-foreground">
-            {activeFeature === 'meetings' && 'Meetings (coming soon)'}
+            {isConsolidated
+              ? 'Consolidated view is available in Reconciliations.'
+              : activeFeature === 'meetings'
+                ? 'Meetings (coming soon)'
+                : null}
           </div>
         </ScrollArea>
       )}

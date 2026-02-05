@@ -8,6 +8,7 @@ import { CreatePbcRequestModal } from '@/components/pbc/CreatePbcRequestModal';
 import { useModule } from '@/contexts/ModuleContext';
 import { useSidebarSelection } from '@/contexts/SidebarSelectionContext';
 import { usePbcTree } from '@/hooks/usePbcTree';
+import { isConsolidatedEntity } from '@/lib/entities';
 
 export function PBCRequestsPage() {
   const { selectedEntity, selectedPeriod } = useModule();
@@ -42,6 +43,22 @@ export function PBCRequestsPage() {
           icon={<ClipboardList className="h-8 w-8" />}
           title="No entity selected"
           description="Please select an entity from the sidebar to view PBC requests"
+        />
+      </FeatureLayout>
+    );
+  }
+
+  if (isConsolidatedEntity(selectedEntity)) {
+    return (
+      <FeatureLayout
+        title="PBC Requests"
+        description="Manage audit documentation requests"
+        icon={<ClipboardList className="h-5 w-5" />}
+      >
+        <FeatureEmptyState
+          icon={<ClipboardList className="h-8 w-8" />}
+          title="Select a specific entity"
+          description="PBC requests are managed per entity. Choose an entity to view requests."
         />
       </FeatureLayout>
     );

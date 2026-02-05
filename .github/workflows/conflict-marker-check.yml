@@ -14,6 +14,7 @@ jobs:
       - name: Fail on conflict markers
         run: |
           if git grep -n -I -E '^(<<<<<<<|=======|>>>>>>>)' -- . ':!.github/workflows/conflict-marker-check.yml'; then
+          if git grep -n -E '^<{7} |^={7}$|^>{7} ' -- . ':!.github/workflows/*'; then
             echo "Conflict markers detected. Please resolve before merging."
             exit 1
           fi

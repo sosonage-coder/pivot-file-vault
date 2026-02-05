@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { format, addDays, parseISO, isBefore, startOfDay, isToday, isSameDay } from 'date-fns';
+import { format, addDays, parseISO, isBefore, startOfDay, isSameDay } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { CheckCircle2, Circle, Clock, AlertTriangle } from 'lucide-react';
@@ -20,6 +20,11 @@ const statusConfig: Record<TaskItemStatus, { icon: typeof Circle; color: string 
   done: { icon: CheckCircle2, color: 'text-green-500' },
 };
 
+function getDayLabel(day: number) {
+  if (day === 0) return 'D0';
+  return day > 0 ? `D+${day}` : `D${day}`;
+}
+
 export function CloseCalendarView({
   items,
   startDate,
@@ -30,18 +35,28 @@ export function CloseCalendarView({
   const startDateParsed = parseISO(startDate);
   const today = startOfDay(new Date());
 
-  // Generate day columns from Day 0 to Day N
-  const days = useMemo(() => {
-    return Array.from({ length: durationDays + 1 }, (_, i) => ({
-      day: i,
-      date: addDays(startDateParsed, i),
-    }));
-  }, [startDateParsed, durationDays]);
+  const dayRange = useMemo(() => {
+    const itemDays = items
+      .map((item) => item.relative_day)
+      .filter((day): day is number => day !== null);
 
-  // Group items by relative_day
+    const minDay = Math.min(0, ...(itemDays.length ? itemDays : [0]));
+    const maxDay = Math.max(durationDays, ...(itemDays.length ? itemDays : [durationDays]));
+
+    return { minDay, maxDay };
+  }, [items, durationDays]);
+
+  const days = useMemo(() => {
+    const values: { day: number; date: Date }[] = [];
+    for (let day = dayRange.minDay; day <= dayRange.maxDay; day += 1) {
+      values.push({ day, date: addDays(startDateParsed, day) });
+    }
+    return values;
+  }, [dayRange.maxDay, dayRange.minDay, startDateParsed]);
+
   const itemsByDay = useMemo(() => {
     const map = new Map<number, TaskChecklistItem[]>();
-    
+
     items.forEach((item) => {
       if (item.relative_day !== null) {
         if (!map.has(item.relative_day)) {
@@ -54,7 +69,6 @@ export function CloseCalendarView({
     return map;
   }, [items]);
 
-  // Calculate stats per day
   const dayStats = useMemo(() => {
     return days.map(({ day }) => {
       const dayItems = itemsByDay.get(day) ?? [];
@@ -64,12 +78,10 @@ export function CloseCalendarView({
     });
   }, [days, itemsByDay]);
 
-  // Find current day in close schedule
   const currentCloseDay = useMemo(() => {
     const diffMs = today.getTime() - startDateParsed.getTime();
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-    return diffDays >= 0 && diffDays <= durationDays ? diffDays : null;
-  }, [today, startDateParsed, durationDays]);
+    return Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  }, [today, startDateParsed]);
 
   if (isLoading) {
     return (
@@ -81,25 +93,21 @@ export function CloseCalendarView({
 
   return (
     <div className="space-y-4">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-lg font-semibold">Close Calendar</h3>
           <p className="text-sm text-muted-foreground">
-            {format(startDateParsed, 'MMM d, yyyy')} – {format(addDays(startDateParsed, durationDays), 'MMM d, yyyy')}
+            {format(addDays(startDateParsed, dayRange.minDay), 'MMM d, yyyy')} – {format(addDays(startDateParsed, dayRange.maxDay), 'MMM d, yyyy')}
           </p>
         </div>
-        <div className="flex items-center gap-4">
-          <div className="text-right">
-            <p className="text-2xl font-bold">
-              {items.filter((i) => i.status === 'done').length}/{items.length}
-            </p>
-            <p className="text-xs text-muted-foreground">Tasks Complete</p>
-          </div>
+        <div className="text-right">
+          <p className="text-2xl font-bold">
+            {items.filter((i) => i.status === 'done').length}/{items.length}
+          </p>
+          <p className="text-xs text-muted-foreground">Tasks Complete</p>
         </div>
       </div>
 
-      {/* Close Calendar Grid */}
       <div className="overflow-x-auto">
         <div className="flex gap-2 pb-2 min-w-max">
           {days.map(({ day, date }) => {
@@ -118,71 +126,37 @@ export function CloseCalendarView({
                   hasOverdue && 'border-destructive/50'
                 )}
               >
-                {/* Day Header */}
-                <div
-                  className={cn(
-                    'flex items-center justify-between p-3 border-b',
-                    isCurrentDay && 'bg-primary/10',
-                    hasOverdue && 'bg-destructive/10'
-                  )}
-                >
+                <div className={cn('flex items-center justify-between p-3 border-b', isCurrentDay && 'bg-primary/10', hasOverdue && 'bg-destructive/10')}>
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="font-semibold">Day {day}</span>
-                      {isCurrentDay && (
-                        <Badge variant="default" className="text-xs">Today</Badge>
-                      )}
-                      {hasOverdue && (
-                        <AlertTriangle className="h-4 w-4 text-destructive" />
-                      )}
+                      <span className="font-semibold">{getDayLabel(day)}</span>
+                      {isCurrentDay && <Badge variant="default" className="text-xs">Today</Badge>}
+                      {hasOverdue && <AlertTriangle className="h-4 w-4 text-destructive" />}
                     </div>
-                    <span className="text-xs text-muted-foreground">
-                      {format(date, 'EEE, MMM d')}
-                    </span>
+                    <span className="text-xs text-muted-foreground">{format(date, 'EEE, MMM d')}</span>
                   </div>
-                  <Badge variant="secondary" className="text-xs">
-                    {stats.done}/{stats.total}
-                  </Badge>
+                  <Badge variant="secondary" className="text-xs">{stats.done}/{stats.total}</Badge>
                 </div>
 
-                {/* Progress */}
                 <div className="px-3 py-2 border-b">
                   <Progress value={stats.percentage} className="h-1.5" />
                   <p className="text-xs text-muted-foreground mt-1 text-right">{stats.percentage}%</p>
                 </div>
 
-                {/* Tasks */}
                 <div className="flex-1 p-2 space-y-1 max-h-[300px] overflow-y-auto">
                   {dayItems.length === 0 ? (
-                    <p className="text-xs text-muted-foreground text-center py-4">
-                      No tasks
-                    </p>
+                    <p className="text-xs text-muted-foreground text-center py-4">No tasks</p>
                   ) : (
                     dayItems.map((item) => {
                       const StatusIcon = statusConfig[item.status].icon;
                       return (
                         <div
                           key={item.id}
-                          className={cn(
-                            'flex items-start gap-2 p-2 rounded-md cursor-pointer hover:bg-muted transition-colors',
-                            item.status === 'done' && 'opacity-60'
-                          )}
+                          className={cn('flex items-start gap-2 p-2 rounded-md cursor-pointer hover:bg-muted transition-colors', item.status === 'done' && 'opacity-60')}
                           onClick={() => onSelectItem?.(item)}
                         >
-                          <StatusIcon
-                            className={cn(
-                              'h-4 w-4 shrink-0 mt-0.5',
-                              statusConfig[item.status].color
-                            )}
-                          />
-                          <span
-                            className={cn(
-                              'text-sm',
-                              item.status === 'done' && 'line-through'
-                            )}
-                          >
-                            {item.title}
-                          </span>
+                          <StatusIcon className={cn('h-4 w-4 shrink-0 mt-0.5', statusConfig[item.status].color)} />
+                          <span className={cn('text-sm', item.status === 'done' && 'line-through')}>{item.title}</span>
                         </div>
                       );
                     })
@@ -194,7 +168,6 @@ export function CloseCalendarView({
         </div>
       </div>
 
-      {/* Legend */}
       <div className="flex items-center gap-4 pt-2 border-t">
         <span className="text-xs text-muted-foreground">Status:</span>
         {Object.entries(statusConfig).map(([status, config]) => {

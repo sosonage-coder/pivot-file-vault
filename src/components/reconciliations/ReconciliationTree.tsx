@@ -89,7 +89,8 @@ function TreeItem({ node, level, selectedId, onSelect }: TreeItemProps) {
   const handleClick = (e: React.MouseEvent) => {
     // Support Ctrl/Cmd+Click to open in new tab
     if ((e.ctrlKey || e.metaKey) && node.type === 'account' && node.reconciliationId) {
-      window.open(`/reconciliations?id=${node.reconciliationId}`, '_blank');
+      const entityParam = node.metadata?.entityId ? `&entityId=${node.metadata.entityId}` : '';
+      window.open(`/reconciliations?id=${node.reconciliationId}${entityParam}`, '_blank');
       return;
     }
     
@@ -101,7 +102,8 @@ function TreeItem({ node, level, selectedId, onSelect }: TreeItemProps) {
 
   const handleOpenInNewTab = () => {
     if (node.type === 'account' && node.reconciliationId) {
-      window.open(`/reconciliations?id=${node.reconciliationId}`, '_blank');
+      const entityParam = node.metadata?.entityId ? `&entityId=${node.metadata.entityId}` : '';
+      window.open(`/reconciliations?id=${node.reconciliationId}${entityParam}`, '_blank');
     }
   };
 

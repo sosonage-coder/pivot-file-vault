@@ -126,7 +126,7 @@ export function UnifiedSidebar({ collapsed = false, onCollapsedChange }: Unified
   const [searchQuery, setSearchQuery] = useState('');
   const [showCreateProcess, setShowCreateProcess] = useState(false);
   const [navigationOpen, setNavigationOpen] = useState(true);
-  const isConsolidated = isConsolidatedEntity(selectedEntity);
+  const isConsolidated = selectedEntity ? isConsolidatedEntity(selectedEntity) : false;
 
   // Auto-select first entity
   useEffect(() => {

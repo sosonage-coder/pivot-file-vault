@@ -1,6 +1,8 @@
 import { Loader2 } from 'lucide-react';
+import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
+import { Button } from '@/components/ui/button';
 import {
   Table,
   TableBody,
@@ -21,6 +23,50 @@ export function ConsolidatedReconciliationDashboard({
 }: ConsolidatedReconciliationDashboardProps) {
   const { data, isLoading, error } = useConsolidatedReconciliationSummary(entities);
 
+  const [showSampleData, setShowSampleData] = useState(false);
+
+  const sampleData = {
+    totalReconciliations: 128,
+    completionRate: 76,
+    pendingReview: 14,
+    rejected: 3,
+    varianceTotal: 182340,
+    entities: [
+      {
+        entityId: 'sample-1',
+        entityName: 'Acme Holdings',
+        total: 54,
+        completed: 42,
+        completionRate: 78,
+        pendingReview: 6,
+        rejected: 1,
+        varianceTotal: 74210,
+      },
+      {
+        entityId: 'sample-2',
+        entityName: 'Acme Retail',
+        total: 38,
+        completed: 29,
+        completionRate: 76,
+        pendingReview: 4,
+        rejected: 1,
+        varianceTotal: 51230,
+      },
+      {
+        entityId: 'sample-3',
+        entityName: 'Acme Services',
+        total: 36,
+        completed: 26,
+        completionRate: 72,
+        pendingReview: 4,
+        rejected: 1,
+        varianceTotal: 56900,
+      },
+    ],
+  };
+
+  const dashboardData = showSampleData ? sampleData : data;
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -37,10 +83,17 @@ export function ConsolidatedReconciliationDashboard({
     );
   }
 
-  if (!data || data.totalReconciliations === 0) {
+  if (!dashboardData || dashboardData.totalReconciliations === 0) {
     return (
       <div className="flex h-full items-center justify-center p-8 text-center text-muted-foreground">
-        No reconciliations available across entities.
+        <div className="space-y-3">
+          <div>No reconciliations available across entities.</div>
+          {!showSampleData && (
+            <Button variant="outline" onClick={() => setShowSampleData(true)}>
+              View sample data
+            </Button>
+          )}
+        </div>
       </div>
     );
   }
@@ -50,35 +103,46 @@ export function ConsolidatedReconciliationDashboard({
       <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total Reconciliations</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Total Reconciliations
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-semibold">{data.totalReconciliations}</div>
+            <div className="text-2xl font-semibold">{dashboardData.totalReconciliations}</div>
           </CardContent>
         </Card>
+
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Completion Rate</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Completion Rate
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-semibold">{data.completionRate}%</div>
-            <Progress value={data.completionRate} className="mt-2 h-2" />
+            <div className="text-2xl font-semibold">{dashboardData.completionRate}%</div>
+            <Progress value={dashboardData.completionRate} className="mt-2 h-2" />
           </CardContent>
         </Card>
+
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Pending Review</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Pending Review
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-semibold">{data.pendingReview}</div>
+            <div className="text-2xl font-semibold">{dashboardData.pendingReview}</div>
           </CardContent>
         </Card>
+
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Rejected</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Rejected
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-semibold text-destructive">{data.rejected}</div>
+            <div className="text-2xl font-semibold text-destructive">{dashboardData.rejected}</div>
           </CardContent>
         </Card>
       </div>
@@ -100,7 +164,7 @@ export function ConsolidatedReconciliationDashboard({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {data.entities.map((entity) => (
+              {dashboardData.entities.map((entity) => (
                 <TableRow key={entity.entityId}>
                   <TableCell className="font-medium">{entity.entityName}</TableCell>
                   <TableCell className="text-right">{entity.total}</TableCell>

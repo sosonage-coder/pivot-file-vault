@@ -22,6 +22,7 @@ export function ConsolidatedReconciliationDashboard({
   entities,
 }: ConsolidatedReconciliationDashboardProps) {
   const { data, isLoading, error } = useConsolidatedReconciliationSummary(entities);
+
   const [showSampleData, setShowSampleData] = useState(false);
 
   const sampleData = {
@@ -87,9 +88,11 @@ export function ConsolidatedReconciliationDashboard({
       <div className="flex h-full items-center justify-center p-8 text-center text-muted-foreground">
         <div className="space-y-3">
           <div>No reconciliations available across entities.</div>
-          <Button variant="outline" onClick={() => setShowSampleData(true)}>
-            View sample data
-          </Button>
+          {!showSampleData && (
+            <Button variant="outline" onClick={() => setShowSampleData(true)}>
+              View sample data
+            </Button>
+          )}
         </div>
       </div>
     );
@@ -100,32 +103,43 @@ export function ConsolidatedReconciliationDashboard({
       <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total Reconciliations</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Total Reconciliations
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-semibold">{dashboardData.totalReconciliations}</div>
           </CardContent>
         </Card>
+
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Completion Rate</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Completion Rate
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-semibold">{dashboardData.completionRate}%</div>
             <Progress value={dashboardData.completionRate} className="mt-2 h-2" />
           </CardContent>
         </Card>
+
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Pending Review</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Pending Review
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-semibold">{dashboardData.pendingReview}</div>
           </CardContent>
         </Card>
+
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Rejected</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Rejected
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-semibold text-destructive">{dashboardData.rejected}</div>

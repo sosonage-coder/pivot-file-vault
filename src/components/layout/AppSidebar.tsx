@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
+  Activity,
   CalendarClock,
   Scale,
   FileText,
@@ -38,13 +39,22 @@ import type { FeatureId } from '@/hooks/useActiveFeature';
 
 const FEATURES = [
   {
-    id: 'close' as FeatureId,
+    id: 'command-center' as FeatureId,
+    label: 'Command Center',
+    icon: Activity,
+    path: '/command-center',
+    color: 'text-indigo-500',
+    bgColor: 'bg-indigo-500/10',
+    shortcut: '⌘1',
+  },
+  {
+    id: 'monthclose' as FeatureId,
     label: 'Close Calendar',
     icon: CalendarClock,
     path: '/close',
     color: 'text-violet-500',
     bgColor: 'bg-violet-500/10',
-    shortcut: '⌘1',
+    shortcut: '⌘2',
   },
   {
     id: 'reconciliations' as FeatureId,
@@ -53,7 +63,7 @@ const FEATURES = [
     path: '/reconciliations',
     color: 'text-teal-500',
     bgColor: 'bg-teal-500/10',
-    shortcut: '⌘2',
+    shortcut: '⌘3',
   },
   {
     id: 'documents' as FeatureId,
@@ -62,7 +72,7 @@ const FEATURES = [
     path: '/documents',
     color: 'text-blue-500',
     bgColor: 'bg-blue-500/10',
-    shortcut: '⌘3',
+    shortcut: '⌘4',
   },
   {
     id: 'pbc' as FeatureId,
@@ -71,7 +81,7 @@ const FEATURES = [
     path: '/pbc',
     color: 'text-amber-500',
     bgColor: 'bg-amber-500/10',
-    shortcut: '⌘4',
+    shortcut: '⌘5',
   },
   {
     id: 'checklists' as FeatureId,
@@ -80,7 +90,7 @@ const FEATURES = [
     path: '/checklists',
     color: 'text-emerald-500',
     bgColor: 'bg-emerald-500/10',
-    shortcut: '⌘5',
+    shortcut: '⌘6',
   },
   {
     id: 'meetings' as FeatureId,
@@ -89,8 +99,7 @@ const FEATURES = [
     path: '/meetings',
     color: 'text-pink-500',
     bgColor: 'bg-pink-500/10',
-    shortcut: '⌘6',
-    disabled: true,
+    shortcut: '⌘7',
   },
 ];
 
@@ -120,7 +129,7 @@ export function AppSidebar({ collapsed = false, onCollapsedChange }: AppSidebarP
     }
   }, [periods, selectedPeriod, setSelectedPeriod]);
 
-  const activeFeature = FEATURES.find(f => location.pathname.startsWith(f.path))?.id || 'close';
+  const activeFeature = FEATURES.find(f => location.pathname.startsWith(f.path))?.id || 'command-center';
 
   const handleFeatureClick = (feature: typeof FEATURES[0]) => {
     if (!feature.disabled) {

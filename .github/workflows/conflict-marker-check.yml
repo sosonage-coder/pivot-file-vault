@@ -18,6 +18,7 @@ jobs:
             -e '^=======$' \
             -e '^>>>>>>> ' \
             -- . ':(exclude).github/workflows/conflict-marker-check.yml'; then
+          if git grep -n -E '^(<<<<<<<|=======|>>>>>>>)' -- . ':!.github/workflows/*'; then
             echo "Conflict markers detected. Please resolve before merging."
             exit 1
           fi

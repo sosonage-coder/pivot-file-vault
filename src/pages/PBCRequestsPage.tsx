@@ -71,6 +71,7 @@ export function PBCRequestsPage() {
     });
 
     const headers = ['Entity', 'Period', 'Process', 'Area', 'Object', 'Request', 'Status', 'PBC Phase', 'Priority', 'Due Date'];
+    const csv = [headers.join(','), ...rows.map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(','))].join('\n');
     const csv = [headers.join(','), ...rows.map((row) => row.map((cell) => `"${String(cell).split('"').join('""')}"`).join(','))].join('\n');
 
     const blob = new Blob([csv], { type: 'text/csv' });

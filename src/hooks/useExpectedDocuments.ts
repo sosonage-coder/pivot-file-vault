@@ -85,7 +85,13 @@ export function useExpectedDocuments({ entityId, periodId }: UseExpectedDocument
       // Index uploaded documents by area_id + document_type_id
       for (const doc of documents || []) {
         const key = `${doc.area_id}:${doc.document_type_id}`;
-        uploadedMap.set(key, doc);
+        const normalizedDoc = {
+          ...(doc as any),
+          pbc_ready: (doc as any).pbc_ready ?? false,
+          audit_status: (doc as any).audit_status ?? null,
+        } as Document;
+
+        uploadedMap.set(key, normalizedDoc);
       }
 
       // For each area, check expected document types

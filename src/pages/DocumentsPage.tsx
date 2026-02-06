@@ -1,4 +1,5 @@
 import { AlertTriangle, Download, FileText, Upload, FolderOpen } from 'lucide-react';
+import { AlertTriangle, FileText, Upload, FolderOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -19,6 +20,7 @@ import { isConsolidatedEntity } from '@/lib/entities';
 
 export function DocumentsPage() {
   const { selectedEntity, selectedPeriod, setSelectedEntity, showExceptionsOnly } = useModule();
+  const { selectedEntity, selectedPeriod, setSelectedEntity } = useModule();
   const { selectedNode } = useSidebarSelection();
   const { data: entities = [] } = useEntities();
   const [showUpload, setShowUpload] = useState(false);
@@ -170,6 +172,18 @@ export function DocumentsPage() {
     link.download = `pbc-index-${selectedEntity.name}-${selectedPeriod?.label || 'all'}.csv`;
     link.click();
     URL.revokeObjectURL(url);
+      if (selectedNode.metadata?.department_name) {
+        parts.push(selectedNode.metadata.department_name as string);
+      }
+      parts.push(selectedNode.name);
+      return parts.join(' / ');
+    }
+
+    if (urlObject) {
+      return urlObject.name;
+    }
+
+    return '';
   };
 
   return (
@@ -237,6 +251,7 @@ export function DocumentsPage() {
             )}
 
             <DocumentList documents={filteredDocuments} isLoading={isLoadingDocs} auditMode={auditMode} />
+            <DocumentList documents={documents} isLoading={isLoadingDocs} />
           </div>
         ) : (
           <div className="flex h-full flex-col items-center justify-center p-8 text-center">

@@ -29,6 +29,13 @@ export function ModuleProvider({ children }: ModuleProviderProps) {
     setSelectedEntity(entity);
   };
 
+  const handleSetSelectedEntity = (entity: Entity | null) => {
+    if (isConsolidatedEntity(entity)) {
+      setSelectedPeriod(null);
+    }
+    setSelectedEntity(entity);
+  };
+
   return (
     <ModuleContext.Provider
       value={{

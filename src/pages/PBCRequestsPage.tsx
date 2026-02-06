@@ -45,6 +45,7 @@ export function PBCRequestsPage() {
     .filter(Boolean)
     .filter((request) => (auditMode ? request.status === 'Uploaded' || request.status === 'Reviewed' || request.status === 'Complete' : true))
     .filter((request) => (showExceptionsOnly ? request.status !== 'Complete' : true));
+    .filter((request) => (auditMode ? request.status === 'Uploaded' || request.status === 'Reviewed' || request.status === 'Complete' : true));
 
   const handleFulfillRequest = async (requestId: string, fileUrl: string) => {
     console.log('Fulfill request:', requestId, fileUrl);
@@ -53,6 +54,11 @@ export function PBCRequestsPage() {
   const handleExportPbcIndex = () => {
     const rows = allRequests.map((request) => {
       const phase = mapPbcToReviewState(request.status);
+      const phase = request.status === 'Requested'
+        ? 'Requested'
+        : request.status === 'Complete'
+          ? 'Complete'
+          : 'Provided';
 
       return [
         selectedEntity?.name || 'Unknown Entity',
@@ -70,6 +76,7 @@ export function PBCRequestsPage() {
 
     const headers = ['Entity', 'Period', 'Process', 'Area', 'Object', 'Request', 'Status', 'PBC Phase', 'Priority', 'Due Date'];
     const csv = [headers.join(','), ...rows.map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(','))].join('\n');
+    const csv = [headers.join(','), ...rows.map((row) => row.map((cell) => `"${String(cell).split('"').join('""')}"`).join(','))].join('\n');
 
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);

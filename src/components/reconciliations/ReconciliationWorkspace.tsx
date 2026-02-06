@@ -194,6 +194,7 @@ export function ReconciliationWorkspace({ reconciliationId, entityId, periodId }
   const template = reconciliation.reconciliation_templates as ReconciliationTemplate | null;
 
   const handleStatusChange = (newStatus: ReconciliationStatus, extraUpdates: Record<string, unknown> = {}) => {
+  const handleStatusChange = (newStatus: ReconciliationStatus) => {
     const requiresControlProof = ['pending_review', 'approved', 'certified'].includes(newStatus);
     const requiresReviewChecklist = ['approved', 'certified'].includes(newStatus);
 

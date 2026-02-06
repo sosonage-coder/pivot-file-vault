@@ -3,6 +3,7 @@ import { format, isBefore, startOfDay, startOfMonth, endOfMonth, eachDayOfInterv
 import {
   Plus,
   List,
+  LayoutDashboard,
   LayoutGrid,
   Calendar as CalendarIcon,
   ChevronLeft,
@@ -17,6 +18,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
@@ -43,7 +45,7 @@ import { useComplianceItems, useDeleteComplianceItem } from '@/hooks/useComplian
 import { ComplianceItemModal } from './ComplianceItemModal';
 import type { ComplianceItem, ComplianceStatus, ComplianceCategory } from '@/types/compliance';
 
-type ViewMode = 'list' | 'kanban' | 'calendar';
+type ViewMode = 'dashboard' | 'list' | 'kanban' | 'calendar';
 
 const STATUS_CONFIG: Record<ComplianceStatus, { label: string; color: string; icon: React.ElementType }> = {
   pending: { label: 'Pending', color: 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20', icon: Clock },
@@ -64,7 +66,7 @@ export function ComplianceWorkspace() {
   const { data: items = [], isLoading } = useComplianceItems(selectedEntity?.id || null, selectedPeriod?.id);
   const deleteMutation = useDeleteComplianceItem();
 
-  const [viewMode, setViewMode] = useState<ViewMode>('list');
+  const [viewMode, setViewMode] = useState<ViewMode>('dashboard');
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<ComplianceItem | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -126,6 +128,10 @@ export function ComplianceWorkspace() {
         <div className="flex items-center gap-3">
           <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as ViewMode)}>
             <TabsList>
+              <TabsTrigger value="dashboard" className="gap-1.5">
+                <LayoutDashboard className="h-4 w-4" />
+                Dashboard
+              </TabsTrigger>
               <TabsTrigger value="list" className="gap-1.5">
                 <List className="h-4 w-4" />
                 List
@@ -153,6 +159,8 @@ export function ComplianceWorkspace() {
           <div className="flex h-full items-center justify-center">
             <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
           </div>
+        ) : viewMode === 'dashboard' ? (
+          <DashboardView items={processedItems} />
         ) : viewMode === 'list' ? (
           <ListView items={processedItems} onEdit={handleEdit} onDelete={handleDelete} />
         ) : viewMode === 'kanban' ? (
@@ -193,6 +201,101 @@ export function ComplianceWorkspace() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+    </div>
+  );
+}
+
+function DashboardView({ items }: { items: ComplianceItem[] }) {
+  const summary = useMemo(() => {
+    const total = items.length;
+    const completed = items.filter(item => item.status === 'completed').length;
+    const overdue = items.filter(item => item.status === 'overdue').length;
+    const inProgress = items.filter(item => item.status === 'in_progress').length;
+    const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0;
+    const upcoming = items
+      .filter(item => item.status !== 'completed')
+      .sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime())
+      .slice(0, 6);
+
+    return { total, completed, overdue, inProgress, completionRate, upcoming };
+  }, [items]);
+
+  if (items.length === 0) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <div className="text-center">
+          <Shield className="mx-auto h-12 w-12 text-muted-foreground/50" />
+          <h3 className="mt-4 text-lg font-medium">No compliance items</h3>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Add items to track upcoming compliance deadlines
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="grid gap-4 md:grid-cols-4">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Total Items</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-semibold">{summary.total}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Completed</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-semibold">{summary.completed}</div>
+            <Progress value={summary.completionRate} className="mt-2 h-2" />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">In Progress</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-semibold">{summary.inProgress}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Overdue</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-semibold text-destructive">{summary.overdue}</div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Upcoming Deadlines</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {summary.upcoming.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No upcoming deadlines.</p>
+          ) : (
+            summary.upcoming.map(item => (
+              <div key={item.id} className="flex items-center justify-between rounded-md border p-3">
+                <div>
+                  <div className="font-medium">{item.title}</div>
+                  <div className="text-xs text-muted-foreground">
+                    Due {format(new Date(item.due_date), 'MMM d, yyyy')}
+                  </div>
+                </div>
+                <Badge className={cn('text-xs capitalize', STATUS_CONFIG[item.status].color)}>
+                  {STATUS_CONFIG[item.status].label}
+                </Badge>
+              </div>
+            ))
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

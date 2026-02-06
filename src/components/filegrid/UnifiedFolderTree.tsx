@@ -125,7 +125,8 @@ function TreeItem({ node, level, selectedId, onSelect, pendingCounts, onEditObje
     if ((e.ctrlKey || e.metaKey) && node.type === 'object') {
       const feature = getFeatureForNode(node);
       if (feature) {
-        window.open(`${feature}?objectId=${node.id}`, '_blank');
+        const entityParam = node.metadata?.entity_id ? `&entityId=${node.metadata.entity_id}` : '';
+        window.open(`${feature}?objectId=${node.id}${entityParam}`, '_blank');
         return;
       }
     }
@@ -317,7 +318,8 @@ function TreeItem({ node, level, selectedId, onSelect, pendingCounts, onEditObje
   const handleOpenInNewTab = () => {
     const feature = getFeatureForNode(node);
     if (feature && node.type === 'object') {
-      window.open(`${feature}?objectId=${node.id}`, '_blank');
+      const entityParam = node.metadata?.entity_id ? `&entityId=${node.metadata.entity_id}` : '';
+      window.open(`${feature}?objectId=${node.id}${entityParam}`, '_blank');
     }
   };
 

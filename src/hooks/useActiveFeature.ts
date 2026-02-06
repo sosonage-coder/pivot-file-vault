@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
-export type FeatureId = 'monthclose' | 'reconciliations' | 'documents' | 'pbc' | 'compliance' | 'checklists' | 'meetings';
+export type FeatureId = 'command-center' | 'monthclose' | 'reconciliations' | 'documents' | 'pbc' | 'compliance' | 'checklists' | 'meetings';
 
 interface FeatureConfig {
   id: FeatureId;
@@ -11,13 +11,14 @@ interface FeatureConfig {
 }
 
 export const FEATURES: FeatureConfig[] = [
-  { id: 'monthclose', label: 'Month Close', path: '/close', shortcut: '1' },
-  { id: 'reconciliations', label: 'Reconciliations', path: '/reconciliations', shortcut: '2' },
-  { id: 'documents', label: 'Documents', path: '/documents', shortcut: '3' },
-  { id: 'pbc', label: 'PBC Requests', path: '/pbc', shortcut: '4' },
-  { id: 'compliance', label: 'Compliance', path: '/compliance', shortcut: '5' },
-  { id: 'checklists', label: 'Checklists', path: '/checklists', shortcut: '6' },
-  { id: 'meetings', label: 'Meetings', path: '/meetings', shortcut: '7' },
+  { id: 'command-center', label: 'Command Center', path: '/command-center', shortcut: '1' },
+  { id: 'monthclose', label: 'Month Close', path: '/close', shortcut: '2' },
+  { id: 'reconciliations', label: 'Reconciliations', path: '/reconciliations', shortcut: '3' },
+  { id: 'documents', label: 'Documents', path: '/documents', shortcut: '4' },
+  { id: 'pbc', label: 'PBC Requests', path: '/pbc', shortcut: '5' },
+  { id: 'compliance', label: 'Compliance', path: '/compliance', shortcut: '6' },
+  { id: 'checklists', label: 'Checklists', path: '/checklists', shortcut: '7' },
+  { id: 'meetings', label: 'Meetings', path: '/meetings', shortcut: '8' },
 ];
 
 export function useActiveFeature() {
@@ -25,7 +26,7 @@ export function useActiveFeature() {
   const navigate = useNavigate();
   
   // Derive active feature from current path
-  const activeFeature = FEATURES.find(f => location.pathname.startsWith(f.path))?.id || 'monthclose';
+  const activeFeature = FEATURES.find(f => location.pathname.startsWith(f.path))?.id || 'command-center';
   
   const setActiveFeature = useCallback((featureId: FeatureId) => {
     const feature = FEATURES.find(f => f.id === featureId);

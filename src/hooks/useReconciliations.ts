@@ -259,6 +259,12 @@ export function useUpdateReconciliation() {
       if (updates.status === 'certified' && !timestampedUpdates.certified_at) {
         timestampedUpdates.certified_at = new Date().toISOString();
       }
+      if (updates.status === 'approved' && updates.certified_at === undefined) {
+        timestampedUpdates.certified_at = null;
+      }
+      if (updates.status === 'approved' && updates.certified_by === undefined) {
+        timestampedUpdates.certified_by = null;
+      }
       
       const { data, error } = await supabase
         .from('reconciliations')

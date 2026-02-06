@@ -16,6 +16,7 @@ import { PBCRequestsPage } from "./pages/PBCRequestsPage";
 import { CompliancePage } from "./pages/CompliancePage";
 import { ChecklistsPage } from "./pages/ChecklistsPage";
 import { MeetingsPage } from "./pages/MeetingsPage";
+import { CommandCenterPage } from "./pages/CommandCenterPage";
 
 const queryClient = new QueryClient();
 
@@ -31,7 +32,8 @@ const App = () => (
               <Routes>
                 {/* Main app with feature-first layout */}
                 <Route element={<AppLayout />}>
-                  <Route index element={<Navigate to="/close" replace />} />
+                  <Route index element={<Navigate to="/command-center" replace />} />
+                  <Route path="/command-center/*" element={<CommandCenterPage />} />
                   <Route path="/close/*" element={<CloseCalendarPage />} />
                   <Route path="/reconciliations/*" element={<ReconciliationsPage />} />
                   <Route path="/documents/*" element={<DocumentsPage />} />

@@ -8,6 +8,7 @@ import { WorkspaceFilterBar } from '@/components/layout/WorkspaceFilterBar';
 import { DocumentList } from '@/components/filegrid/DocumentList';
 import { UploadDocumentModal } from '@/components/filegrid/UploadDocumentModal';
 import { EditObjectModal } from '@/components/filegrid/EditObjectModal';
+import { WhyEmptyPanel } from '@/components/layout/WhyEmptyPanel';
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useModule } from '@/contexts/ModuleContext';
@@ -53,6 +54,21 @@ export function DocumentsPage() {
 
   const { data: documents = [], isLoading: isLoadingDocs } = useDocuments({
     areaId: activeAreaId,
+    entityId: selectedEntity?.id || null,
+    periodId: selectedPeriod?.id || null,
+    objectId: activeObjectId,
+  });
+
+  const filteredDocuments = useMemo(() => {
+    if (!showExceptionsOnly) return documents;
+    return documents.filter((doc) => doc.status !== 'Final' || doc.audit_status !== 'Complete');
+  }, [documents, showExceptionsOnly]);
+
+  const { data: expectedDocuments = [] } = useExpectedDocuments({
+    entityId: selectedEntity?.id || null,
+    periodId: selectedPeriod?.id || null,
+  });
+
     entityId: selectedEntity?.id || null,
     periodId: selectedPeriod?.id || null,
     objectId: activeObjectId,
@@ -144,6 +160,12 @@ export function DocumentsPage() {
       parts.push(selectedNode.name);
 
       return parts.join(' / ');
+    }
+
+    if (urlObject) {
+      return urlObject.name;
+    }
+
     }
 
     if (urlObject) {
@@ -251,6 +273,7 @@ export function DocumentsPage() {
             )}
 
             <DocumentList documents={filteredDocuments} isLoading={isLoadingDocs} auditMode={auditMode} />
+            <WhyEmptyPanel show={!isLoadingDocs && documents.length === 0} contextLabel="documents" />
             <DocumentList documents={documents} isLoading={isLoadingDocs} />
           </div>
         ) : (

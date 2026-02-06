@@ -5,6 +5,7 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { FeatureLayout, FeatureContent, FeatureEmptyState } from '@/components/layout/FeatureLayout';
 import { WorkspaceFilterBar } from '@/components/layout/WorkspaceFilterBar';
+import { WhyEmptyPanel } from '@/components/layout/WhyEmptyPanel';
 import { PbcChecklistWorkspace } from '@/components/pbc/PbcChecklistWorkspace';
 import { CreatePbcRequestModal } from '@/components/pbc/CreatePbcRequestModal';
 import { useModule } from '@/contexts/ModuleContext';
@@ -148,6 +149,25 @@ export function PBCRequestsPage() {
     >
       <FeatureContent>
         {selectedNode?.type === 'object' ? (
+          <>
+            <PbcChecklistWorkspace
+              objectNode={selectedNode}
+              requests={objectRequests.map((req) => ({
+                id: req.id,
+                label: req.label,
+                status: req.status,
+                assignee_id: req.assignee_id,
+                due_date: req.due_date,
+                notes: req.notes,
+                priority: req.priority,
+              }))}
+              isLoading={isLoadingPbc}
+              onFulfillRequest={handleFulfillRequest}
+              onAddRequest={() => setShowAddRequest(true)}
+              entityId={selectedEntity.id}
+            />
+            <WhyEmptyPanel show={!isLoadingPbc && objectRequests.length === 0} contextLabel="PBC requests" />
+          </>
           <PbcChecklistWorkspace
             objectNode={selectedNode}
             requests={objectRequests.map((req) => ({

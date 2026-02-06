@@ -8,6 +8,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { MoreHorizontal, AlertTriangle, ExternalLink, FileText } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { ReconciliationWithRelations, ReconciliationStatus } from '@/types/reconciliations';
+import { WhyEmptyPanel } from '@/components/layout/WhyEmptyPanel';
 
 interface ReconciliationListViewProps {
   reconciliations: ReconciliationWithRelations[];
@@ -78,6 +79,9 @@ export function ReconciliationListView({
         <p className="mt-1 text-sm text-muted-foreground">
           Create a new reconciliation to get started
         </p>
+        <div className="mt-6 w-full max-w-xl">
+          <WhyEmptyPanel show contextLabel="reconciliations" />
+        </div>
       </div>
     );
   }

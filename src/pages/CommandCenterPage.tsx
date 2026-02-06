@@ -108,8 +108,6 @@ export function CommandCenterPage() {
     entityId: selectedEntityId,
     periodId: selectedPeriodId,
   });
-  const { data: expectedDocuments = [] } = useExpectedDocuments(selectedEntityId, selectedPeriodId);
-  const { data: expectedDocuments = [] } = useExpectedDocuments({ entityId: selectedEntityId, periodId: selectedPeriodId });
   const { data: myTasks = [] } = useTasks(selectedEntityId, {
     periodId: selectedPeriodId,
     assigneeId: user?.id ?? null,

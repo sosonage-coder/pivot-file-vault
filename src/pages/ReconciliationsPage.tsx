@@ -8,15 +8,17 @@ import { useModule } from '@/contexts/ModuleContext';
 import { useSidebarSelection } from '@/contexts/SidebarSelectionContext';
 import { ReconciliationWorkspace } from '@/components/reconciliations/ReconciliationWorkspace';
 import { ReconciliationDashboard } from '@/components/reconciliations/dashboard';
+import { ReconciliationCategoryList } from '@/components/reconciliations/ReconciliationCategoryList';
 import { ConsolidatedReconciliationDashboard } from '@/components/reconciliations/ConsolidatedReconciliationDashboard';
 import { CreateReconciliationModal } from '@/components/reconciliations/CreateReconciliationModal';
 import { ReconciliationImportModal } from '@/components/reconciliations/ReconciliationImportModal';
 import { useEntities } from '@/hooks/useEntities';
 import { isConsolidatedEntity } from '@/lib/entities';
+import type { ReconciliationTemplateType } from '@/types/reconciliations';
 
 export function ReconciliationsPage() {
   const { selectedEntity, selectedPeriod, setSelectedEntity } = useModule();
-  const { selectedNode } = useSidebarSelection();
+  const { selectedNode, selectedReconciliationCategory, setSelectedReconciliationCategory } = useSidebarSelection();
   const { data: entities = [] } = useEntities();
   const [searchParams, setSearchParams] = useSearchParams();
   const [viewMode, setViewMode] = useState<ViewMode>('dashboard');
@@ -51,8 +53,9 @@ export function ReconciliationsPage() {
   useEffect(() => {
     setViewMode('dashboard');
     setSelectedReconciliationId(null);
+    setSelectedReconciliationCategory(null);
     setSearchParams({});
-  }, [selectedEntity?.id, setSearchParams]);
+  }, [selectedEntity?.id, setSearchParams, setSelectedReconciliationCategory]);
 
   if (!selectedEntity) {
     return (
@@ -96,14 +99,20 @@ export function ReconciliationsPage() {
     setViewMode(mode);
     if (mode === 'dashboard') {
       setSelectedReconciliationId(null);
+      setSelectedReconciliationCategory(null);
       setSearchParams({ entityId: selectedEntity.id });
     }
   };
 
   const handleBackToDashboard = () => {
     setSelectedReconciliationId(null);
-    setSearchParams({ entityId: selectedEntity.id });
-    setViewMode('dashboard');
+    // Go back to category list if a category was selected
+    if (selectedReconciliationCategory) {
+      setSearchParams({ entityId: selectedEntity.id });
+    } else {
+      setSearchParams({ entityId: selectedEntity.id });
+      setViewMode('dashboard');
+    }
   };
 
   const renderContent = () => {
@@ -119,6 +128,18 @@ export function ReconciliationsPage() {
       );
     }
 
+    // If a category is selected, show accounts for that category
+    if (selectedReconciliationCategory) {
+      return (
+        <ReconciliationCategoryList
+          categoryType={selectedReconciliationCategory}
+          entityId={selectedEntity.id}
+          periodId={selectedPeriod?.id}
+          onSelectReconciliation={handleSelectReconciliation}
+        />
+      );
+    }
+
     // Otherwise show dashboard
     return (
       <ReconciliationDashboard
@@ -129,10 +150,26 @@ export function ReconciliationsPage() {
     );
   };
 
+  const getDescription = () => {
+    if (selectedReconciliationCategory) {
+      const labels: Record<ReconciliationTemplateType, string> = {
+        general: 'General',
+        bank: 'Bank Reconciliations',
+        prepaid: 'Prepaid Expenses',
+        accrual: 'Accruals',
+        fixed_asset: 'Fixed Assets',
+        lease: 'Leases',
+        intercompany: 'Intercompany',
+      };
+      return labels[selectedReconciliationCategory] || selectedEntity.name;
+    }
+    return selectedEntity.name;
+  };
+
   return (
     <FeatureLayout
       title="Reconciliations"
-      description={selectedEntity.name}
+      description={getDescription()}
       icon={<Scale className="h-5 w-5" />}
       actions={
         <div className="flex items-center gap-2">

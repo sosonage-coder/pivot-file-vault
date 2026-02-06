@@ -42,18 +42,16 @@ import { useSidebarSelection } from '@/contexts/SidebarSelectionContext';
 import { useEntities } from '@/hooks/useEntities';
 import { useFeatureFolderStructure } from '@/hooks/useFeatureFolderStructure';
 import { usePendingApprovalCounts } from '@/hooks/useApprovals';
-import { useReconciliations } from '@/hooks/useReconciliations';
-import { useReconciliationTree } from '@/hooks/useReconciliationTree';
 import { usePbcTree } from '@/hooks/usePbcTree';
 import { UnifiedFolderTree } from '@/components/filegrid/UnifiedFolderTree';
-import { ReconciliationTree } from '@/components/reconciliations/ReconciliationTree';
+import { ReconciliationSidebarTree } from '@/components/reconciliations/ReconciliationSidebarTree';
 import { PbcSidebarTree } from '@/components/pbc/PbcSidebarTree';
 import { SimpleAddProcessModal } from '@/components/filegrid/SimpleAddProcessModal';
 import { CONSOLIDATED_ENTITY, isConsolidatedEntity } from '@/lib/entities';
 import type { FeatureId } from '@/hooks/useActiveFeature';
 import type { TreeNode } from '@/types/filegrid';
 import type { PbcTreeNode } from '@/types/pbc-tree';
-import type { ReconciliationTreeNode } from '@/hooks/useReconciliationTree';
+import type { ReconciliationTemplateType } from '@/types/reconciliations';
 
 const FEATURES = [
   {
@@ -132,7 +130,7 @@ export function UnifiedSidebar({ collapsed = false, onCollapsedChange }: Unified
   const location = useLocation();
   const { user, signOut } = useAuth();
   const { selectedEntity, setSelectedEntity, selectedPeriod } = useModule();
-  const { selectedNode, setSelectedNode } = useSidebarSelection();
+  const { selectedNode, setSelectedNode, selectedReconciliationCategory, setSelectedReconciliationCategory } = useSidebarSelection();
   const { data: entities = [] } = useEntities();
   const [searchQuery, setSearchQuery] = useState('');
   const [showCreateProcess, setShowCreateProcess] = useState(false);
@@ -166,12 +164,7 @@ export function UnifiedSidebar({ collapsed = false, onCollapsedChange }: Unified
     featureType: featureType,
   });
 
-  // Fetch reconciliation data (for reconciliations tree)
-  const { data: reconciliations = [], isLoading: isLoadingReconciliations } = useReconciliations(
-    showReconciliationTree ? selectedEntity?.id || null : null,
-    selectedPeriod?.id
-  );
-  const reconciliationTree = useReconciliationTree(reconciliations);
+  // No longer fetching full reconciliation tree - using category-based navigation
 
   // Fetch PBC tree data (for PBC module)
   const { tree: pbcTree, isLoading: isLoadingPbcTree } = usePbcTree({
@@ -218,21 +211,10 @@ export function UnifiedSidebar({ collapsed = false, onCollapsedChange }: Unified
     setSelectedNode(node);
   };
 
-  // Handle reconciliation tree selection - convert to TreeNode format
-  const handleReconciliationNodeSelect = (node: ReconciliationTreeNode) => {
-    if (node.type === 'account' && node.reconciliationId) {
-      // Convert to TreeNode format for compatibility with useSidebarSelection
-      const treeNode: TreeNode = {
-        id: node.reconciliationId,
-        name: node.name,
-        type: 'object', // Use 'object' type for reconciliation accounts
-        metadata: {
-          ...node.metadata,
-          reconciliationId: node.reconciliationId,
-        },
-      };
-      setSelectedNode(treeNode);
-    }
+  // Handle reconciliation category selection
+  const handleReconciliationCategorySelect = (category: ReconciliationTemplateType) => {
+    setSelectedReconciliationCategory(category);
+    setSelectedNode(null); // Clear specific reconciliation selection
   };
 
   // Handle PBC tree selection - convert to TreeNode format
@@ -434,7 +416,7 @@ export function UnifiedSidebar({ collapsed = false, onCollapsedChange }: Unified
         </div>
       )}
 
-      {/* Reconciliation Tree Panel */}
+      {/* Reconciliation Category Tree Panel */}
       {!collapsed && showReconciliationTree && (
         <div className="flex flex-col flex-1 overflow-hidden">
           <Collapsible
@@ -443,7 +425,7 @@ export function UnifiedSidebar({ collapsed = false, onCollapsedChange }: Unified
             className="flex flex-1 flex-col overflow-hidden"
           >
             <div className="flex items-center justify-between border-b px-2 py-1.5 text-[11px] font-medium text-muted-foreground">
-              <span>Navigation</span>
+              <span>Categories</span>
               <CollapsibleTrigger asChild>
                 <Button variant="ghost" size="icon" className="h-6 w-6">
                   {navigationOpen ? (
@@ -456,48 +438,15 @@ export function UnifiedSidebar({ collapsed = false, onCollapsedChange }: Unified
             </div>
 
             <CollapsibleContent className="flex flex-1 flex-col overflow-hidden">
-              {/* Compact Search + Add Process Row */}
-              <div className="p-1.5 border-b flex items-center gap-1.5">
-                <div className="relative flex-1">
-                  <Search className="absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    placeholder="Search accounts..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="h-7 pl-7 text-xs"
-                  />
-                </div>
-                {selectedEntity && (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => setShowCreateProcess(true)}
-                        className="h-7 w-7 flex-shrink-0"
-                      >
-                        <Plus className="h-3.5 w-3.5" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent side="right">Add Process</TooltipContent>
-                  </Tooltip>
-                )}
-              </div>
-
-              {/* Reconciliation Tree */}
+              {/* Reconciliation Category Tree */}
               <ScrollArea className="flex-1">
                 <div className="p-2">
-                  {isLoadingReconciliations ? (
-                    <div className="flex items-center justify-center py-8">
-                      <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                    </div>
-                  ) : (
-                    <ReconciliationTree
-                      nodes={reconciliationTree}
-                      selectedId={(selectedNode?.metadata?.reconciliationId as string | undefined) || selectedNode?.id || null}
-                      onSelect={handleReconciliationNodeSelect}
-                    />
-                  )}
+                  <ReconciliationSidebarTree
+                    entityId={selectedEntity?.id || null}
+                    periodId={selectedPeriod?.id}
+                    selectedCategory={selectedReconciliationCategory}
+                    onSelectCategory={handleReconciliationCategorySelect}
+                  />
                 </div>
               </ScrollArea>
             </CollapsibleContent>

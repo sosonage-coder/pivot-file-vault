@@ -1,12 +1,13 @@
 import { createContext, useContext, useState, ReactNode } from 'react';
 import type { TreeNode } from '@/types/filegrid';
-import type { ReconciliationTemplateType } from '@/types/reconciliations';
+import type { ReconciliationFolderNode } from '@/components/reconciliations/ReconciliationSidebarTree';
 
 interface SidebarSelectionContextType {
   selectedNode: TreeNode | null;
   setSelectedNode: (node: TreeNode | null) => void;
-  selectedReconciliationCategory: ReconciliationTemplateType | null;
-  setSelectedReconciliationCategory: (category: ReconciliationTemplateType | null) => void;
+  // For reconciliations - hierarchical folder/account selection
+  selectedReconciliationNode: ReconciliationFolderNode | null;
+  setSelectedReconciliationNode: (node: ReconciliationFolderNode | null) => void;
 }
 
 const SidebarSelectionContext = createContext<SidebarSelectionContextType | undefined>(undefined);
@@ -17,14 +18,14 @@ interface SidebarSelectionProviderProps {
 
 export function SidebarSelectionProvider({ children }: SidebarSelectionProviderProps) {
   const [selectedNode, setSelectedNode] = useState<TreeNode | null>(null);
-  const [selectedReconciliationCategory, setSelectedReconciliationCategory] = useState<ReconciliationTemplateType | null>(null);
+  const [selectedReconciliationNode, setSelectedReconciliationNode] = useState<ReconciliationFolderNode | null>(null);
 
   return (
     <SidebarSelectionContext.Provider value={{ 
       selectedNode, 
       setSelectedNode,
-      selectedReconciliationCategory,
-      setSelectedReconciliationCategory,
+      selectedReconciliationNode,
+      setSelectedReconciliationNode,
     }}>
       {children}
     </SidebarSelectionContext.Provider>

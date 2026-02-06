@@ -175,6 +175,8 @@ export interface UpdateReconciliationInput {
   reviewer_id?: string | null;
   notes?: string | null;
   rejection_notes?: string | null;
+  certified_at?: string | null;
+  certified_by?: string | null;
   // Workflow timestamps set automatically based on status
 }
 

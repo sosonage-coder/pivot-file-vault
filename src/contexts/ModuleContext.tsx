@@ -7,6 +7,8 @@ interface ModuleContextType {
   setSelectedEntity: (entity: Entity | null) => void;
   selectedPeriod: Period | null;
   setSelectedPeriod: (period: Period | null) => void;
+  showExceptionsOnly: boolean;
+  setShowExceptionsOnly: (value: boolean) => void;
 }
 
 const ModuleContext = createContext<ModuleContextType | undefined>(undefined);
@@ -18,6 +20,14 @@ interface ModuleProviderProps {
 export function ModuleProvider({ children }: ModuleProviderProps) {
   const [selectedEntity, setSelectedEntity] = useState<Entity | null>(null);
   const [selectedPeriod, setSelectedPeriod] = useState<Period | null>(null);
+  const [showExceptionsOnly, setShowExceptionsOnly] = useState(false);
+
+  const handleSetSelectedEntity = (entity: Entity | null) => {
+    if (isConsolidatedEntity(entity)) {
+      setSelectedPeriod(null);
+    }
+    setSelectedEntity(entity);
+  };
 
   const handleSetSelectedEntity = (entity: Entity | null) => {
     if (isConsolidatedEntity(entity)) {
@@ -33,6 +43,8 @@ export function ModuleProvider({ children }: ModuleProviderProps) {
         setSelectedEntity: handleSetSelectedEntity,
         selectedPeriod,
         setSelectedPeriod,
+        showExceptionsOnly,
+        setShowExceptionsOnly,
       }}
     >
       {children}

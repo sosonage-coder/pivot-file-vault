@@ -1,3 +1,4 @@
+import { AlertTriangle, Download, FileText, Upload, FolderOpen } from 'lucide-react';
 import { AlertTriangle, FileText, Upload, FolderOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -18,11 +19,13 @@ import { useExpectedDocuments } from '@/hooks/useExpectedDocuments';
 import { isConsolidatedEntity } from '@/lib/entities';
 
 export function DocumentsPage() {
+  const { selectedEntity, selectedPeriod, setSelectedEntity, showExceptionsOnly } = useModule();
   const { selectedEntity, selectedPeriod, setSelectedEntity } = useModule();
   const { selectedNode } = useSidebarSelection();
   const { data: entities = [] } = useEntities();
   const [showUpload, setShowUpload] = useState(false);
   const [editingObjectId, setEditingObjectId] = useState<string | null>(null);
+  const [auditMode, setAuditMode] = useState(false);
   const [searchParams] = useSearchParams();
   const urlObjectId = searchParams.get('objectId');
   const urlEntityId = searchParams.get('entityId');
@@ -54,6 +57,11 @@ export function DocumentsPage() {
     periodId: selectedPeriod?.id || null,
     objectId: activeObjectId,
   });
+
+  const filteredDocuments = useMemo(() => {
+    if (!showExceptionsOnly) return documents;
+    return documents.filter((doc) => doc.status !== 'Final' || doc.audit_status !== 'Complete');
+  }, [documents, showExceptionsOnly]);
 
   const { data: expectedDocuments = [] } = useExpectedDocuments({
     entityId: selectedEntity?.id || null,
@@ -128,6 +136,42 @@ export function DocumentsPage() {
   const getBreadcrumb = () => {
     if (selectedNode) {
       const parts: string[] = [];
+
+      if (selectedNode.metadata?.department_name) {
+        parts.push(selectedNode.metadata.department_name as string);
+      }
+
+      parts.push(selectedNode.name);
+
+      return parts.join(' / ');
+    }
+
+    if (urlObject) {
+      return urlObject.name;
+    }
+
+    return '';
+  };
+
+  const exportPbcIndex = () => {
+    const pbcDocs = documents.filter((doc) => doc.pbc_ready);
+    const headers = ['Document', 'Object', 'Period', 'Audit Status', 'URL'];
+    const rows = pbcDocs.map((doc) => [
+      doc.logical_name,
+      doc.objects?.name || '',
+      doc.periods?.label || '',
+      doc.audit_status || 'Requested',
+      doc.external_file_url,
+    ]);
+    const csv = [headers.join(','), ...rows.map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','))].join('\n');
+
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `pbc-index-${selectedEntity.name}-${selectedPeriod?.label || 'all'}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
       if (selectedNode.metadata?.department_name) {
         parts.push(selectedNode.metadata.department_name as string);
       }
@@ -149,12 +193,25 @@ export function DocumentsPage() {
       icon={<FileText className="h-5 w-5" />}
       filterBar={<WorkspaceFilterBar showStatusFilter />}
       actions={
-        canUpload && (
-          <Button onClick={() => setShowUpload(true)}>
-            <Upload className="mr-2 h-4 w-4" />
-            Upload Document
-          </Button>
-        )
+        <div className="flex gap-2">
+          {(selectedNode || urlObject) && (
+            <Button variant={auditMode ? 'default' : 'outline'} onClick={() => setAuditMode((v) => !v)}>
+              Audit Mode
+            </Button>
+          )}
+          {auditMode && (
+            <Button variant="outline" onClick={exportPbcIndex}>
+              <Download className="mr-2 h-4 w-4" />
+              Export PBC Index
+            </Button>
+          )}
+          {canUpload && (
+            <Button onClick={() => setShowUpload(true)}>
+              <Upload className="mr-2 h-4 w-4" />
+              Upload Document
+            </Button>
+          )}
+        </div>
       }
     >
       <FeatureContent>
@@ -193,6 +250,7 @@ export function DocumentsPage() {
               </Card>
             )}
 
+            <DocumentList documents={filteredDocuments} isLoading={isLoadingDocs} auditMode={auditMode} />
             <DocumentList documents={documents} isLoading={isLoadingDocs} />
           </div>
         ) : (

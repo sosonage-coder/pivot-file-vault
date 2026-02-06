@@ -13,6 +13,7 @@ import { usePbcTree } from '@/hooks/usePbcTree';
 import { isConsolidatedEntity } from '@/lib/entities';
 import type { PbcStatus } from '@/types/filegrid';
 import type { PbcTreeNode } from '@/types/pbc-tree';
+import { mapPbcToReviewState } from '@/lib/reviewState';
 
 interface PbcRequestWithPath {
   id: string;
@@ -26,7 +27,7 @@ interface PbcRequestWithPath {
 }
 
 export function PBCRequestsPage() {
-  const { selectedEntity, selectedPeriod } = useModule();
+  const { selectedEntity, selectedPeriod, showExceptionsOnly } = useModule();
   const { selectedNode } = useSidebarSelection();
   const [showAddRequest, setShowAddRequest] = useState(false);
   const [auditMode, setAuditMode] = useState(false);
@@ -42,6 +43,8 @@ export function PBCRequestsPage() {
   const objectRequests = pbcTree
     .flatMap((node) => collectRequestsForObject(node, selectedObjectId))
     .filter(Boolean)
+    .filter((request) => (auditMode ? request.status === 'Uploaded' || request.status === 'Reviewed' || request.status === 'Complete' : true))
+    .filter((request) => (showExceptionsOnly ? request.status !== 'Complete' : true));
     .filter((request) => (auditMode ? request.status === 'Uploaded' || request.status === 'Reviewed' || request.status === 'Complete' : true));
 
   const handleFulfillRequest = async (requestId: string, fileUrl: string) => {
@@ -50,6 +53,7 @@ export function PBCRequestsPage() {
 
   const handleExportPbcIndex = () => {
     const rows = allRequests.map((request) => {
+      const phase = mapPbcToReviewState(request.status);
       const phase = request.status === 'Requested'
         ? 'Requested'
         : request.status === 'Complete'
@@ -71,6 +75,7 @@ export function PBCRequestsPage() {
     });
 
     const headers = ['Entity', 'Period', 'Process', 'Area', 'Object', 'Request', 'Status', 'PBC Phase', 'Priority', 'Due Date'];
+    const csv = [headers.join(','), ...rows.map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(','))].join('\n');
     const csv = [headers.join(','), ...rows.map((row) => row.map((cell) => `"${String(cell).split('"').join('""')}"`).join(','))].join('\n');
 
     const blob = new Blob([csv], { type: 'text/csv' });

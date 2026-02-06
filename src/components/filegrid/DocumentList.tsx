@@ -1,8 +1,20 @@
 import { ExternalLink, FileText } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { ApprovalActions } from './ApprovalActions';
+import type { AuditDocumentStatus, DocumentWithRelations, DocumentStatus, DocumentWorkflowStage } from '@/types/filegrid';
+import { formatDistanceToNow } from 'date-fns';
+import { useDocumentApproval } from '@/hooks/useApprovals';
+import { useUpdateDocumentAudit } from '@/hooks/useDocumentAudit';
 import type { DocumentWithRelations, DocumentStatus, DocumentWorkflowStage } from '@/types/filegrid';
 import { formatDistanceToNow } from 'date-fns';
 import { useDocumentApproval } from '@/hooks/useApprovals';
@@ -10,6 +22,7 @@ import { useDocumentApproval } from '@/hooks/useApprovals';
 interface DocumentListProps {
   documents: DocumentWithRelations[];
   isLoading?: boolean;
+  auditMode?: boolean;
 }
 
 const statusColors: Record<DocumentStatus, string> = {
@@ -28,7 +41,7 @@ function getRenderedFilename(doc: DocumentWithRelations): string {
   return `${objectName}_${docType}_${period}_${status}`;
 }
 
-export function DocumentList({ documents, isLoading }: DocumentListProps) {
+export function DocumentList({ documents, isLoading, auditMode = false }: DocumentListProps) {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -64,11 +77,14 @@ export function DocumentList({ documents, isLoading }: DocumentListProps) {
             <TableHead>Status</TableHead>
             <TableHead>Approval</TableHead>
             <TableHead>Type</TableHead>
+            {auditMode && <TableHead>PBC-Ready</TableHead>}
+            {auditMode && <TableHead>Audit</TableHead>}
             <TableHead className="text-right">Updated</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {documents.map((doc) => (
+            <DocumentRow key={doc.id} doc={doc} onOpen={handleRowClick} auditMode={auditMode} />
             <DocumentRow key={doc.id} doc={doc} onOpen={handleRowClick} />
           ))}
         </TableBody>
@@ -83,6 +99,18 @@ function getWorkflowStage(doc: DocumentWithRelations, approvalStatus?: string): 
   if (approvalStatus === 'pending') return 'Ready for Review';
   return 'Draft';
 }
+
+function DocumentRow({ doc, onOpen, auditMode }: { doc: DocumentWithRelations; onOpen: (url: string) => void; auditMode: boolean }) {
+  const { data: approval } = useDocumentApproval(doc.id);
+  const updateDocumentAudit = useUpdateDocumentAudit();
+  const workflowStage = getWorkflowStage(doc, approval?.status);
+
+  const handleAuditStatusChange = (status: AuditDocumentStatus) => {
+    updateDocumentAudit.mutate({
+      documentId: doc.id,
+      auditStatus: status,
+    });
+  };
 
 function DocumentRow({ doc, onOpen }: { doc: DocumentWithRelations; onOpen: (url: string) => void }) {
   const { data: approval } = useDocumentApproval(doc.id);
@@ -122,6 +150,31 @@ function DocumentRow({ doc, onOpen }: { doc: DocumentWithRelations; onOpen: (url
         />
       </TableCell>
       <TableCell className="text-muted-foreground">{doc.document_types?.name || '—'}</TableCell>
+      {auditMode && (
+        <TableCell>
+          <Checkbox
+            checked={doc.pbc_ready}
+            onCheckedChange={(checked) => updateDocumentAudit.mutate({ documentId: doc.id, pbcReady: checked === true })}
+          />
+        </TableCell>
+      )}
+      {auditMode && (
+        <TableCell>
+          <Select
+            value={doc.audit_status || 'Requested'}
+            onValueChange={(value) => handleAuditStatusChange(value as AuditDocumentStatus)}
+          >
+            <SelectTrigger className="h-8 w-[130px] text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Requested">Requested</SelectItem>
+              <SelectItem value="Provided">Provided</SelectItem>
+              <SelectItem value="Complete">Complete</SelectItem>
+            </SelectContent>
+          </Select>
+        </TableCell>
+      )}
       <TableCell className="text-right text-muted-foreground">
         <div className="flex items-center justify-end gap-2">
           <span className="text-sm">{formatDistanceToNow(new Date(doc.updated_at), { addSuffix: true })}</span>

@@ -26,6 +26,7 @@ import { useExpectedDocuments } from '@/hooks/useExpectedDocuments';
 import { useTasks } from '@/hooks/useTasks';
 import { isConsolidatedEntity } from '@/lib/entities';
 import { useAllObjectsForEntity } from '@/hooks/useObjects';
+import { usePBCItems } from '@/hooks/usePBCItems';
 
 const QUICK_LINKS = [
   {
@@ -113,6 +114,10 @@ export function CommandCenterPage() {
     assigneeId: user?.id ?? null,
   });
   const { data: objects = [] } = useAllObjectsForEntity(selectedEntityId);
+  const { data: pbcItems = [] } = usePBCItems({
+    entityId: selectedEntityId,
+    periodId: selectedPeriodId,
+  });
 
   const contextualSummary = useMemo(() => {
     return [
@@ -205,6 +210,116 @@ export function CommandCenterPage() {
     });
   }, [objects, user?.email]);
 
+  const closePackCompletion = useMemo(() => {
+    const packMap = new Map<string, { area: string; object: string; requiredDocs: number; uploadedDocs: number; reconsTotal: number; reconsFinal: number; checklistOpen: number; approvalRequired: boolean }>();
+
+    objects.forEach((obj: any) => {
+      const key = obj.id;
+      packMap.set(key, {
+        area: obj.areas?.name || 'Area',
+        object: obj.name,
+        requiredDocs: 0,
+        uploadedDocs: 0,
+        reconsTotal: 0,
+        reconsFinal: 0,
+        checklistOpen: 0,
+        approvalRequired: Boolean(obj.requires_approval),
+      });
+    });
+
+    expectedDocuments.forEach((doc) => {
+      const objectId = doc.document?.object_id;
+      if (!objectId || !packMap.has(objectId) || !doc.required) return;
+      const pack = packMap.get(objectId)!;
+      pack.requiredDocs += 1;
+      if (doc.uploaded) pack.uploadedDocs += 1;
+    });
+
+    reconciliations.forEach((recon) => {
+      if (!packMap.has(recon.object_id)) return;
+      const pack = packMap.get(recon.object_id)!;
+      pack.reconsTotal += 1;
+      if (recon.status === 'approved' || recon.status === 'certified') {
+        pack.reconsFinal += 1;
+      }
+    });
+
+    return Array.from(packMap.values())
+      .map((pack) => {
+        const docCompletion = pack.requiredDocs > 0 ? pack.uploadedDocs / pack.requiredDocs : 1;
+        const reconCompletion = pack.reconsTotal > 0 ? pack.reconsFinal / pack.reconsTotal : 1;
+        const completion = Math.round(((docCompletion + reconCompletion) / 2) * 100);
+        return { ...pack, completion };
+      })
+      .sort((a, b) => a.completion - b.completion)
+      .slice(0, 8);
+  }, [expectedDocuments, objects, reconciliations]);
+
+  const exceptionsFeed = useMemo(() => {
+    const items: Array<{ id: string; label: string; source: 'documents' | 'reconciliations' | 'pbc' | 'tasks'; detail: string; severity: 'high' | 'medium' | 'low'; href: string }> = [];
+
+    expectedDocuments
+      .filter((doc) => doc.required && !doc.uploaded)
+      .slice(0, 10)
+      .forEach((doc) => {
+        items.push({
+          id: `missing-doc-${doc.areaId}-${doc.documentTypeId}`,
+          label: `Missing required document: ${doc.documentTypeName}`,
+          source: 'documents',
+          detail: `${doc.departmentName} / ${doc.processName} / ${doc.areaName}`,
+          severity: 'high',
+          href: '/documents',
+        });
+      });
+
+    reconciliations
+      .filter((recon) => recon.status === 'pending_review' || recon.status === 'rejected' || Math.abs(Number(recon.variance) || 0) > 1000)
+      .slice(0, 10)
+      .forEach((recon) => {
+        const isHighVariance = Math.abs(Number(recon.variance) || 0) > 1000;
+        items.push({
+          id: `recon-${recon.id}`,
+          label: `${recon.objects?.name || 'Reconciliation'} ${recon.status === 'rejected' ? 'rejected' : recon.status === 'pending_review' ? 'pending review' : 'material variance'}`,
+          source: 'reconciliations',
+          detail: recon.objects?.areas?.name || 'Unassigned Area',
+          severity: isHighVariance ? 'high' : 'medium',
+          href: `/reconciliations?id=${recon.id}&entityId=${selectedEntityId}`,
+        });
+      });
+
+    pbcItems
+      .filter((item) => item.status !== 'Complete')
+      .slice(0, 10)
+      .forEach((item) => {
+        items.push({
+          id: `pbc-${item.id}`,
+          label: `PBC ${item.status}: ${item.document_types?.name || 'Request'}`,
+          source: 'pbc',
+          detail: `${item.areas?.name || 'Area'} / ${item.objects?.name || 'Object'}`,
+          severity: item.status === 'Requested' ? 'high' : 'medium',
+          href: '/pbc',
+        });
+      });
+
+    myTasks
+      .filter((task) => task.status !== 'completed' && task.status !== 'cancelled' && !!task.due_date)
+      .slice(0, 6)
+      .forEach((task) => {
+        const overdue = task.due_date ? new Date(task.due_date) < new Date() : false;
+        if (!overdue) return;
+        items.push({
+          id: `task-${task.id}`,
+          label: `Overdue task: ${task.title}`,
+          source: 'tasks',
+          detail: task.due_date || 'No due date',
+          severity: 'high',
+          href: '/checklists',
+        });
+      });
+
+    const weight = { high: 3, medium: 2, low: 1 };
+    return items.sort((a, b) => weight[b.severity] - weight[a.severity]).slice(0, 14);
+  }, [expectedDocuments, reconciliations, pbcItems, myTasks, selectedEntityId]);
   const myMissingDeliverables = useMemo(() => {
     const objectIdSet = new Set(myObjectAssignments.map((obj: any) => obj.id));
     return expectedDocuments.filter((doc) => doc.required && !doc.uploaded && doc.document?.object_id && objectIdSet.has(doc.document.object_id)).length;
@@ -290,6 +405,31 @@ export function CommandCenterPage() {
               <div className="grid gap-4 xl:grid-cols-3">
                 <Card>
                   <CardHeader>
+                    <CardTitle>Close Packs (Entity / Period / Object)</CardTitle>
+                    <CardDescription>Cross-module pack completion using required docs + reconciliation completion.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    {closePackCompletion.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">No close packs available for this context.</p>
+                    ) : (
+                      closePackCompletion.map((pack) => (
+                        <div key={`${pack.area}-${pack.object}`} className="rounded-md border p-2">
+                          <div className="flex items-center justify-between">
+                            <p className="text-sm font-medium">{pack.object}</p>
+                            <Badge className={ragTone(pack.completion)}>{pack.completion}%</Badge>
+                          </div>
+                          <p className="mt-1 text-xs text-muted-foreground">{pack.area}</p>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            Docs {pack.uploadedDocs}/{pack.requiredDocs || 0} • Recs {pack.reconsFinal}/{pack.reconsTotal || 0}{pack.approvalRequired ? ' • Approval required' : ''}
+                          </p>
+                        </div>
+                      ))
+                    )}
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
                     <CardTitle>Progress by Area</CardTitle>
                     <CardDescription>Department-wide close completion by area.</CardDescription>
                   </CardHeader>
@@ -340,6 +480,29 @@ export function CommandCenterPage() {
 
                 <Card>
                   <CardHeader>
+                    <CardTitle>Exceptions Feed</CardTitle>
+                    <CardDescription>Global queue: missing docs, pending/rejected reviews, incomplete PBC, and overdue tasks.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {exceptionsFeed.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">No exceptions for this context.</p>
+                    ) : (
+                      <>
+                        {exceptionsFeed.map((item) => (
+                          <button
+                            key={item.id}
+                            className="flex w-full items-start justify-between rounded-md border p-2 text-left hover:bg-muted/50"
+                            onClick={() => navigate(item.href)}
+                          >
+                            <div>
+                              <p className="text-sm font-medium">{item.label}</p>
+                              <p className="mt-1 text-xs text-muted-foreground">{item.detail}</p>
+                            </div>
+                            <Badge variant="outline" className={item.severity === 'high' ? 'border-red-400 text-red-700' : 'border-amber-400 text-amber-700'}>
+                              {item.severity}
+                            </Badge>
+                          </button>
+                        ))}
                     <CardTitle>My Work / My Reviews</CardTitle>
                     <CardDescription>Open preparer and reviewer queue.</CardDescription>
                   </CardHeader>

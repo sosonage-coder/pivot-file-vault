@@ -5,6 +5,7 @@ export type PeriodType = 'month' | 'quarter' | 'year' | 'phase';
 export type PbcStatus = 'Requested' | 'Uploaded' | 'Reviewed' | 'Complete';
 export type AppRole = 'admin' | 'user' | 'external_reviewer';
 export type ApprovalStatus = 'pending' | 'approved' | 'rejected';
+export type AuditDocumentStatus = 'Requested' | 'Provided' | 'Complete';
 
 export interface Entity {
   id: string;
@@ -112,6 +113,8 @@ export interface Document {
   version: number;
   external_file_url: string;
   notes: string | null;
+  pbc_ready: boolean;
+  audit_status: AuditDocumentStatus | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;

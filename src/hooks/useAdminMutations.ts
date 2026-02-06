@@ -19,6 +19,11 @@ export function useCreateEntity() {
 
   return useMutation({
     mutationFn: async (data: CreateEntityData) => {
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      // Create the entity
       const { data: entity, error } = await supabase
         .from('entities')
         .insert({
@@ -29,10 +34,25 @@ export function useCreateEntity() {
         .single();
 
       if (error) throw error;
+
+      // Add the user to the entity (grant access)
+      const { error: membershipError } = await supabase
+        .from('user_entities')
+        .insert({
+          user_id: user.id,
+          entity_id: entity.id,
+        });
+
+      if (membershipError) {
+        console.error('Failed to add user to entity:', membershipError);
+        // Don't throw - entity was created, just log the issue
+      }
+
       return entity as Entity;
     },
     onSuccess: (entity) => {
       queryClient.invalidateQueries({ queryKey: ['entities'] });
+      queryClient.invalidateQueries({ queryKey: ['user-entities'] });
       toast.success(`Entity "${entity.name}" created successfully`);
     },
     onError: (error) => {

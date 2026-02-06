@@ -122,7 +122,11 @@ export interface ReconciliationWithRelations extends Reconciliation {
     area_id: string;
     process_id: string;
     department_id: string;
-    areas?: { name: string } | null;
+    owner_name?: string | null;
+    reviewer_name?: string | null;
+    approver_name?: string | null;
+    variance_threshold?: number | null;
+    areas?: { name: string; owner_name?: string | null; reviewer_name?: string | null; approver_name?: string | null } | null;
     processes?: { name: string } | null;
   } | null;
   periods?: { label: string } | null;

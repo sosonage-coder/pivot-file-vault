@@ -51,6 +51,9 @@ export interface Area {
   name: string;
   process_id: string;
   template_id: string | null;
+  owner_name: string | null;
+  reviewer_name: string | null;
+  approver_name: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -82,6 +85,7 @@ export interface FileObject {
   owner_name: string | null;
   reviewer_name: string | null;
   approver_name: string | null;
+  variance_threshold: number | null;
   created_at: string;
   updated_at: string;
 }

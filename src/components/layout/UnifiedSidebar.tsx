@@ -146,6 +146,11 @@ export function UnifiedSidebar({ collapsed = false, onCollapsedChange }: Unified
 
   const activeFeature = FEATURES.find(f => location.pathname.startsWith(f.path))?.id || 'command-center';
   
+  // Show folder tree for all features that use structural navigation
+  const showFolderTree = ['documents', 'pbc', 'monthclose', 'compliance', 'checklists'].includes(activeFeature)
+    && !isConsolidated;
+  const showReconciliationTree = activeFeature === 'reconciliations' && !isConsolidated;
+  const featureType = activeFeature === 'pbc' ? 'pbc' : activeFeature === 'monthclose' ? 'monthclose' : 'documents';
   // Show folder tree for modules that use structural navigation
   // Documents & Month Close use the Process→Area→Object structure
   // Compliance & Checklists use their own workspace views (no folder tree)
@@ -154,6 +159,8 @@ export function UnifiedSidebar({ collapsed = false, onCollapsedChange }: Unified
   const showPbcTree = activeFeature === 'pbc' && !isConsolidated;
   const showReconciliationTree = activeFeature === 'reconciliations' && !isConsolidated;
   const featureType = activeFeature === 'monthclose' ? 'monthclose' : 'documents';
+
+  const entitiesWithConsolidated = entities.length > 1 ? [CONSOLIDATED_ENTITY, ...entities] : entities;
 
   const entitiesWithConsolidated = entities.length > 1 ? [CONSOLIDATED_ENTITY, ...entities] : entities;
 
@@ -425,6 +432,7 @@ export function UnifiedSidebar({ collapsed = false, onCollapsedChange }: Unified
             className="flex flex-1 flex-col overflow-hidden"
           >
             <div className="flex items-center justify-between border-b px-2 py-1.5 text-[11px] font-medium text-muted-foreground">
+              <span>Navigation</span>
               <span>Categories</span>
               <CollapsibleTrigger asChild>
                 <Button variant="ghost" size="icon" className="h-6 w-6">
@@ -438,6 +446,38 @@ export function UnifiedSidebar({ collapsed = false, onCollapsedChange }: Unified
             </div>
 
             <CollapsibleContent className="flex flex-1 flex-col overflow-hidden">
+              {/* Compact Search + Add Process Row */}
+              <div className="p-1.5 border-b flex items-center gap-1.5">
+                <div className="relative flex-1">
+                  <Search className="absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    placeholder="Search accounts..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="h-7 pl-7 text-xs"
+                  />
+                </div>
+                {selectedEntity && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setShowCreateProcess(true)}
+                        className="h-7 w-7 flex-shrink-0"
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="right">Add Process</TooltipContent>
+                  </Tooltip>
+                )}
+              </div>
+
+              {/* Reconciliation Tree */}
+              <ScrollArea className="flex-1">
+                <div className="p-2">
+                  {isLoadingReconciliations ? (
               {/* Reconciliation Category Tree */}
               <ScrollArea className="flex-1">
                 <div className="p-2">
@@ -497,6 +537,10 @@ export function UnifiedSidebar({ collapsed = false, onCollapsedChange }: Unified
                       <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
                     </div>
                   ) : (
+                    <ReconciliationTree
+                      nodes={reconciliationTree}
+                      selectedId={(selectedNode?.metadata?.reconciliationId as string | undefined) || selectedNode?.id || null}
+                      onSelect={handleReconciliationNodeSelect}
                     <PbcSidebarTree
                       nodes={pbcTree}
                       selectedId={selectedNode?.id || null}

@@ -97,6 +97,7 @@ const statusConfig: Record<ReconciliationStatus, {
   },
 };
 
+const DEFAULT_MATERIALITY_THRESHOLD = 1000;
 const MATERIALITY_THRESHOLD = 1000;
 
 const workflowTransitions: Record<ReconciliationStatus, ReconciliationStatus[]> = {
@@ -185,6 +186,8 @@ export function ReconciliationWorkspace({ reconciliationId, entityId, periodId }
 
   const variance = (parseFloat(glBalance) || 0) - (parseFloat(subBalance) || 0);
   const hasVariance = variance !== 0;
+  const materialityThreshold = reconciliation.objects?.variance_threshold ?? DEFAULT_MATERIALITY_THRESHOLD;
+  const isMaterialVariance = Math.abs(variance) > materialityThreshold;
   const isMaterialVariance = Math.abs(variance) > MATERIALITY_THRESHOLD;
 
   // Editable if not yet approved/certified
@@ -193,6 +196,7 @@ export function ReconciliationWorkspace({ reconciliationId, entityId, periodId }
   // Get template info
   const template = reconciliation.reconciliation_templates as ReconciliationTemplate | null;
 
+  const handleStatusChange = (newStatus: ReconciliationStatus, extraUpdates: Record<string, unknown> = {}) => {
   const handleStatusChange = (
     newStatus: ReconciliationStatus,
     extraUpdates: Record<string, unknown> = {}
@@ -215,6 +219,7 @@ export function ReconciliationWorkspace({ reconciliationId, entityId, periodId }
 
     if (requiresControlProof && isMaterialVariance) {
       if (!varianceExplanation.trim()) {
+        toast.error(`Variance explanation is required when variance exceeds ${materialityThreshold.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })}.`);
         toast.error(
           `Variance explanation is required when variance exceeds ${MATERIALITY_THRESHOLD.toLocaleString('en-US', {
             style: 'currency',
@@ -226,6 +231,7 @@ export function ReconciliationWorkspace({ reconciliationId, entityId, periodId }
       }
 
       if (attachments.length === 0) {
+        toast.error('Attach at least one evidence document before moving a material variance for review/approval.');
         toast.error(
           'Attach at least one evidence document before moving a material variance for review/approval.'
         );
@@ -456,6 +462,7 @@ export function ReconciliationWorkspace({ reconciliationId, entityId, periodId }
                 <div className="rounded-md border border-amber-400/50 bg-amber-50/60 p-3 text-xs text-amber-900 dark:border-amber-700/40 dark:bg-amber-950/20 dark:text-amber-200">
                   <div className="font-medium">Controls rule for material variances</div>
                   <div className="mt-1">
+                    Variances above {materialityThreshold.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })} require both an explanation and at least one evidence document before review/approval.
                     Variances above {MATERIALITY_THRESHOLD.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })} require both an explanation and at least one evidence document before review/approval.
                   </div>
                 </div>

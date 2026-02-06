@@ -64,6 +64,8 @@ export function ConsolidatedReconciliationDashboard({
     ],
   };
 
+  const dashboardData = showSampleData ? sampleData : data;
+  const hasLiveData = Boolean(data && data.totalReconciliations > 0);
   const hasLiveData = Boolean(data && data.totalReconciliations > 0);
   const dashboardData = showSampleData ? sampleData : data;
 
@@ -98,6 +100,16 @@ export function ConsolidatedReconciliationDashboard({
 
   return (
     <div className="space-y-6 p-6">
+      <div className="flex items-center justify-end">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setShowSampleData((current) => !current)}
+          disabled={!hasLiveData}
+        >
+          {showSampleData ? 'View live data' : 'View sample data'}
+        </Button>
+      </div>
       {(hasLiveData || showSampleData) && (
         <div className="flex items-center justify-end">
           <Button

@@ -17,6 +17,7 @@ import { isConsolidatedEntity } from '@/lib/entities';
 
 export function ReconciliationsPage() {
   const { selectedEntity, selectedPeriod, setSelectedEntity } = useModule();
+  const { selectedNode } = useSidebarSelection();
   const { 
     selectedReconciliationNode, 
     setSelectedReconciliationNode,
@@ -28,11 +29,25 @@ export function ReconciliationsPage() {
   const [viewMode, setViewMode] = useState<ViewMode>('dashboard');
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [importModalOpen, setImportModalOpen] = useState(false);
+  const [selectedReconciliationId, setSelectedReconciliationId] = useState<string | null>(null);
   const isConsolidated = isConsolidatedEntity(selectedEntity);
 
   // Get reconciliation ID from URL params or context
   const urlReconciliationId = searchParams.get('id');
   const urlEntityId = searchParams.get('entityId');
+  const sidebarReconciliationId = (selectedNode?.metadata?.reconciliationId as string | undefined) || null;
+  const activeReconciliationId = urlReconciliationId || sidebarReconciliationId || selectedReconciliationId;
+
+  useEffect(() => {
+    if (!urlEntityId || !entities.length) return;
+    if (selectedEntity?.id === urlEntityId) return;
+    const matchedEntity = entities.find(entity => entity.id === urlEntityId);
+    if (matchedEntity) {
+      setSelectedEntity(matchedEntity);
+    }
+  }, [entities, selectedEntity?.id, setSelectedEntity, urlEntityId]);
+
+  // When a reconciliation is selected from sidebar, show detail view
   const activeReconciliationId = urlReconciliationId || selectedReconciliationId;
 
   useEffect(() => {
@@ -82,6 +97,10 @@ export function ReconciliationsPage() {
     );
   }
 
+  const handleSelectReconciliation = (id: string) => {
+    setSelectedReconciliationId(id);
+    setSearchParams({
+      id,
   const handleSelectAccount = (reconciliationId: string) => {
     setSelectedReconciliationId(reconciliationId);
     setSearchParams({
@@ -101,6 +120,7 @@ export function ReconciliationsPage() {
 
   const handleBackToDashboard = () => {
     setSelectedReconciliationId(null);
+    setSearchParams({ entityId: selectedEntity.id });
     // Go back to folder view if a folder was selected
     if (selectedReconciliationNode) {
       setSearchParams({ entityId: selectedEntity.id });

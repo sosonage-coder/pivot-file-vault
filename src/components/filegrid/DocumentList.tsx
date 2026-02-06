@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { ApprovalActions } from './ApprovalActions';
+import type { AuditDocumentStatus, DocumentWithRelations, DocumentStatus, DocumentWorkflowStage } from '@/types/filegrid';
 import { ExternalLink, FileText } from 'lucide-react';
 import type {
   AuditDocumentStatus,
@@ -91,6 +92,7 @@ export function DocumentList({ documents, isLoading, auditMode = false }: Docume
         </TableHeader>
         <TableBody>
           {documents.map((doc) => (
+            <DocumentRow key={doc.id} doc={doc} onOpen={handleRowClick} auditMode={auditMode} />
             <DocumentRow key={doc.id} doc={doc} onOpen={handleRowOpen} auditMode={auditMode} />
           ))}
         </TableBody>
@@ -99,6 +101,16 @@ export function DocumentList({ documents, isLoading, auditMode = false }: Docume
   );
 }
 
+function getWorkflowStage(doc: DocumentWithRelations, approvalStatus?: string): DocumentWorkflowStage {
+  if (doc.status === 'Final') return 'Final';
+  if (approvalStatus === 'approved') return 'Reviewed';
+  if (approvalStatus === 'pending') return 'Ready for Review';
+  return 'Draft';
+}
+
+function DocumentRow({ doc, onOpen, auditMode }: { doc: DocumentWithRelations; onOpen: (url: string) => void; auditMode: boolean }) {
+  const { data: approval } = useDocumentApproval(doc.id);
+  const updateDocumentAudit = useUpdateDocumentAudit();
 function DocumentRow({
   doc,
   onOpen,
@@ -121,11 +133,22 @@ function DocumentRow({
   };
 
   return (
+    <TableRow
+      className="cursor-pointer hover:bg-muted/50"
+      onDoubleClick={() => onOpen(doc.external_file_url)}
+    >
     <TableRow className="cursor-pointer hover:bg-muted/50" onDoubleClick={() => onOpen(doc.external_file_url)}>
       <TableCell className="font-medium">
         <div className="flex items-center gap-2">
           <FileText className="h-4 w-4 text-muted-foreground" />
           <span className="truncate">{getRenderedFilename(doc)}</span>
+          {doc.version > 1 && (
+            <span className="text-xs text-muted-foreground">v{doc.version}</span>
+          )}
+        </div>
+      </TableCell>
+      <TableCell className="text-muted-foreground">{doc.objects?.name || '—'}</TableCell>
+      <TableCell className="text-muted-foreground">{doc.periods?.label || '—'}</TableCell>
           {doc.version > 1 && <span className="text-xs text-muted-foreground">v{doc.version}</span>}
         </div>
       </TableCell>
@@ -151,6 +174,7 @@ function DocumentRow({
           documentStatus={doc.status}
         />
       </TableCell>
+      <TableCell className="text-muted-foreground">{doc.document_types?.name || '—'}</TableCell>
 
       <TableCell className="text-muted-foreground">{doc.document_types?.name || '—'}</TableCell>
 
@@ -158,6 +182,10 @@ function DocumentRow({
         <TableCell>
           <Checkbox
             checked={doc.pbc_ready}
+            onCheckedChange={(checked) => updateDocumentAudit.mutate({ documentId: doc.id, pbcReady: checked === true })}
+          />
+        </TableCell>
+      )}
             onCheckedChange={(checked) =>
               updateDocumentAudit.mutate({ documentId: doc.id, pbcReady: checked === true })
             }
@@ -182,6 +210,9 @@ function DocumentRow({
           </Select>
         </TableCell>
       )}
+      <TableCell className="text-right text-muted-foreground">
+        <div className="flex items-center justify-end gap-2">
+          <span className="text-sm">{formatDistanceToNow(new Date(doc.updated_at), { addSuffix: true })}</span>
 
       <TableCell className="text-right text-muted-foreground">
         <div className="flex items-center justify-end gap-2">

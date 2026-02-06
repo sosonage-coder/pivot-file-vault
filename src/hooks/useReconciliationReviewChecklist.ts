@@ -23,12 +23,14 @@ export function useReconciliationReviewChecklist(reconciliationId: string | null
     queryFn: async () => {
       if (!reconciliationId) return null;
 
+      const { data, error } = await supabase
       const { data, error } = await (supabase as any)
         .from('reconciliation_review_checks')
         .select('*')
         .eq('reconciliation_id', reconciliationId)
         .maybeSingle();
 
+      if (error) throw error;
       if (error) {
         if (isMissingTableError(error)) {
           // Table doesn't exist yet, return null (placeholder behavior)
@@ -54,11 +56,21 @@ export function useUpsertReconciliationReviewChecklist() {
 
   return useMutation({
     mutationFn: async ({ reconciliationId, updates }: UpsertChecklistInput) => {
+      const { data, error } = await supabase
       const { data, error } = await (supabase as any)
         .from('reconciliation_review_checks')
         .upsert({
           reconciliation_id: reconciliationId,
           ...updates,
+        } as any)
+        .select('*')
+        .single();
+
+      if (error) throw error;
+      return data as ReconciliationReviewChecklist;
+    },
+    onSuccess: (_, vars) => {
+      queryClient.invalidateQueries({ queryKey: ['reconciliation-review-checklist', vars.reconciliationId] });
         })
         .select('*')
         .single();

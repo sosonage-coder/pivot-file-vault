@@ -44,6 +44,7 @@ export function PBCRequestsPage() {
   const objectRequests = pbcTree
     .flatMap((node) => collectRequestsForObject(node, selectedObjectId))
     .filter(Boolean)
+    .filter((request) => (auditMode ? request.status === 'Uploaded' || request.status === 'Reviewed' || request.status === 'Complete' : true))
     .filter((request) =>
       auditMode ? ['Uploaded', 'Reviewed', 'Complete'].includes(request.status) : true
     )
@@ -71,6 +72,8 @@ export function PBCRequestsPage() {
       ];
     });
 
+    const headers = ['Entity', 'Period', 'Process', 'Area', 'Object', 'Request', 'Status', 'PBC Phase', 'Priority', 'Due Date'];
+    const csv = [headers.join(','), ...rows.map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(','))].join('\n');
     const headers = [
       'Entity',
       'Period',
@@ -180,6 +183,7 @@ export function PBCRequestsPage() {
               onAddRequest={() => setShowAddRequest(true)}
               entityId={selectedEntity.id}
             />
+            <WhyEmptyPanel show={!isLoadingPbc && objectRequests.length === 0} contextLabel="PBC requests" />
             <WhyEmptyPanel
               show={!isLoadingPbc && objectRequests.length === 0}
               contextLabel="PBC requests"

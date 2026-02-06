@@ -8,6 +8,7 @@ import {
   CheckSquare,
   ClipboardList,
   FileText,
+  Sparkles,
   Scale,
   Shield,
   Users,
@@ -495,6 +496,17 @@ export function CommandCenterPage() {
             </Card>
           ) : (
             <>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-lg font-semibold">Executive Snapshot</h2>
+                  <p className="text-sm text-muted-foreground">Status, risk, and accountability at a glance.</p>
+                </div>
+                <Badge variant="outline" className="flex items-center gap-2 text-xs">
+                  <Sparkles className="h-3.5 w-3.5" />
+                  Latest period health
+                </Badge>
+              </div>
+
               <div className="grid gap-4 md:grid-cols-6">
                 <Card>
                   <CardHeader className="pb-2">
@@ -577,7 +589,8 @@ export function CommandCenterPage() {
                         </button>
                       ))
                     )}
-                    <div className="flex justify-end">
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+                      <span>Workstream coverage updates automatically.</span>
                       <Button variant="ghost" size="sm" onClick={() => navigate('/checklists')}>
                         View all work
                       </Button>
@@ -610,7 +623,8 @@ export function CommandCenterPage() {
                         </button>
                       ))
                     )}
-                    <div className="flex justify-end">
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+                      <span>Review load includes approvals and rejections.</span>
                       <Button variant="ghost" size="sm" onClick={() => navigate('/reconciliations')}>
                         View review queue
                       </Button>
@@ -670,6 +684,16 @@ export function CommandCenterPage() {
                     </div>
                   </CardContent>
                 </Card>
+              </div>
+
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-lg font-semibold">Operational Insights</h2>
+                  <p className="text-sm text-muted-foreground">Focus areas for this close cycle.</p>
+                </div>
+                <Button variant="outline" size="sm" onClick={() => navigate('/command-center')}>
+                  Refresh insights
+                </Button>
               </div>
 
               <div className="grid gap-4 xl:grid-cols-3">

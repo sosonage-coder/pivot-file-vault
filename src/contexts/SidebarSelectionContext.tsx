@@ -5,9 +5,12 @@ import type { ReconciliationFolderNode } from '@/components/reconciliations/Reco
 interface SidebarSelectionContextType {
   selectedNode: TreeNode | null;
   setSelectedNode: (node: TreeNode | null) => void;
-  // For reconciliations - hierarchical folder/account selection
+  // For reconciliations - hierarchical folder selection (category/subcategory)
   selectedReconciliationNode: ReconciliationFolderNode | null;
   setSelectedReconciliationNode: (node: ReconciliationFolderNode | null) => void;
+  // For reconciliations - selected account ID (when viewing detail)
+  selectedReconciliationId: string | null;
+  setSelectedReconciliationId: (id: string | null) => void;
 }
 
 const SidebarSelectionContext = createContext<SidebarSelectionContextType | undefined>(undefined);
@@ -19,6 +22,7 @@ interface SidebarSelectionProviderProps {
 export function SidebarSelectionProvider({ children }: SidebarSelectionProviderProps) {
   const [selectedNode, setSelectedNode] = useState<TreeNode | null>(null);
   const [selectedReconciliationNode, setSelectedReconciliationNode] = useState<ReconciliationFolderNode | null>(null);
+  const [selectedReconciliationId, setSelectedReconciliationId] = useState<string | null>(null);
 
   return (
     <SidebarSelectionContext.Provider value={{ 
@@ -26,6 +30,8 @@ export function SidebarSelectionProvider({ children }: SidebarSelectionProviderP
       setSelectedNode,
       selectedReconciliationNode,
       setSelectedReconciliationNode,
+      selectedReconciliationId,
+      setSelectedReconciliationId,
     }}>
       {children}
     </SidebarSelectionContext.Provider>

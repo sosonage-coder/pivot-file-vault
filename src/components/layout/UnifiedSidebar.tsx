@@ -130,7 +130,7 @@ export function UnifiedSidebar({ collapsed = false, onCollapsedChange }: Unified
   const location = useLocation();
   const { user, signOut } = useAuth();
   const { selectedEntity, setSelectedEntity, selectedPeriod } = useModule();
-  const { selectedNode, setSelectedNode, selectedReconciliationCategory, setSelectedReconciliationCategory } = useSidebarSelection();
+  const { selectedNode, setSelectedNode, selectedReconciliationNode, setSelectedReconciliationNode } = useSidebarSelection();
   const { data: entities = [] } = useEntities();
   const [searchQuery, setSearchQuery] = useState('');
   const [showCreateProcess, setShowCreateProcess] = useState(false);
@@ -211,10 +211,10 @@ export function UnifiedSidebar({ collapsed = false, onCollapsedChange }: Unified
     setSelectedNode(node);
   };
 
-  // Handle reconciliation category selection
-  const handleReconciliationCategorySelect = (category: ReconciliationTemplateType) => {
-    setSelectedReconciliationCategory(category);
-    setSelectedNode(null); // Clear specific reconciliation selection
+  // Handle reconciliation node selection (folder or account)
+  const handleReconciliationNodeSelect = (node: any) => {
+    setSelectedReconciliationNode(node);
+    setSelectedNode(null); // Clear generic node selection
   };
 
   // Handle PBC tree selection - convert to TreeNode format
@@ -441,11 +441,11 @@ export function UnifiedSidebar({ collapsed = false, onCollapsedChange }: Unified
               {/* Reconciliation Category Tree */}
               <ScrollArea className="flex-1">
                 <div className="p-2">
-                  <ReconciliationSidebarTree
+                <ReconciliationSidebarTree
                     entityId={selectedEntity?.id || null}
                     periodId={selectedPeriod?.id}
-                    selectedCategory={selectedReconciliationCategory}
-                    onSelectCategory={handleReconciliationCategorySelect}
+                    selectedId={selectedReconciliationNode?.id || null}
+                    onSelectNode={handleReconciliationNodeSelect}
                   />
                 </div>
               </ScrollArea>

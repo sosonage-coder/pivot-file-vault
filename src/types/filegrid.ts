@@ -5,6 +5,7 @@ export type PeriodType = 'month' | 'quarter' | 'year' | 'phase';
 export type PbcStatus = 'Requested' | 'Uploaded' | 'Reviewed' | 'Complete';
 export type AppRole = 'admin' | 'user' | 'external_reviewer';
 export type ApprovalStatus = 'pending' | 'approved' | 'rejected';
+export type AuditDocumentStatus = 'Requested' | 'Provided' | 'Complete';
 
 export interface Entity {
   id: string;
@@ -50,6 +51,9 @@ export interface Area {
   name: string;
   process_id: string;
   template_id: string | null;
+  owner_name: string | null;
+  reviewer_name: string | null;
+  approver_name: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -78,9 +82,15 @@ export interface FileObject {
   process_id: string;
   area_id: string;
   requires_approval: boolean;
+  owner_name: string | null;
+  reviewer_name: string | null;
+  approver_name: string | null;
+  variance_threshold: number | null;
   created_at: string;
   updated_at: string;
 }
+
+export type DocumentWorkflowStage = 'Draft' | 'Ready for Review' | 'Reviewed' | 'Final';
 
 export interface DocumentApproval {
   id: string;
@@ -107,6 +117,8 @@ export interface Document {
   version: number;
   external_file_url: string;
   notes: string | null;
+  pbc_ready: boolean;
+  audit_status: AuditDocumentStatus | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;

@@ -9,9 +9,11 @@ import {
   AlertTriangle,
   FileText,
   Plus,
+  ExternalLink,
   ChevronDown,
   Loader2
 } from 'lucide-react';
+import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -22,6 +24,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -39,6 +42,9 @@ import { EvidencePanel } from './EvidencePanel';
 import { ChecklistPanel } from './ChecklistPanel';
 import { ReconciliationDashboard } from './dashboard';
 import type { ReconciliationStatus, ReconciliationTemplate } from '@/types/reconciliations';
+import { useReconciliationReviewChecklist, useUpsertReconciliationReviewChecklist } from '@/hooks/useReconciliationReviewChecklist';
+import { useAuth } from '@/contexts/AuthContext';
+import { mapReconciliationToReviewState } from '@/lib/reviewState';
 
 interface ReconciliationWorkspaceProps {
   reconciliationId: string | null;
@@ -91,6 +97,8 @@ const statusConfig: Record<ReconciliationStatus, {
   },
 };
 
+const DEFAULT_MATERIALITY_THRESHOLD = 1000;
+
 const workflowTransitions: Record<ReconciliationStatus, ReconciliationStatus[]> = {
   not_started: ['in_progress'],
   in_progress: ['pending_review'],
@@ -100,11 +108,21 @@ const workflowTransitions: Record<ReconciliationStatus, ReconciliationStatus[]> 
   certified: [],
 };
 
+const TEMPLATE_REQUIRED_DOCS: Record<string, string[]> = {
+  bank: ['Bank statement', 'Bank reconciliation worksheet'],
+  accrual: ['Accrual roll-forward', 'Supporting journal entries'],
+  prepaid: ['Prepaid amortization schedule', 'Invoice support'],
+  fixed_asset: ['Fixed asset roll-forward', 'Depreciation schedule'],
+};
+
 export function ReconciliationWorkspace({ reconciliationId, entityId, periodId }: ReconciliationWorkspaceProps) {
+  const { user } = useAuth();
   const { data: reconciliation, isLoading, refetch: refetchReconciliation } = useReconciliation(reconciliationId);
   const { data: attachments = [] } = useReconciliationAttachments(reconciliationId);
+  const { data: reviewChecklist } = useReconciliationReviewChecklist(reconciliationId);
   const { data: lineItems = [], refetch: refetchLineItems } = useReconciliationLineItems(reconciliationId);
   const updateReconciliation = useUpdateReconciliation();
+  const upsertReviewChecklist = useUpsertReconciliationReviewChecklist();
   
   const [glBalance, setGlBalance] = useState<string>('');
   const [subBalance, setSubBalance] = useState<string>('');
@@ -163,9 +181,12 @@ export function ReconciliationWorkspace({ reconciliationId, entityId, periodId }
   const config = statusConfig[currentStatus];
   const StatusIcon = config.icon;
   const availableTransitions = workflowTransitions[currentStatus];
+  const sharedReviewState = mapReconciliationToReviewState(currentStatus);
 
   const variance = (parseFloat(glBalance) || 0) - (parseFloat(subBalance) || 0);
   const hasVariance = variance !== 0;
+  const materialityThreshold = reconciliation.objects?.variance_threshold ?? DEFAULT_MATERIALITY_THRESHOLD;
+  const isMaterialVariance = Math.abs(variance) > materialityThreshold;
 
   // Editable if not yet approved/certified
   const isEditable = !['approved', 'certified'].includes(currentStatus);
@@ -173,10 +194,38 @@ export function ReconciliationWorkspace({ reconciliationId, entityId, periodId }
   // Get template info
   const template = reconciliation.reconciliation_templates as ReconciliationTemplate | null;
 
-  const handleStatusChange = (newStatus: ReconciliationStatus) => {
+  const handleStatusChange = (newStatus: ReconciliationStatus, extraUpdates: Record<string, unknown> = {}) => {
+    const requiresControlProof = ['pending_review', 'approved', 'certified'].includes(newStatus);
+    const requiresReviewChecklist = ['approved', 'certified'].includes(newStatus);
+
+    if (requiresReviewChecklist) {
+      const checklistComplete =
+        !!reviewChecklist?.support_attached &&
+        !!reviewChecklist?.tie_out_complete &&
+        !!reviewChecklist?.variance_explained &&
+        !!reviewChecklist?.sign_off_complete;
+
+      if (!checklistComplete) {
+        toast.error('Complete the reviewer checklist before approving or certifying.');
+        return;
+      }
+    }
+
+    if (requiresControlProof && isMaterialVariance) {
+      if (!varianceExplanation.trim()) {
+        toast.error(`Variance explanation is required when variance exceeds ${materialityThreshold.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })}.`);
+        return;
+      }
+
+      if (attachments.length === 0) {
+        toast.error('Attach at least one evidence document before moving a material variance for review/approval.');
+        return;
+      }
+    }
+
     updateReconciliation.mutate({
       id: reconciliation.id,
-      updates: { status: newStatus },
+      updates: { status: newStatus, ...extraUpdates },
     });
   };
 
@@ -187,6 +236,48 @@ export function ReconciliationWorkspace({ reconciliationId, entityId, periodId }
         gl_balance: parseFloat(glBalance) || null,
         sub_balance: parseFloat(subBalance) || null,
         variance_explanation: varianceExplanation || null,
+      },
+    });
+  };
+
+  const handlePopOut = () => {
+    if (!reconciliation) return;
+    const entityParam = reconciliation.entity_id ? `&entityId=${reconciliation.entity_id}` : '';
+    window.open(`/reconciliations?id=${reconciliation.id}${entityParam}`, '_blank');
+  };
+
+  const requiredSupportDocs = TEMPLATE_REQUIRED_DOCS[template?.template_type || ''] || [];
+
+  const handleCertificationToggle = () => {
+    if (!reconciliation) return;
+    if (currentStatus === 'approved') {
+      handleStatusChange('certified', { certified_by: user?.id ?? null });
+      return;
+    }
+
+    if (currentStatus === 'certified') {
+      updateReconciliation.mutate({
+        id: reconciliation.id,
+        updates: {
+          status: 'approved',
+          certified_at: null,
+          certified_by: null,
+        },
+      });
+    }
+  };
+
+  const toggleReviewCheck = (key: 'support_attached' | 'tie_out_complete' | 'variance_explained' | 'sign_off_complete', checked: boolean) => {
+    if (!reconciliationId) return;
+
+    upsertReviewChecklist.mutate({
+      reconciliationId,
+      updates: {
+        support_attached: reviewChecklist?.support_attached ?? false,
+        tie_out_complete: reviewChecklist?.tie_out_complete ?? false,
+        variance_explained: reviewChecklist?.variance_explained ?? false,
+        sign_off_complete: reviewChecklist?.sign_off_complete ?? false,
+        [key]: checked,
       },
     });
   };
@@ -220,6 +311,14 @@ export function ReconciliationWorkspace({ reconciliationId, entityId, periodId }
               <StatusIcon className="h-3.5 w-3.5" />
               {config.label}
             </Badge>
+            <Badge variant="outline" className="uppercase text-[10px] tracking-wide">
+              {sharedReviewState.replace('_', ' ')}
+            </Badge>
+
+            <Button variant="outline" size="sm" onClick={handlePopOut}>
+              <ExternalLink className="mr-1.5 h-4 w-4" />
+              Pop Out
+            </Button>
             
             {availableTransitions.length > 0 && (
               <DropdownMenu>
@@ -246,10 +345,59 @@ export function ReconciliationWorkspace({ reconciliationId, entityId, periodId }
                 </DropdownMenuContent>
               </DropdownMenu>
             )}
+
+            {(currentStatus === 'approved' || currentStatus === 'certified') && (
+              <Button variant={currentStatus === 'certified' ? 'default' : 'outline'} size="sm" onClick={handleCertificationToggle}>
+                {currentStatus === 'certified' ? 'Certified for period' : 'Mark Certified'}
+              </Button>
+            )}
           </div>
         </div>
 
         <Separator />
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Reviewer Checklist</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-3 sm:grid-cols-2">
+            {[
+              { key: 'support_attached', label: 'Support attached' },
+              { key: 'tie_out_complete', label: 'Tie-out complete' },
+              { key: 'variance_explained', label: 'Variance explained' },
+              { key: 'sign_off_complete', label: 'Sign-off complete' },
+            ].map((item) => (
+              <label key={item.key} className="inline-flex items-center gap-2 text-sm">
+                <Checkbox
+                  checked={Boolean(reviewChecklist?.[item.key as 'support_attached' | 'tie_out_complete' | 'variance_explained' | 'sign_off_complete'])}
+                  onCheckedChange={(checked) => toggleReviewCheck(item.key as 'support_attached' | 'tie_out_complete' | 'variance_explained' | 'sign_off_complete', checked === true)}
+                />
+                {item.label}
+              </label>
+            ))}
+          </CardContent>
+        </Card>
+
+        {requiredSupportDocs.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Template Required Support</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {requiredSupportDocs.map((docName) => {
+                const matched = attachments.some((attachment) =>
+                  attachment.documents?.logical_name?.toLowerCase().includes(docName.toLowerCase())
+                );
+                return (
+                  <div key={docName} className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
+                    <span>{docName}</span>
+                    <Badge variant={matched ? 'default' : 'outline'}>{matched ? 'Linked' : 'Missing'}</Badge>
+                  </div>
+                );
+              })}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Balance Summary */}
         <Card>
@@ -294,18 +442,26 @@ export function ReconciliationWorkspace({ reconciliationId, entityId, periodId }
             </div>
             
             {hasVariance && (
-              <div>
-                <Label htmlFor="variance-explanation">Variance Explanation</Label>
-                <Textarea
-                  id="variance-explanation"
-                  value={varianceExplanation}
-                  onChange={(e) => setVarianceExplanation(e.target.value)}
-                  placeholder="Explain the variance..."
-                  className="mt-1.5"
-                  rows={3}
-                  disabled={!isEditable}
-                />
-              </div>
+              <>
+                <div className="rounded-md border border-amber-400/50 bg-amber-50/60 p-3 text-xs text-amber-900 dark:border-amber-700/40 dark:bg-amber-950/20 dark:text-amber-200">
+                  <div className="font-medium">Controls rule for material variances</div>
+                  <div className="mt-1">
+                    Variances above {materialityThreshold.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })} require both an explanation and at least one evidence document before review/approval.
+                  </div>
+                </div>
+                <div>
+                  <Label htmlFor="variance-explanation">Variance Explanation</Label>
+                  <Textarea
+                    id="variance-explanation"
+                    value={varianceExplanation}
+                    onChange={(e) => setVarianceExplanation(e.target.value)}
+                    placeholder="Explain the variance..."
+                    className="mt-1.5"
+                    rows={3}
+                    disabled={!isEditable}
+                  />
+                </div>
+              </>
             )}
             
             {isEditable && (

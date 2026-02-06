@@ -27,6 +27,7 @@ interface WorkspaceFilterBarProps {
   pivotColDimension?: PivotDimension | null;
   onRowDimensionChange?: (dim: PivotDimension | null) => void;
   onColDimensionChange?: (dim: PivotDimension | null) => void;
+  showExceptionsToggle?: boolean;
 }
 
 export function WorkspaceFilterBar({
@@ -42,9 +43,10 @@ export function WorkspaceFilterBar({
   pivotColDimension,
   onRowDimensionChange,
   onColDimensionChange,
+  showExceptionsToggle = true,
 }: WorkspaceFilterBarProps) {
   const { data: periods = [] } = usePeriods();
-  const { selectedPeriod, setSelectedPeriod } = useModule();
+  const { selectedPeriod, setSelectedPeriod, showExceptionsOnly, setShowExceptionsOnly } = useModule();
 
   // Extract selected year from current period
   const selectedYear = selectedPeriod?.label?.split('-')[0] || null;
@@ -107,6 +109,12 @@ export function WorkspaceFilterBar({
         onMonthsChange={handleMonthsChange}
       />
 
+      {!selectedPeriod && (
+        <div className="rounded-md border border-amber-300 bg-amber-50 px-2 py-1 text-[11px] text-amber-800 dark:border-amber-700/40 dark:bg-amber-950/20 dark:text-amber-200">
+          Period required
+        </div>
+      )}
+
       {/* Dimension Selectors */}
       {showDimensionSelectors && (
         <div className="flex items-center gap-3">
@@ -149,9 +157,22 @@ export function WorkspaceFilterBar({
           </div>
         </div>
       )}
+
+      {showExceptionsToggle && (
+        <div className="flex items-center gap-2 rounded-md border px-3 py-1.5">
+          <Checkbox
+            id="exceptions-only"
+            checked={showExceptionsOnly}
+            onCheckedChange={(checked) => setShowExceptionsOnly(checked === true)}
+            className="h-3.5 w-3.5"
+          />
+          <Label htmlFor="exceptions-only" className="text-xs font-normal cursor-pointer">
+            Exceptions only
+          </Label>
+        </div>
+      )}
     </div>
   );
 }
 
 export type { ViewMode };
-

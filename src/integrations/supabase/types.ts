@@ -84,26 +84,35 @@ export type Database = {
       }
       areas: {
         Row: {
+          approver_name: string | null
           created_at: string
           id: string
           name: string
+          owner_name: string | null
           process_id: string
+          reviewer_name: string | null
           template_id: string | null
           updated_at: string
         }
         Insert: {
+          approver_name?: string | null
           created_at?: string
           id?: string
           name: string
+          owner_name?: string | null
           process_id: string
+          reviewer_name?: string | null
           template_id?: string | null
           updated_at?: string
         }
         Update: {
+          approver_name?: string | null
           created_at?: string
           id?: string
           name?: string
+          owner_name?: string | null
           process_id?: string
+          reviewer_name?: string | null
           template_id?: string | null
           updated_at?: string
         }
@@ -408,6 +417,7 @@ export type Database = {
       }
       documents: {
         Row: {
+          audit_status: string | null
           area_id: string
           created_at: string
           created_by: string | null
@@ -419,6 +429,7 @@ export type Database = {
           logical_name: string
           notes: string | null
           object_id: string | null
+          pbc_ready: boolean
           period_id: string
           process_id: string
           status: Database["public"]["Enums"]["document_status"]
@@ -426,6 +437,7 @@ export type Database = {
           version: number
         }
         Insert: {
+          audit_status?: string | null
           area_id: string
           created_at?: string
           created_by?: string | null
@@ -437,6 +449,7 @@ export type Database = {
           logical_name: string
           notes?: string | null
           object_id?: string | null
+          pbc_ready?: boolean
           period_id: string
           process_id: string
           status?: Database["public"]["Enums"]["document_status"]
@@ -444,6 +457,7 @@ export type Database = {
           version?: number
         }
         Update: {
+          audit_status?: string | null
           area_id?: string
           created_at?: string
           created_by?: string | null
@@ -455,6 +469,7 @@ export type Database = {
           logical_name?: string
           notes?: string | null
           object_id?: string | null
+          pbc_ready?: boolean
           period_id?: string
           process_id?: string
           status?: Database["public"]["Enums"]["document_status"]
@@ -539,37 +554,49 @@ export type Database = {
       }
       objects: {
         Row: {
+          approver_name: string | null
           area_id: string
           created_at: string
           department_id: string
           entity_id: string
           id: string
           name: string
+          owner_name: string | null
           process_id: string
           requires_approval: boolean
+          reviewer_name: string | null
           updated_at: string
+          variance_threshold: number | null
         }
         Insert: {
+          approver_name?: string | null
           area_id: string
           created_at?: string
           department_id: string
           entity_id: string
           id?: string
           name: string
+          owner_name?: string | null
           process_id: string
           requires_approval?: boolean
+          reviewer_name?: string | null
           updated_at?: string
+          variance_threshold?: number | null
         }
         Update: {
+          approver_name?: string | null
           area_id?: string
           created_at?: string
           department_id?: string
           entity_id?: string
           id?: string
           name?: string
+          owner_name?: string | null
           process_id?: string
           requires_approval?: boolean
+          reviewer_name?: string | null
           updated_at?: string
+          variance_threshold?: number | null
         }
         Relationships: [
           {
@@ -1292,6 +1319,41 @@ export type Database = {
             columns: ["template_id"]
             isOneToOne: false
             referencedRelation: "reconciliation_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reconciliation_review_checks: {
+        Row: {
+          reconciliation_id: string
+          sign_off_complete: boolean
+          support_attached: boolean
+          tie_out_complete: boolean
+          updated_at: string
+          variance_explained: boolean
+        }
+        Insert: {
+          reconciliation_id: string
+          sign_off_complete?: boolean
+          support_attached?: boolean
+          tie_out_complete?: boolean
+          updated_at?: string
+          variance_explained?: boolean
+        }
+        Update: {
+          reconciliation_id?: string
+          sign_off_complete?: boolean
+          support_attached?: boolean
+          tie_out_complete?: boolean
+          updated_at?: string
+          variance_explained?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reconciliation_review_checks_reconciliation_id_fkey"
+            columns: ["reconciliation_id"]
+            isOneToOne: true
+            referencedRelation: "reconciliations"
             referencedColumns: ["id"]
           },
         ]

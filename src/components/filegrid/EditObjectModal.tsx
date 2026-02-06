@@ -28,6 +28,10 @@ import type { FileObject } from '@/types/filegrid';
 const formSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   requiresApproval: z.boolean(),
+  ownerName: z.string().optional(),
+  reviewerName: z.string().optional(),
+  approverName: z.string().optional(),
+  varianceThreshold: z.string().optional(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -54,6 +58,10 @@ export function EditObjectModal({ open, onOpenChange, object }: EditObjectModalP
       form.reset({
         name: object.name,
         requiresApproval: object.requires_approval || false,
+        ownerName: object.owner_name || '',
+        reviewerName: object.reviewer_name || '',
+        approverName: object.approver_name || '',
+        varianceThreshold: object.variance_threshold ? String(object.variance_threshold) : '',
       });
     }
   }, [object, form]);
@@ -62,10 +70,18 @@ export function EditObjectModal({ open, onOpenChange, object }: EditObjectModalP
     if (!object) return;
 
     try {
+      const trimmedThreshold = values.varianceThreshold?.trim() || '';
+      const parsedThreshold = trimmedThreshold ? Number(trimmedThreshold) : null;
+      const varianceThreshold = Number.isFinite(parsedThreshold) ? parsedThreshold : null;
+
       await updateObject.mutateAsync({
         objectId: object.id,
         name: values.name.trim(),
         requiresApproval: values.requiresApproval,
+        ownerName: values.ownerName?.trim() || null,
+        reviewerName: values.reviewerName?.trim() || null,
+        approverName: values.approverName?.trim() || null,
+        varianceThreshold,
       });
 
       toast({
@@ -134,6 +150,73 @@ export function EditObjectModal({ open, onOpenChange, object }: EditObjectModalP
                 </FormItem>
               )}
             />
+
+            <div className="grid gap-3">
+              <FormField
+                control={form.control}
+                name="ownerName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Owner (Preparer)</FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g., Team A" {...field} value={field.value || ''} />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="reviewerName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Reviewer</FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g., Controller" {...field} value={field.value || ''} />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="approverName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Approver (Optional)</FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g., Finance Director" {...field} value={field.value || ''} />
+                    </FormControl>
+                    <FormDescription>
+                      Tip: use approval-required for high-risk objects (Revenue, Cash, Accruals) and material variances.
+                    </FormDescription>
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="varianceThreshold"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Variance Threshold</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="1000"
+                        {...field}
+                        value={field.value || ''}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      Variances above this amount require an explanation and evidence before review.
+                    </FormDescription>
+                  </FormItem>
+                )}
+              />
+            </div>
 
             <DialogFooter>
               <Button

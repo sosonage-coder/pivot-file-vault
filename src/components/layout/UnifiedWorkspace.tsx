@@ -188,6 +188,9 @@ export function UnifiedWorkspace({ selectedNode, externalReviewMode }: UnifiedWo
           name: area.name,
           process_id: proc.id,
           template_id: null,
+          owner_name: null,
+          reviewer_name: null,
+          approver_name: null,
           created_at: '',
           updated_at: '',
         });

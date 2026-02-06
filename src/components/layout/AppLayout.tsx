@@ -3,6 +3,7 @@ import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { UnifiedSidebar } from './UnifiedSidebar';
+import { OnboardingGate } from '@/components/onboarding/OnboardingGate';
 
 export function AppLayout() {
   const { user, loading: authLoading } = useAuth();
@@ -31,11 +32,12 @@ export function AppLayout() {
 
   // Redirect root to default feature
   if (location.pathname === '/') {
-    return <Navigate to="/close" replace />;
+    return <Navigate to="/command-center" replace />;
   }
 
   return (
     <div className="flex h-screen w-full bg-background">
+      <OnboardingGate />
       <UnifiedSidebar
         collapsed={sidebarCollapsed}
         onCollapsedChange={setSidebarCollapsed}

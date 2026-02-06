@@ -28,7 +28,11 @@ export function useReconciliations(entityId: string | null, periodId?: string | 
             area_id,
             process_id,
             department_id,
-            areas (name),
+            owner_name,
+            reviewer_name,
+            approver_name,
+            variance_threshold,
+            areas (name, owner_name, reviewer_name, approver_name),
             processes (name)
           ),
           periods (label),
@@ -67,7 +71,11 @@ export function useReconciliation(reconciliationId: string | null) {
             area_id,
             process_id,
             department_id,
-            areas (name),
+            owner_name,
+            reviewer_name,
+            approver_name,
+            variance_threshold,
+            areas (name, owner_name, reviewer_name, approver_name),
             processes (name)
           ),
           periods (label),
@@ -258,6 +266,12 @@ export function useUpdateReconciliation() {
       }
       if (updates.status === 'certified' && !timestampedUpdates.certified_at) {
         timestampedUpdates.certified_at = new Date().toISOString();
+      }
+      if (updates.status === 'approved' && updates.certified_at === undefined) {
+        timestampedUpdates.certified_at = null;
+      }
+      if (updates.status === 'approved' && updates.certified_by === undefined) {
+        timestampedUpdates.certified_by = null;
       }
       
       const { data, error } = await supabase

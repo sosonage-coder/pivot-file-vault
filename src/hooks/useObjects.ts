@@ -38,7 +38,7 @@ export function useAllObjectsForEntity(entityId: string | null) {
         .from('objects')
         .select(`
           *,
-          areas (name),
+          areas (name, owner_name, reviewer_name, approver_name),
           processes (name)
         `)
         .eq('entity_id', entityId)
@@ -78,11 +78,66 @@ interface CreateObjectInput {
   areaId: string;
 }
 
+interface OwnershipDefaults {
+  owner_name: string | null;
+  reviewer_name: string | null;
+  approver_name: string | null;
+  requires_approval: boolean;
+  variance_threshold: number | null;
+}
+
+function getOwnershipDefaults(objectName: string): OwnershipDefaults {
+  const normalized = objectName.toLowerCase();
+
+  if (/(cash|bank)/.test(normalized)) {
+    return {
+      owner_name: 'Team A',
+      reviewer_name: 'Controller',
+      approver_name: 'Finance Director',
+      requires_approval: true,
+      variance_threshold: 1000,
+    };
+  }
+
+  if (/(revenue|accrual)/.test(normalized)) {
+    return {
+      owner_name: 'Accounting',
+      reviewer_name: 'Controller',
+      approver_name: 'CAO',
+      requires_approval: true,
+      variance_threshold: 1000,
+    };
+  }
+
+  return {
+    owner_name: null,
+    reviewer_name: null,
+    approver_name: null,
+    requires_approval: false,
+    variance_threshold: 1000,
+  };
+}
+
 export function useCreateObject() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (input: CreateObjectInput) => {
+      const ownershipDefaults = getOwnershipDefaults(input.name);
+      const { data: areaDefaults, error: areaError } = await supabase
+        .from('areas')
+        .select('owner_name, reviewer_name, approver_name')
+        .eq('id', input.areaId)
+        .maybeSingle();
+
+      if (areaError) throw areaError;
+
+      const roleDefaults = {
+        owner_name: areaDefaults?.owner_name ?? ownershipDefaults.owner_name,
+        reviewer_name: areaDefaults?.reviewer_name ?? ownershipDefaults.reviewer_name,
+        approver_name: areaDefaults?.approver_name ?? ownershipDefaults.approver_name,
+      };
+
       const { data, error } = await supabase
         .from('objects')
         .insert({
@@ -90,8 +145,10 @@ export function useCreateObject() {
           entity_id: input.entityId,
           department_id: input.departmentId,
           process_id: input.processId,
-          area_id: input.areaId
-        })
+          area_id: input.areaId,
+          ...ownershipDefaults,
+          ...roleDefaults,
+        } as any)
         .select()
         .single();
 
@@ -111,6 +168,10 @@ interface UpdateObjectInput {
   objectId: string;
   name: string;
   requiresApproval: boolean;
+  ownerName?: string | null;
+  reviewerName?: string | null;
+  approverName?: string | null;
+  varianceThreshold?: number | null;
 }
 
 export function useUpdateObject() {
@@ -123,7 +184,11 @@ export function useUpdateObject() {
         .update({
           name: input.name,
           requires_approval: input.requiresApproval,
-        })
+          owner_name: input.ownerName ?? null,
+          reviewer_name: input.reviewerName ?? null,
+          approver_name: input.approverName ?? null,
+          variance_threshold: input.varianceThreshold ?? null,
+        } as any)
         .eq('id', input.objectId)
         .select()
         .single();

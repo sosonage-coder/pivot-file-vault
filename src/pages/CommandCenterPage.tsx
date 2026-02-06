@@ -108,6 +108,8 @@ export function CommandCenterPage() {
     entityId: selectedEntityId,
     periodId: selectedPeriodId,
   });
+  const { data: expectedDocuments = [] } = useExpectedDocuments(selectedEntityId, selectedPeriodId);
+  const { data: expectedDocuments = [] } = useExpectedDocuments({ entityId: selectedEntityId, periodId: selectedPeriodId });
   const { data: myTasks = [] } = useTasks(selectedEntityId, {
     periodId: selectedPeriodId,
     assigneeId: user?.id ?? null,
@@ -282,6 +284,7 @@ export function CommandCenterPage() {
                   <CardHeader className="pb-2">
                     <CardDescription>My Open Work</CardDescription>
                     <CardTitle>{commandCenterMetrics.openMyWork + myObjectAssignments.length}</CardTitle>
+                    <CardTitle>{commandCenterMetrics.openMyWork}</CardTitle>
                   </CardHeader>
                 </Card>
               </div>

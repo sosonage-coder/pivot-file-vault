@@ -8,6 +8,7 @@ import { DocumentList } from '@/components/filegrid/DocumentList';
 import { UploadDocumentModal } from '@/components/filegrid/UploadDocumentModal';
 import { EditObjectModal } from '@/components/filegrid/EditObjectModal';
 import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useModule } from '@/contexts/ModuleContext';
 import { useSidebarSelection } from '@/contexts/SidebarSelectionContext';
@@ -39,6 +40,7 @@ export function DocumentsPage() {
     if (!urlEntityId || !entities.length) return;
     if (selectedEntity?.id === urlEntityId) return;
     const matchedEntity = entities.find((entity) => entity.id === urlEntityId);
+    const matchedEntity = entities.find(entity => entity.id === urlEntityId);
     if (matchedEntity) {
       setSelectedEntity(matchedEntity);
     }
@@ -50,6 +52,16 @@ export function DocumentsPage() {
 
   const { data: documents = [], isLoading: isLoadingDocs } = useDocuments({
     areaId: activeAreaId,
+    entityId: selectedEntity?.id || null,
+    periodId: selectedPeriod?.id || null,
+    objectId: activeObjectId,
+  });
+
+  const { data: expectedDocuments = [] } = useExpectedDocuments({
+    entityId: selectedEntity?.id || null,
+    periodId: selectedPeriod?.id || null,
+  });
+
     entityId: selectedEntity?.id || null,
     periodId: selectedPeriod?.id || null,
     objectId: activeObjectId,
@@ -109,6 +121,7 @@ export function DocumentsPage() {
     );
   }
 
+  // Check if we have an area selected (either directly or via object) for upload
   const canUpload = selectedNode && (
     selectedNode.type === 'area' ||
     (selectedNode.type === 'object' && selectedNode.metadata?.area_id)
@@ -142,6 +155,20 @@ export function DocumentsPage() {
       return urlObject.name;
     }
 
+      
+      if (selectedNode.metadata?.department_name) {
+        parts.push(selectedNode.metadata.department_name as string);
+      }
+      
+      parts.push(selectedNode.name);
+      
+      return parts.join(' / ');
+    }
+
+    if (urlObject) {
+      return urlObject.name;
+    }
+
     return '';
   };
 
@@ -164,6 +191,8 @@ export function DocumentsPage() {
         {selectedNode || urlObject ? (
           <div className="space-y-4">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <div>
+            <div className="mb-4 flex items-center gap-2 text-sm text-muted-foreground">
               <FolderOpen className="h-4 w-4" />
               <span>{getBreadcrumb()}</span>
             </div>

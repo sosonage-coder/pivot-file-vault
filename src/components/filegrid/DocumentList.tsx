@@ -15,6 +15,9 @@ import type { AuditDocumentStatus, DocumentWithRelations, DocumentStatus, Docume
 import { formatDistanceToNow } from 'date-fns';
 import { useDocumentApproval } from '@/hooks/useApprovals';
 import { useUpdateDocumentAudit } from '@/hooks/useDocumentAudit';
+import type { DocumentWithRelations, DocumentStatus, DocumentWorkflowStage } from '@/types/filegrid';
+import { formatDistanceToNow } from 'date-fns';
+import { useDocumentApproval } from '@/hooks/useApprovals';
 
 interface DocumentListProps {
   documents: DocumentWithRelations[];
@@ -82,6 +85,7 @@ export function DocumentList({ documents, isLoading, auditMode = false }: Docume
         <TableBody>
           {documents.map((doc) => (
             <DocumentRow key={doc.id} doc={doc} onOpen={handleRowClick} auditMode={auditMode} />
+            <DocumentRow key={doc.id} doc={doc} onOpen={handleRowClick} />
           ))}
         </TableBody>
       </Table>
@@ -107,6 +111,10 @@ function DocumentRow({ doc, onOpen, auditMode }: { doc: DocumentWithRelations; o
       auditStatus: status,
     });
   };
+
+function DocumentRow({ doc, onOpen }: { doc: DocumentWithRelations; onOpen: (url: string) => void }) {
+  const { data: approval } = useDocumentApproval(doc.id);
+  const workflowStage = getWorkflowStage(doc, approval?.status);
 
   return (
     <TableRow

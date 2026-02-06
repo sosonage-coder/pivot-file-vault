@@ -2,11 +2,13 @@ import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Activity,
+  AlertTriangle,
   ArrowRight,
   Building2,
   CalendarClock,
   CheckSquare,
   ClipboardList,
+  Clock3,
   FileText,
   Scale,
   Shield,
@@ -186,6 +188,16 @@ export function CommandCenterPage() {
       .slice(0, 10);
   }, [reconciliations]);
 
+  const stuckInReview = useMemo(
+    () => reconciliations.filter((recon) => recon.status === 'pending_review').slice(0, 8),
+    [reconciliations]
+  );
+
+  const myWorkQueue = useMemo(
+    () => myTasks.filter((task) => task.status !== 'completed' && task.status !== 'cancelled').slice(0, 8),
+    [myTasks]
+  );
+
   const myObjectAssignments = useMemo(() => {
     const identifier = user?.email?.toLowerCase();
     if (!identifier) return [];
@@ -308,6 +320,10 @@ export function CommandCenterPage() {
     const weight = { high: 3, medium: 2, low: 1 };
     return items.sort((a, b) => weight[b.severity] - weight[a.severity]).slice(0, 14);
   }, [expectedDocuments, reconciliations, pbcItems, myTasks, selectedEntityId]);
+  const myMissingDeliverables = useMemo(() => {
+    const objectIdSet = new Set(myObjectAssignments.map((obj: any) => obj.id));
+    return expectedDocuments.filter((doc) => doc.required && !doc.uploaded && doc.document?.object_id && objectIdSet.has(doc.document.object_id)).length;
+  }, [expectedDocuments, myObjectAssignments]);
 
   return (
     <FeatureLayout
@@ -381,6 +397,7 @@ export function CommandCenterPage() {
                   <CardHeader className="pb-2">
                     <CardDescription>My Open Work</CardDescription>
                     <CardTitle>{commandCenterMetrics.openMyWork + myObjectAssignments.length}</CardTitle>
+                    <CardTitle>{commandCenterMetrics.openMyWork}</CardTitle>
                   </CardHeader>
                 </Card>
               </div>
@@ -486,6 +503,50 @@ export function CommandCenterPage() {
                             </Badge>
                           </button>
                         ))}
+                    <CardTitle>My Work / My Reviews</CardTitle>
+                    <CardDescription>Open preparer and reviewer queue.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {myWorkQueue.length === 0 && stuckInReview.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">Nothing assigned or pending review right now.</p>
+                    ) : (
+                      <>
+                        {myObjectAssignments.slice(0, 4).map((obj: any) => (
+                          <div key={obj.id} className="rounded-md border border-blue-300/60 bg-blue-50/40 p-2 dark:bg-blue-950/10">
+                            <p className="text-sm font-medium">{obj.name}</p>
+                            <p className="mt-1 text-xs text-muted-foreground">Object assignment • {obj.areas?.name || 'Area'}</p>
+                          </div>
+                        ))}
+
+                        {myWorkQueue.map((task) => (
+                          <div key={task.id} className="rounded-md border p-2">
+                            <p className="text-sm font-medium">{task.title}</p>
+                            <p className="mt-1 text-xs text-muted-foreground inline-flex items-center gap-1">
+                              <Clock3 className="h-3.5 w-3.5" />
+                              {task.due_date || 'No due date'}
+                            </p>
+                          </div>
+                        ))}
+
+                        {stuckInReview.slice(0, 3).map((recon) => (
+                          <div key={recon.id} className="rounded-md border border-amber-300/70 p-2">
+                            <p className="text-sm font-medium">{recon.objects?.name || 'Reconciliation'}</p>
+                            <p className="mt-1 text-xs text-muted-foreground inline-flex items-center gap-1">
+                              <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
+                              Pending review
+                            </p>
+                          </div>
+                        ))}
+
+                        {myMissingDeliverables > 0 && (
+                          <div className="rounded-md border border-amber-300/70 p-2">
+                            <p className="text-sm font-medium">Required deliverables pending</p>
+                            <p className="mt-1 text-xs text-muted-foreground inline-flex items-center gap-1">
+                              <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
+                              {myMissingDeliverables} required document(s) still missing for your objects
+                            </p>
+                          </div>
+                        )}
                       </>
                     )}
                   </CardContent>

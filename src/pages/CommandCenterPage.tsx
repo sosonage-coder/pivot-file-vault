@@ -25,6 +25,7 @@ import { useReconciliations, useReconciliationStats } from '@/hooks/useReconcili
 import { useExpectedDocuments } from '@/hooks/useExpectedDocuments';
 import { useTasks } from '@/hooks/useTasks';
 import { isConsolidatedEntity } from '@/lib/entities';
+import { useAllObjectsForEntity } from '@/hooks/useObjects';
 
 const QUICK_LINKS = [
   {
@@ -103,12 +104,17 @@ export function CommandCenterPage() {
 
   const { data: reconciliations = [] } = useReconciliations(selectedEntityId, selectedPeriodId);
   const { data: reconciliationStats } = useReconciliationStats(selectedEntityId, selectedPeriodId);
+  const { data: expectedDocuments = [] } = useExpectedDocuments({
+    entityId: selectedEntityId,
+    periodId: selectedPeriodId,
+  });
   const { data: expectedDocuments = [] } = useExpectedDocuments(selectedEntityId, selectedPeriodId);
   const { data: expectedDocuments = [] } = useExpectedDocuments({ entityId: selectedEntityId, periodId: selectedPeriodId });
   const { data: myTasks = [] } = useTasks(selectedEntityId, {
     periodId: selectedPeriodId,
     assigneeId: user?.id ?? null,
   });
+  const { data: objects = [] } = useAllObjectsForEntity(selectedEntityId);
 
   const contextualSummary = useMemo(() => {
     return [
@@ -189,6 +195,23 @@ export function CommandCenterPage() {
     [myTasks]
   );
 
+  const myObjectAssignments = useMemo(() => {
+    const identifier = user?.email?.toLowerCase();
+    if (!identifier) return [];
+
+    return objects.filter((obj: any) => {
+      const owner = (obj.owner_name || '').toLowerCase();
+      const reviewer = (obj.reviewer_name || '').toLowerCase();
+      const approver = (obj.approver_name || '').toLowerCase();
+      return owner === identifier || reviewer === identifier || approver === identifier;
+    });
+  }, [objects, user?.email]);
+
+  const myMissingDeliverables = useMemo(() => {
+    const objectIdSet = new Set(myObjectAssignments.map((obj: any) => obj.id));
+    return expectedDocuments.filter((doc) => doc.required && !doc.uploaded && doc.document?.object_id && objectIdSet.has(doc.document.object_id)).length;
+  }, [expectedDocuments, myObjectAssignments]);
+
   return (
     <FeatureLayout
       title="Command Center"
@@ -260,6 +283,7 @@ export function CommandCenterPage() {
                 <Card>
                   <CardHeader className="pb-2">
                     <CardDescription>My Open Work</CardDescription>
+                    <CardTitle>{commandCenterMetrics.openMyWork + myObjectAssignments.length}</CardTitle>
                     <CardTitle>{commandCenterMetrics.openMyWork}</CardTitle>
                   </CardHeader>
                 </Card>
@@ -326,6 +350,13 @@ export function CommandCenterPage() {
                       <p className="text-sm text-muted-foreground">Nothing assigned or pending review right now.</p>
                     ) : (
                       <>
+                        {myObjectAssignments.slice(0, 4).map((obj: any) => (
+                          <div key={obj.id} className="rounded-md border border-blue-300/60 bg-blue-50/40 p-2 dark:bg-blue-950/10">
+                            <p className="text-sm font-medium">{obj.name}</p>
+                            <p className="mt-1 text-xs text-muted-foreground">Object assignment • {obj.areas?.name || 'Area'}</p>
+                          </div>
+                        ))}
+
                         {myWorkQueue.map((task) => (
                           <div key={task.id} className="rounded-md border p-2">
                             <p className="text-sm font-medium">{task.title}</p>
@@ -345,6 +376,16 @@ export function CommandCenterPage() {
                             </p>
                           </div>
                         ))}
+
+                        {myMissingDeliverables > 0 && (
+                          <div className="rounded-md border border-amber-300/70 p-2">
+                            <p className="text-sm font-medium">Required deliverables pending</p>
+                            <p className="mt-1 text-xs text-muted-foreground inline-flex items-center gap-1">
+                              <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
+                              {myMissingDeliverables} required document(s) still missing for your objects
+                            </p>
+                          </div>
+                        )}
                       </>
                     )}
                   </CardContent>

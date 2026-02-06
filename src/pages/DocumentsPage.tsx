@@ -62,6 +62,16 @@ export function DocumentsPage() {
     periodId: selectedPeriod?.id || null,
   });
 
+    entityId: selectedEntity?.id || null,
+    periodId: selectedPeriod?.id || null,
+    objectId: activeObjectId,
+  });
+
+  const { data: expectedDocuments = [] } = useExpectedDocuments({
+    entityId: selectedEntity?.id || null,
+    periodId: selectedPeriod?.id || null,
+  });
+
   const requirementsForSelection = useMemo(() => {
     if (!activeAreaId) return [];
     return expectedDocuments.filter((doc) => doc.areaId === activeAreaId);

@@ -3,8 +3,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { ApprovalActions } from './ApprovalActions';
-import type { DocumentWithRelations, DocumentStatus } from '@/types/filegrid';
+import type { DocumentWithRelations, DocumentStatus, DocumentWorkflowStage } from '@/types/filegrid';
 import { formatDistanceToNow } from 'date-fns';
+import { useDocumentApproval } from '@/hooks/useApprovals';
 
 interface DocumentListProps {
   documents: DocumentWithRelations[];
@@ -68,56 +69,65 @@ export function DocumentList({ documents, isLoading }: DocumentListProps) {
         </TableHeader>
         <TableBody>
           {documents.map((doc) => (
-            <TableRow 
-              key={doc.id}
-              className="cursor-pointer hover:bg-muted/50"
-              onDoubleClick={() => handleRowClick(doc.external_file_url)}
-            >
-              <TableCell className="font-medium">
-                <div className="flex items-center gap-2">
-                  <FileText className="h-4 w-4 text-muted-foreground" />
-                  <span className="truncate">{getRenderedFilename(doc)}</span>
-                  {doc.version > 1 && (
-                    <span className="text-xs text-muted-foreground">v{doc.version}</span>
-                  )}
-                </div>
-              </TableCell>
-              <TableCell className="text-muted-foreground">
-                {doc.objects?.name || '—'}
-              </TableCell>
-              <TableCell className="text-muted-foreground">
-                {doc.periods?.label || '—'}
-              </TableCell>
-              <TableCell>
-                <Badge 
-                  variant="secondary" 
-                  className={cn('text-xs', statusColors[doc.status])}
-                >
-                  {doc.status}
-                </Badge>
-              </TableCell>
-<TableCell>
-                <ApprovalActions 
-                  documentId={doc.id}
-                  objectRequiresApproval={doc.objects?.requires_approval}
-                  documentStatus={doc.status}
-                />
-              </TableCell>
-              <TableCell className="text-muted-foreground">
-                {doc.document_types?.name || '—'}
-              </TableCell>
-              <TableCell className="text-right text-muted-foreground">
-                <div className="flex items-center justify-end gap-2">
-                  <span className="text-sm">
-                    {formatDistanceToNow(new Date(doc.updated_at), { addSuffix: true })}
-                  </span>
-                  <ExternalLink className="h-3.5 w-3.5 opacity-50" />
-                </div>
-              </TableCell>
-            </TableRow>
+            <DocumentRow key={doc.id} doc={doc} onOpen={handleRowClick} />
           ))}
         </TableBody>
       </Table>
     </div>
+  );
+}
+
+function getWorkflowStage(doc: DocumentWithRelations, approvalStatus?: string): DocumentWorkflowStage {
+  if (doc.status === 'Final') return 'Final';
+  if (approvalStatus === 'approved') return 'Reviewed';
+  if (approvalStatus === 'pending') return 'Ready for Review';
+  return 'Draft';
+}
+
+function DocumentRow({ doc, onOpen }: { doc: DocumentWithRelations; onOpen: (url: string) => void }) {
+  const { data: approval } = useDocumentApproval(doc.id);
+  const workflowStage = getWorkflowStage(doc, approval?.status);
+
+  return (
+    <TableRow
+      className="cursor-pointer hover:bg-muted/50"
+      onDoubleClick={() => onOpen(doc.external_file_url)}
+    >
+      <TableCell className="font-medium">
+        <div className="flex items-center gap-2">
+          <FileText className="h-4 w-4 text-muted-foreground" />
+          <span className="truncate">{getRenderedFilename(doc)}</span>
+          {doc.version > 1 && (
+            <span className="text-xs text-muted-foreground">v{doc.version}</span>
+          )}
+        </div>
+      </TableCell>
+      <TableCell className="text-muted-foreground">{doc.objects?.name || '—'}</TableCell>
+      <TableCell className="text-muted-foreground">{doc.periods?.label || '—'}</TableCell>
+      <TableCell>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <Badge variant="secondary" className={cn('text-xs', statusColors[doc.status])}>
+            {doc.status}
+          </Badge>
+          <Badge variant="outline" className="text-[10px] uppercase tracking-wide">
+            {workflowStage}
+          </Badge>
+        </div>
+      </TableCell>
+      <TableCell>
+        <ApprovalActions
+          documentId={doc.id}
+          objectRequiresApproval={doc.objects?.requires_approval}
+          documentStatus={doc.status}
+        />
+      </TableCell>
+      <TableCell className="text-muted-foreground">{doc.document_types?.name || '—'}</TableCell>
+      <TableCell className="text-right text-muted-foreground">
+        <div className="flex items-center justify-end gap-2">
+          <span className="text-sm">{formatDistanceToNow(new Date(doc.updated_at), { addSuffix: true })}</span>
+          <ExternalLink className="h-3.5 w-3.5 opacity-50" />
+        </div>
+      </TableCell>
+    </TableRow>
   );
 }

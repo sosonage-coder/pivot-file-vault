@@ -24,6 +24,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -41,6 +42,7 @@ import { EvidencePanel } from './EvidencePanel';
 import { ChecklistPanel } from './ChecklistPanel';
 import { ReconciliationDashboard } from './dashboard';
 import type { ReconciliationStatus, ReconciliationTemplate } from '@/types/reconciliations';
+import { useReconciliationReviewChecklist, useUpsertReconciliationReviewChecklist } from '@/hooks/useReconciliationReviewChecklist';
 
 interface ReconciliationWorkspaceProps {
   reconciliationId: string | null;
@@ -107,8 +109,10 @@ const workflowTransitions: Record<ReconciliationStatus, ReconciliationStatus[]> 
 export function ReconciliationWorkspace({ reconciliationId, entityId, periodId }: ReconciliationWorkspaceProps) {
   const { data: reconciliation, isLoading, refetch: refetchReconciliation } = useReconciliation(reconciliationId);
   const { data: attachments = [] } = useReconciliationAttachments(reconciliationId);
+  const { data: reviewChecklist } = useReconciliationReviewChecklist(reconciliationId);
   const { data: lineItems = [], refetch: refetchLineItems } = useReconciliationLineItems(reconciliationId);
   const updateReconciliation = useUpdateReconciliation();
+  const upsertReviewChecklist = useUpsertReconciliationReviewChecklist();
   
   const [glBalance, setGlBalance] = useState<string>('');
   const [subBalance, setSubBalance] = useState<string>('');
@@ -180,6 +184,20 @@ export function ReconciliationWorkspace({ reconciliationId, entityId, periodId }
 
   const handleStatusChange = (newStatus: ReconciliationStatus) => {
     const requiresControlProof = ['pending_review', 'approved', 'certified'].includes(newStatus);
+    const requiresReviewChecklist = ['approved', 'certified'].includes(newStatus);
+
+    if (requiresReviewChecklist) {
+      const checklistComplete =
+        !!reviewChecklist?.support_attached &&
+        !!reviewChecklist?.tie_out_complete &&
+        !!reviewChecklist?.variance_explained &&
+        !!reviewChecklist?.sign_off_complete;
+
+      if (!checklistComplete) {
+        toast.error('Complete the reviewer checklist before approving or certifying.');
+        return;
+      }
+    }
 
     if (requiresControlProof && isMaterialVariance) {
       if (!varianceExplanation.trim()) {
@@ -214,6 +232,21 @@ export function ReconciliationWorkspace({ reconciliationId, entityId, periodId }
     if (!reconciliation) return;
     const entityParam = reconciliation.entity_id ? `&entityId=${reconciliation.entity_id}` : '';
     window.open(`/reconciliations?id=${reconciliation.id}${entityParam}`, '_blank');
+  };
+
+  const toggleReviewCheck = (key: 'support_attached' | 'tie_out_complete' | 'variance_explained' | 'sign_off_complete', checked: boolean) => {
+    if (!reconciliationId) return;
+
+    upsertReviewChecklist.mutate({
+      reconciliationId,
+      updates: {
+        support_attached: reviewChecklist?.support_attached ?? false,
+        tie_out_complete: reviewChecklist?.tie_out_complete ?? false,
+        variance_explained: reviewChecklist?.variance_explained ?? false,
+        sign_off_complete: reviewChecklist?.sign_off_complete ?? false,
+        [key]: checked,
+      },
+    });
   };
 
   return (
@@ -280,6 +313,28 @@ export function ReconciliationWorkspace({ reconciliationId, entityId, periodId }
         </div>
 
         <Separator />
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Reviewer Checklist</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-3 sm:grid-cols-2">
+            {[
+              { key: 'support_attached', label: 'Support attached' },
+              { key: 'tie_out_complete', label: 'Tie-out complete' },
+              { key: 'variance_explained', label: 'Variance explained' },
+              { key: 'sign_off_complete', label: 'Sign-off complete' },
+            ].map((item) => (
+              <label key={item.key} className="inline-flex items-center gap-2 text-sm">
+                <Checkbox
+                  checked={Boolean(reviewChecklist?.[item.key as 'support_attached' | 'tie_out_complete' | 'variance_explained' | 'sign_off_complete'])}
+                  onCheckedChange={(checked) => toggleReviewCheck(item.key as 'support_attached' | 'tie_out_complete' | 'variance_explained' | 'sign_off_complete', checked === true)}
+                />
+                {item.label}
+              </label>
+            ))}
+          </CardContent>
+        </Card>
 
         {/* Balance Summary */}
         <Card>

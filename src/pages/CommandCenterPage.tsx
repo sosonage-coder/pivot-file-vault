@@ -481,7 +481,9 @@ export function CommandCenterPage() {
                 <Card>
                   <CardHeader>
                     <CardTitle>Exceptions Feed</CardTitle>
-                    <CardDescription>Global queue: missing docs, pending/rejected reviews, incomplete PBC, and overdue tasks.</CardDescription>
+                    <CardDescription>
+                      Global queue: missing docs, pending/rejected reviews, incomplete PBC, and overdue tasks.
+                    </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-3">
                     {exceptionsFeed.length === 0 ? (
@@ -498,30 +500,51 @@ export function CommandCenterPage() {
                               <p className="text-sm font-medium">{item.label}</p>
                               <p className="mt-1 text-xs text-muted-foreground">{item.detail}</p>
                             </div>
-                            <Badge variant="outline" className={item.severity === 'high' ? 'border-red-400 text-red-700' : 'border-amber-400 text-amber-700'}>
+                            <Badge
+                              variant="outline"
+                              className={
+                                item.severity === 'high'
+                                  ? 'border-red-400 text-red-700'
+                                  : 'border-amber-400 text-amber-700'
+                              }
+                            >
                               {item.severity}
                             </Badge>
                           </button>
                         ))}
+                      </>
+                    )}
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
                     <CardTitle>My Work / My Reviews</CardTitle>
                     <CardDescription>Open preparer and reviewer queue.</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-3">
                     {myWorkQueue.length === 0 && stuckInReview.length === 0 ? (
-                      <p className="text-sm text-muted-foreground">Nothing assigned or pending review right now.</p>
+                      <p className="text-sm text-muted-foreground">
+                        Nothing assigned or pending review right now.
+                      </p>
                     ) : (
                       <>
                         {myObjectAssignments.slice(0, 4).map((obj: any) => (
-                          <div key={obj.id} className="rounded-md border border-blue-300/60 bg-blue-50/40 p-2 dark:bg-blue-950/10">
+                          <div
+                            key={obj.id}
+                            className="rounded-md border border-blue-300/60 bg-blue-50/40 p-2 dark:bg-blue-950/10"
+                          >
                             <p className="text-sm font-medium">{obj.name}</p>
-                            <p className="mt-1 text-xs text-muted-foreground">Object assignment • {obj.areas?.name || 'Area'}</p>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              Object assignment • {obj.areas?.name || 'Area'}
+                            </p>
                           </div>
                         ))}
 
                         {myWorkQueue.map((task) => (
                           <div key={task.id} className="rounded-md border p-2">
                             <p className="text-sm font-medium">{task.title}</p>
-                            <p className="mt-1 text-xs text-muted-foreground inline-flex items-center gap-1">
+                            <p className="mt-1 inline-flex items-center gap-1 text-xs text-muted-foreground">
                               <Clock3 className="h-3.5 w-3.5" />
                               {task.due_date || 'No due date'}
                             </p>
@@ -530,8 +553,10 @@ export function CommandCenterPage() {
 
                         {stuckInReview.slice(0, 3).map((recon) => (
                           <div key={recon.id} className="rounded-md border border-amber-300/70 p-2">
-                            <p className="text-sm font-medium">{recon.objects?.name || 'Reconciliation'}</p>
-                            <p className="mt-1 text-xs text-muted-foreground inline-flex items-center gap-1">
+                            <p className="text-sm font-medium">
+                              {recon.objects?.name || 'Reconciliation'}
+                            </p>
+                            <p className="mt-1 inline-flex items-center gap-1 text-xs text-muted-foreground">
                               <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
                               Pending review
                             </p>
@@ -541,7 +566,7 @@ export function CommandCenterPage() {
                         {myMissingDeliverables > 0 && (
                           <div className="rounded-md border border-amber-300/70 p-2">
                             <p className="text-sm font-medium">Required deliverables pending</p>
-                            <p className="mt-1 text-xs text-muted-foreground inline-flex items-center gap-1">
+                            <p className="mt-1 inline-flex items-center gap-1 text-xs text-muted-foreground">
                               <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
                               {myMissingDeliverables} required document(s) still missing for your objects
                             </p>

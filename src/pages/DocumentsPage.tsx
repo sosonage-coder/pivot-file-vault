@@ -1,9 +1,12 @@
 import { AlertTriangle, Download, FileText, Upload, FolderOpen } from 'lucide-react';
-import { AlertTriangle, FileText, Upload, FolderOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { FeatureLayout, FeatureContent, FeatureEmptyState } from '@/components/layout/FeatureLayout';
+import {
+  FeatureLayout,
+  FeatureContent,
+  FeatureEmptyState,
+} from '@/components/layout/FeatureLayout';
 import { WorkspaceFilterBar } from '@/components/layout/WorkspaceFilterBar';
 import { DocumentList } from '@/components/filegrid/DocumentList';
 import { UploadDocumentModal } from '@/components/filegrid/UploadDocumentModal';
@@ -21,54 +24,41 @@ import { isConsolidatedEntity } from '@/lib/entities';
 
 export function DocumentsPage() {
   const { selectedEntity, selectedPeriod, setSelectedEntity, showExceptionsOnly } = useModule();
-  const { selectedEntity, selectedPeriod, setSelectedEntity } = useModule();
   const { selectedNode } = useSidebarSelection();
   const { data: entities = [] } = useEntities();
+
   const [showUpload, setShowUpload] = useState(false);
   const [editingObjectId, setEditingObjectId] = useState<string | null>(null);
   const [auditMode, setAuditMode] = useState(false);
+
   const [searchParams] = useSearchParams();
   const urlObjectId = searchParams.get('objectId');
   const urlEntityId = searchParams.get('entityId');
 
-  const selectedAreaId = selectedNode?.type === 'area'
-    ? selectedNode.id
-    : selectedNode?.type === 'object'
-      ? (selectedNode.metadata?.area_id as string)
-      : null;
+  const selectedAreaId =
+    selectedNode?.type === 'area'
+      ? selectedNode.id
+      : selectedNode?.type === 'object'
+        ? (selectedNode.metadata?.area_id as string)
+        : null;
 
   const selectedObjectId = selectedNode?.type === 'object' ? selectedNode.id : null;
 
   useEffect(() => {
     if (!urlEntityId || !entities.length) return;
     if (selectedEntity?.id === urlEntityId) return;
+
     const matchedEntity = entities.find((entity) => entity.id === urlEntityId);
-    if (matchedEntity) {
-      setSelectedEntity(matchedEntity);
-    }
+    if (matchedEntity) setSelectedEntity(matchedEntity);
   }, [entities, selectedEntity?.id, setSelectedEntity, urlEntityId]);
 
   const { data: urlObject } = useObject(urlObjectId);
+
   const activeObjectId = urlObjectId || selectedObjectId;
   const activeAreaId = urlObject?.area_id || selectedAreaId;
 
   const { data: documents = [], isLoading: isLoadingDocs } = useDocuments({
     areaId: activeAreaId,
-    entityId: selectedEntity?.id || null,
-    periodId: selectedPeriod?.id || null,
-    objectId: activeObjectId,
-  });
-
-  const filteredDocuments = useMemo(() => {
-    if (!showExceptionsOnly) return documents;
-    return documents.filter((doc) => doc.status !== 'Final' || doc.audit_status !== 'Complete');
-  }, [documents, showExceptionsOnly]);
-
-  const { data: expectedDocuments = [] } = useExpectedDocuments({
-    entityId: selectedEntity?.id || null,
-    periodId: selectedPeriod?.id || null,
-  });
-
     entityId: selectedEntity?.id || null,
     periodId: selectedPeriod?.id || null,
     objectId: activeObjectId,
@@ -133,21 +123,22 @@ export function DocumentsPage() {
     );
   }
 
-  const canUpload = selectedNode && (
-    selectedNode.type === 'area' ||
-    (selectedNode.type === 'object' && selectedNode.metadata?.area_id)
-  );
+  const canUpload =
+    !!selectedNode &&
+    (selectedNode.type === 'area' ||
+      (selectedNode.type === 'object' && !!selectedNode.metadata?.area_id));
 
-  const uploadAreaNode = selectedNode?.type === 'area'
-    ? selectedNode
-    : selectedNode?.type === 'object' && selectedNode.metadata?.area_id
-      ? {
-          id: selectedNode.metadata.area_id as string,
-          name: 'Area',
-          type: 'area' as const,
-          metadata: selectedNode.metadata,
-        }
-      : null;
+  const uploadAreaNode =
+    selectedNode?.type === 'area'
+      ? selectedNode
+      : selectedNode?.type === 'object' && selectedNode.metadata?.area_id
+        ? {
+            id: selectedNode.metadata.area_id as string,
+            name: 'Area',
+            type: 'area' as const,
+            metadata: selectedNode.metadata,
+          }
+        : null;
 
   const getBreadcrumb = () => {
     if (selectedNode) {
@@ -158,20 +149,10 @@ export function DocumentsPage() {
       }
 
       parts.push(selectedNode.name);
-
       return parts.join(' / ');
     }
 
-    if (urlObject) {
-      return urlObject.name;
-    }
-
-    }
-
-    if (urlObject) {
-      return urlObject.name;
-    }
-
+    if (urlObject) return urlObject.name;
     return '';
   };
 
@@ -185,7 +166,15 @@ export function DocumentsPage() {
       doc.audit_status || 'Requested',
       doc.external_file_url,
     ]);
-    const csv = [headers.join(','), ...rows.map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','))].join('\n');
+
+    const csv = [
+      headers.join(','),
+      ...rows.map((row) =>
+        row
+          .map((cell) => `"${String(cell).replace(/"/g, '""')}"`)
+          .join(',')
+      ),
+    ].join('\n');
 
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
@@ -194,18 +183,6 @@ export function DocumentsPage() {
     link.download = `pbc-index-${selectedEntity.name}-${selectedPeriod?.label || 'all'}.csv`;
     link.click();
     URL.revokeObjectURL(url);
-      if (selectedNode.metadata?.department_name) {
-        parts.push(selectedNode.metadata.department_name as string);
-      }
-      parts.push(selectedNode.name);
-      return parts.join(' / ');
-    }
-
-    if (urlObject) {
-      return urlObject.name;
-    }
-
-    return '';
   };
 
   return (
@@ -217,16 +194,21 @@ export function DocumentsPage() {
       actions={
         <div className="flex gap-2">
           {(selectedNode || urlObject) && (
-            <Button variant={auditMode ? 'default' : 'outline'} onClick={() => setAuditMode((v) => !v)}>
+            <Button
+              variant={auditMode ? 'default' : 'outline'}
+              onClick={() => setAuditMode((v) => !v)}
+            >
               Audit Mode
             </Button>
           )}
+
           {auditMode && (
             <Button variant="outline" onClick={exportPbcIndex}>
               <Download className="mr-2 h-4 w-4" />
               Export PBC Index
             </Button>
           )}
+
           {canUpload && (
             <Button onClick={() => setShowUpload(true)}>
               <Upload className="mr-2 h-4 w-4" />
@@ -272,9 +254,15 @@ export function DocumentsPage() {
               </Card>
             )}
 
-            <DocumentList documents={filteredDocuments} isLoading={isLoadingDocs} auditMode={auditMode} />
-            <WhyEmptyPanel show={!isLoadingDocs && documents.length === 0} contextLabel="documents" />
-            <DocumentList documents={documents} isLoading={isLoadingDocs} />
+            <DocumentList
+              documents={filteredDocuments}
+              isLoading={isLoadingDocs}
+              auditMode={auditMode}
+            />
+            <WhyEmptyPanel
+              show={!isLoadingDocs && filteredDocuments.length === 0}
+              contextLabel="documents"
+            />
           </div>
         ) : (
           <div className="flex h-full flex-col items-center justify-center p-8 text-center">

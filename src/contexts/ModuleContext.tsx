@@ -68,6 +68,7 @@ export function ModuleProvider({ children }: ModuleProviderProps) {
         setSelectedEntity: handleSetSelectedEntity,
         selectedPeriod,
         setSelectedPeriod: handleSetSelectedPeriod,
+        setSelectedPeriod,
         showExceptionsOnly,
         setShowExceptionsOnly,
       }}

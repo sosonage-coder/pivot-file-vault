@@ -159,6 +159,10 @@ export function useFeatureFolderStructure({
         
         for (const area of areas) {
           const areaObjects = objects.filter(o => o.area_id === area.id);
+          
+          // Skip empty areas (no objects)
+          if (areaObjects.length === 0) continue;
+          
           const process = area.processes;
           
           const objectNodes: TreeNode[] = areaObjects.map(obj => {
@@ -214,6 +218,9 @@ export function useFeatureFolderStructure({
 
         for (const area of processAreas) {
           const areaObjects = objects.filter(o => o.area_id === area.id);
+          
+          // Skip empty areas (no objects)
+          if (areaObjects.length === 0) continue;
           
           const objectNodes: TreeNode[] = areaObjects.map(obj => {
             const count = countsByObject[obj.id] || 0;

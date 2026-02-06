@@ -1,330 +1,174 @@
 
-# Sidebar Optimization, Multi-Entity Consolidation, Dashboards, and New Window UX
+# Plan: Clean Up UI with Relevant Module-Specific Folders
 
-## Summary of Issues
+## Summary
+Replace the current cluttered sidebar with relevant, module-specific folder structures that make sense for each feature. Each module will show only the folders and hierarchy that are meaningful for its purpose.
 
-Based on exploration of the codebase, I've identified these key concerns:
+## Current Problem
+The sidebar currently shows a generic Process/Area/Object tree from the `processes`, `areas`, and `objects` tables for ALL modules. This creates confusion because:
 
-1. **Sidebar Crowding**: The sidebar (280px) contains feature tabs + entity selector + search + add process button + folder tree, which becomes cramped with deep hierarchies
-2. **Multi-Entity Companies**: No current support for consolidated views (e.g., viewing BS reconciliations across all subsidiaries)
-3. **Missing Dashboards**: Dashboards exist in code (`ReconciliationDashboard`, `TaskDashboard`) but aren't consistently rendering - they show when nothing is selected, but users aren't seeing them
-4. **Month Close Info**: Not appearing because the `CloseCalendarPage` shows `ChecklistWorkspace` which displays checklists, not the folder tree + calendar integration expected
-5. **New Window Support**: Currently absent - power users need side-by-side comparison
+| Module | What it Shows Now | What it Should Show |
+|--------|-------------------|---------------------|
+| **Documents** | All processes including HR, Legal with empty folders | Only processes with documents (Monthly Close) |
+| **PBC Requests** | Generic Area/Object tree (12 folders) | Financial statement hierarchy (Assets/Liabilities/Equity) from `pbc_nodes` |
+| **Reconciliations** | Already uses its own tree | Keep as-is |
+| **Compliance** | Generic folder tree (not used) | No tree needed - uses dashboard/list views |
+| **Checklists** | Generic folder tree (not used) | No tree needed - uses its own workspace |
+| **Month Close** | Monthly Close process only | Keep as-is (correct behavior) |
 
----
+## Solution
 
-## Solution Architecture
-
-### 1. Sidebar Space Optimization
-
-**Current Problem**: Too many elements competing for 280px width
-
-**Solution**: Collapsible sections + reduced visual density
-
-```text
-BEFORE (280px, cluttered):
-+---------------------------+
-| [Logo]         FileGRID   |
-+---------------------------+
-| Entity: [Acme Corp ▾]     |
-+---------------------------+
-| [Close][Recons][Docs]     |   <- 3x3 grid of 7 features
-| [PBC] [Comply][Lists]     |
-| [Meet]                    |
-+---------------------------+
-| [Search...]               |
-| [+ Add Process]           |
-+---------------------------+
-| ▼ Monthly Close           |
-|   ▼ General Ledger        |
-|     📄 Cash               |
-+---------------------------+
-
-AFTER (280px, streamlined):
-+---------------------------+
-| [Logo] FileGRID  [Entity▾]|  <- Entity moved to header row
-+---------------------------+
-| [🕐Close][⚖Recons][📄Docs]|   <- Icon-only tabs (tooltips)
-| [📋PBC] [🛡Comply][✓Lists]|
-+---------------------------+
-| [🔍] [+]                   |  <- Search + Add collapsed to icons
-+---------------------------+
-| ▼ Monthly Close            |
-|   ▼ General Ledger         |
-|     📄 Cash                 |
-+---------------------------+
-```
-
-**Key Changes**:
-- Move Entity selector to header row (compact inline)
-- Feature tabs become icon-only with tooltips
-- Search/Add buttons become icon-only
-- More vertical space for tree content
-
----
-
-### 2. Multi-Entity Consolidated Views
-
-**Business Need**: Controller of a holding company needs to see all subsidiary Balance Sheet reconciliations in one view
-
-**Database Schema Enhancement**:
-```sql
--- Add parent_entity_id to support entity hierarchy
-ALTER TABLE entities 
-ADD COLUMN parent_entity_id UUID REFERENCES entities(id);
-
--- Add entity_type to distinguish legal entities vs consolidation groups
-ALTER TABLE entities 
-ADD COLUMN entity_type TEXT DEFAULT 'legal' 
-CHECK (entity_type IN ('legal', 'consolidation_group'));
-```
-
-**New Entity Selector Behavior**:
-```text
-+--------------------------------+
-| Entity:                         |
-| ● All Entities (Consolidated)  |  <- NEW: Shows aggregated data
-| ○ Acme Corp                     |
-| ○ Acme UK Ltd                   |
-| ○ Acme Asia Pte                 |
-+--------------------------------+
-```
-
-**Consolidated Dashboard View**:
-When "All Entities" is selected, dashboards aggregate:
-- Total variances across all entities
-- Reconciliation completion by entity
-- Cross-entity comparison tables
-
-**Implementation**:
-1. Add "All Entities" option to `EntitySelector`
-2. Modify `useReconciliationDashboard` to support `entityId: null | 'all'`
-3. Add entity breakdown columns in dashboard cards
-4. Queries use `.in('entity_id', entityIds)` instead of `.eq('entity_id', entityId)`
-
----
-
-### 3. Dashboard Visibility Fix
-
-**Current Issue**: Dashboards render inside workspace components when `reconciliationId` is null, but:
-- Users don't see them because sidebar selection behavior jumps to first item
-- No explicit "Dashboard" navigation option
-
-**Solution**: Explicit Dashboard Toggle
+### 1. PBC Module: Use its Own Hierarchy from `pbc_nodes`
+The PBC module has a separate hierarchical structure stored in `pbc_nodes` table that follows financial statement classification:
 
 ```text
-Workspace Header:
-+---------------------------------------------------------------+
-| Reconciliations | Acme Corp                                    |
-|---------------------------------------------------------------|
-| [📊 Dashboard] [📋 List] [📦 Kanban]    [Year: 2025▾] [...]   |
-+---------------------------------------------------------------+
+Assets (process)
+├── Current Assets (area)
+│   ├── Cash (object)
+│   │   ├── Bank Statement (request)
+│   │   ├── Bank Reconciliation (request)
+│   │   └── Outstanding Checks List (request)
+│   ├── Accounts Receivable (object)
+│   │   └── AR Aging Schedule (request)
+│   └── Inventory (object)
+├── Non-Current Assets (area)
+│   ├── Fixed Assets (object)
+│   └── Intangibles (object)
+Liabilities (process)
+├── Current Liabilities (area)
+│   ├── Accounts Payable (object)
+│   └── Accrued Expenses (object)
+Equity (process)
+└── Retained Earnings (area)
 ```
 
-When "Dashboard" view is selected:
-- Show `ReconciliationDashboard` regardless of sidebar selection
-- Clicking an item in the dashboard switches to List/Detail view
+This is the actual audit-centric structure that makes sense for PBC requests.
 
-**Implementation**:
-1. Add `viewMode: 'dashboard' | 'list' | 'detail'` state to each workspace
-2. Add view toggle buttons to `WorkspaceFilterBar` or `FeatureLayout` actions
-3. Dashboard becomes the default view when entering a feature
+### 2. Documents Module: Filter Empty Folders
+Only show processes/areas/objects that have actual documents or objects.
 
----
+### 3. Compliance & Checklists: Hide Folder Tree
+These modules don't need folder navigation - they use their own dashboard/list/kanban views.
 
-### 4. Month Close Calendar Integration
+## Technical Changes
 
-**Current Problem**: `CloseCalendarPage` renders `ChecklistWorkspace` which shows a list of checklists, not the expected close calendar view
+### File 1: `src/components/layout/UnifiedSidebar.tsx`
 
-**Solution**: Hybrid Month Close Workspace
-
-The Month Close feature should combine:
-1. **Close Schedule Calendar** - Task calendar view with relative day mapping (existing `TaskCalendarView`)
-2. **Closing Documents Tree** - Folder tree filtered for closing processes
-3. **Progress Dashboard** - Close completion metrics
-
-```text
-Month Close Workspace:
-+---------------------------------------------------------------+
-| Close Calendar | Acme Corp | Jan 2025                         |
-|---------------------------------------------------------------|
-| [📊 Dashboard] [📅 Calendar] [📋 Tasks] [📁 Documents]        |
-+---------------------------------------------------------------+
-|                                                                |
-|  [Dashboard Tab]:                                              |
-|    Close Progress: 45% complete                                |
-|    Days Remaining: 3                                           |
-|    Blocked Tasks: 2                                            |
-|                                                                |
-|  [Calendar Tab]:                                               |
-|    |Mon|Tue|Wed|Thu|Fri|                                      |
-|    |T1 |T2 |T3 |T4 |   |  <- Tasks mapped to close days       |
-|                                                                |
-|  [Tasks Tab]:                                                  |
-|    ☐ Day 1: Trial Balance upload                              |
-|    ☐ Day 2: Bank Reconciliations                              |
-|    ☑ Day 3: AP Accruals                                       |
-|                                                                |
-|  [Documents Tab]:                                              |
-|    Monthly Close folder tree                                   |
-+---------------------------------------------------------------+
-```
-
-**Implementation**:
-1. Create `MonthCloseWorkspace.tsx` combining:
-   - Close schedule checklist (from `ChecklistWorkspace`)
-   - Calendar view (from `TaskCalendarView`)
-   - Documents view (using `UnifiedFolderTree` with `monthclose` filter)
-   - Dashboard summary
-2. Add tab navigation within the workspace
-3. Wire up the `CloseCalendarPage` to use this new component
-
----
-
-### 5. Open in New Tab/Window Support
-
-**Use Case**: Compare reconciliations side-by-side, or keep dashboard open while reviewing individual items
-
-**Implementation**:
-
-**A) URL-Based Routing**:
-Routes already support IDs, but need to add:
-```typescript
-// Current: /reconciliations
-// Enhanced: /reconciliations/:reconciliationId
-
-// Example routes:
-/reconciliations                    <- Dashboard/list view
-/reconciliations/abc123            <- Specific reconciliation
-/reconciliations?entity=x&period=y <- Filtered view
-```
-
-**B) Context Menu on Sidebar Items**:
-```typescript
-// Right-click on sidebar tree item
-<ContextMenu>
-  <ContextMenuItem onClick={() => openInNewTab(node)}>
-    <ExternalLink className="mr-2 h-4 w-4" />
-    Open in New Tab
-  </ContextMenuItem>
-</ContextMenu>
-```
-
-**C) Cmd/Ctrl+Click Support**:
-```typescript
-const handleNodeClick = (e: React.MouseEvent, node: TreeNode) => {
-  if (e.metaKey || e.ctrlKey) {
-    // Open in new tab
-    window.open(`/reconciliations/${node.id}`, '_blank');
-  } else {
-    // Normal selection
-    onSelect(node);
-  }
-};
-```
-
-**D) New Window for Detail Views**:
-For heavy workspaces like individual reconciliation detail:
-```typescript
-// Button in detail header
-<Button variant="outline" size="sm" onClick={() => openInNewWindow()}>
-  <ExternalLink className="h-4 w-4 mr-2" />
-  Pop Out
-</Button>
-```
-
----
-
-## Implementation Files
-
-| Change | File(s) | Description |
-|--------|---------|-------------|
-| Sidebar optimization | `UnifiedSidebar.tsx` | Compact entity selector, icon-only tabs |
-| Entity hierarchy | Database migration | Add `parent_entity_id` column |
-| Consolidated selector | `EntitySelector.tsx` | Add "All Entities" option |
-| Dashboard queries | `useReconciliationDashboard.ts` | Support multi-entity aggregation |
-| View mode toggle | `WorkspaceFilterBar.tsx` | Add Dashboard/List/Kanban toggles |
-| Dashboard visibility | `ReconciliationWorkspace.tsx` | Default to dashboard, explicit toggle |
-| Month Close workspace | `MonthCloseWorkspace.tsx` (New) | Combined calendar + tasks + docs |
-| Close calendar page | `CloseCalendarPage.tsx` | Use new workspace |
-| New tab support | `UnifiedFolderTree.tsx` | Cmd+Click handler |
-| Context menu | `UnifiedFolderTree.tsx` | "Open in New Tab" option |
-| Route params | `App.tsx` | Add `:id` params to feature routes |
-| Detail pop-out | `ReconciliationWorkspace.tsx` | Pop-out button in header |
-
----
-
-## Technical Details
-
-### Sidebar Compaction Code
+**Change**: Update the `showFolderTree` logic to exclude modules that don't need folders:
 
 ```typescript
-// UnifiedSidebar.tsx - Compact header with inline entity
-<div className="flex h-12 items-center justify-between border-b px-3">
-  <div className="flex items-center gap-2">
-    <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary">
-      <span className="text-xs font-bold text-primary-foreground">F</span>
-    </div>
-    {!collapsed && <span className="font-semibold">FileGRID</span>}
-  </div>
-  
-  {/* Compact entity selector inline */}
-  {!collapsed && (
-    <Select value={selectedEntity?.id} onValueChange={...}>
-      <SelectTrigger className="h-7 w-28 text-xs border-0 bg-muted">
-        <SelectValue />
-      </SelectTrigger>
-    </Select>
-  )}
-</div>
+// Line 149: Change the condition
+// Before:
+const showFolderTree = ['documents', 'pbc', 'monthclose', 'compliance', 'checklists'].includes(activeFeature) && !isConsolidated;
+
+// After:
+const showFolderTree = ['documents', 'monthclose'].includes(activeFeature) && !isConsolidated;
+const showPbcTree = activeFeature === 'pbc' && !isConsolidated;
 ```
 
-### Consolidated Entity Query
+**Add**: New section for PBC-specific tree rendering that uses `usePbcTree` hook and displays the `pbc_nodes` hierarchy.
+
+### File 2: `src/hooks/useFeatureFolderStructure.ts`
+
+**Change**: Filter out empty folders:
 
 ```typescript
-// When "All Entities" selected
-const { data } = useReconciliationDashboard(
-  entityId === 'all' ? null : entityId,
-  periodId,
-  { consolidated: entityId === 'all' }
-);
+// For documents view - skip empty areas (no objects)
+for (const area of processAreas) {
+  const areaObjects = objects.filter(o => o.area_id === area.id);
+  if (areaObjects.length === 0) continue; // ADD THIS LINE
+  // ... rest of the code
+}
 
-// In hook:
-let query = supabase.from('reconciliations').select('*');
-if (entityId) {
-  query = query.eq('entity_id', entityId);
-} else if (consolidated) {
-  // Get all accessible entities
-  const entityIds = await getAccessibleEntityIds();
-  query = query.in('entity_id', entityIds);
+// Skip processes with no populated areas
+if (areaNodes.length > 0) { // Already exists
+  processNodes.push({ ... });
 }
 ```
 
-### View Mode State
+### File 3: Create `src/components/pbc/PbcSidebarTree.tsx` (New File)
+
+A new component that renders the `pbc_nodes` hierarchy in the sidebar:
 
 ```typescript
-// Add to WorkspaceFilterBar or workspace component
-type ViewMode = 'dashboard' | 'list' | 'kanban' | 'calendar';
-
-const [viewMode, setViewMode] = useState<ViewMode>('dashboard');
-
-// Render based on mode
-{viewMode === 'dashboard' && <ReconciliationDashboard />}
-{viewMode === 'list' && <ReconciliationListView />}
+// Uses usePbcTree hook to get the financial statement hierarchy
+// Renders: Assets → Current Assets → Cash → (requests as leaf nodes)
+// Allows selection of any node type (process/area/object)
+// Shows completion badges for each branch
 ```
 
----
+### File 4: Database Cleanup (SQL Migration)
 
-## Priority Order
+Remove duplicate and empty records:
 
-1. **Fix Dashboard Visibility** (Quick win - add view toggle)
-2. **Sidebar Optimization** (Visual improvement)
-3. **Month Close Integration** (Core feature fix)
-4. **New Tab Support** (Power user feature)
-5. **Multi-Entity Consolidation** (Schema change + UI updates)
+```sql
+-- Delete one duplicate "Contract Management" process
+DELETE FROM areas WHERE process_id = 'd8ba0901-391c-416b-9172-b69ebcfc48b4';
+DELETE FROM processes WHERE id = 'd8ba0901-391c-416b-9172-b69ebcfc48b4';
 
----
+-- Delete empty HR process (Employee Onboarding - has 0 objects)
+DELETE FROM areas WHERE process_id = 'cf22fc4b-0f29-444b-a9e6-0f3cbdcd5a5f';
+DELETE FROM processes WHERE id = 'cf22fc4b-0f29-444b-a9e6-0f3cbdcd5a5f';
 
-## Summary
+-- Delete remaining duplicate Legal process
+DELETE FROM areas WHERE process_id = '34c667ed-f3ea-4ce0-af72-b100410f7d32';
+DELETE FROM processes WHERE id = '34c667ed-f3ea-4ce0-af72-b100410f7d32';
 
-This plan addresses the practical UX concerns for multi-entity companies while maintaining the existing feature architecture. The sidebar becomes more compact, dashboards become explicitly accessible, Month Close shows integrated calendar/task/document views, and power users can open items in new tabs for comparison workflows.
+-- Delete empty areas in Monthly Close
+DELETE FROM areas WHERE id IN (
+  '33333333-3333-3333-3333-333333333303', -- Payables (0 objects)
+  '33333333-3333-3333-3333-333333333304'  -- Receivables (0 objects)
+);
+```
+
+## Result After Implementation
+
+### Documents Module Sidebar
+```text
+Navigation
+└── Monthly Close
+    ├── Banking (2 objects)
+    │   ├── Chase Operating
+    │   └── Chase Payroll
+    ├── Equity (1 object)
+    │   └── Dividends Paid
+    ├── Fixed Assets (1 object)
+    │   └── Depreciation
+    └── Journals (1 object)
+        └── Accruals
+```
+
+### PBC Module Sidebar
+```text
+Navigation (PBC Tree)
+├── Assets
+│   ├── Current Assets
+│   │   ├── Cash (5 requests)
+│   │   ├── Accounts Receivable (2 requests)
+│   │   └── Inventory (1 request)
+│   └── Non-Current Assets
+│       ├── Fixed Assets (2 requests)
+│       └── Intangibles (1 request)
+├── Liabilities
+│   ├── Current Liabilities
+│   │   ├── Accounts Payable (2 requests)
+│   │   └── Accrued Expenses (1 request)
+│   └── Long-term Liabilities
+│       └── Debt (1 request)
+└── Equity
+    └── Retained Earnings (1 request)
+```
+
+### Compliance & Checklists Modules
+No folder tree - just their existing dashboard/list/kanban workspace views.
+
+## Files to Modify
+1. `src/components/layout/UnifiedSidebar.tsx` - Update tree display logic
+2. `src/hooks/useFeatureFolderStructure.ts` - Filter empty folders
+3. `src/components/pbc/PbcSidebarTree.tsx` - New file for PBC hierarchy
+4. Database migration - Clean up duplicates
+
+## Effort Estimate
+- Code changes: ~150 lines
+- Database cleanup: 4 SQL statements
+- No breaking changes to existing functionality

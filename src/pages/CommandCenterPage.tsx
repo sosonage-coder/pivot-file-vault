@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Activity,
+  AlertTriangle,
   ArrowRight,
   Building2,
   CalendarClock,
@@ -9,6 +10,8 @@ import {
   ClipboardList,
   FileText,
   Sparkles,
+  Clock3,
+  FileText,
   Scale,
   Shield,
   Users,
@@ -220,6 +223,28 @@ export function CommandCenterPage() {
       .slice(0, 10);
   }, [reconciliations]);
 
+  const stuckInReview = useMemo(
+    () => reconciliations.filter((recon) => recon.status === 'pending_review').slice(0, 8),
+    [reconciliations]
+  );
+
+  const myWorkQueue = useMemo(
+    () => myTasks.filter((task) => task.status !== 'completed' && task.status !== 'cancelled').slice(0, 8),
+    [myTasks]
+  );
+
+  const myObjectAssignments = useMemo(() => {
+    const identifier = user?.email?.toLowerCase();
+    if (!identifier) return [];
+
+    return objects.filter((obj: any) => {
+      const owner = (obj.owner_name || '').toLowerCase();
+      const reviewer = (obj.reviewer_name || '').toLowerCase();
+      const approver = (obj.approver_name || '').toLowerCase();
+      return owner === identifier || reviewer === identifier || approver === identifier;
+    });
+  }, [objects, user?.email]);
+
   const closePackCompletion = useMemo(() => {
     const packMap = new Map<string, { area: string; object: string; requiredDocs: number; uploadedDocs: number; reconsTotal: number; reconsFinal: number; checklistOpen: number; approvalRequired: boolean }>();
 
@@ -300,6 +325,16 @@ export function CommandCenterPage() {
           source: 'reconciliations',
           detail: recon.objects?.areas?.name || 'Unassigned Area',
           severity: needsExplanation ? 'high' : recon.status === 'rejected' ? 'high' : 'medium',
+      .filter((recon) => recon.status === 'pending_review' || recon.status === 'rejected' || Math.abs(Number(recon.variance) || 0) > 1000)
+      .slice(0, 10)
+      .forEach((recon) => {
+        const isHighVariance = Math.abs(Number(recon.variance) || 0) > 1000;
+        items.push({
+          id: `recon-${recon.id}`,
+          label: `${recon.objects?.name || 'Reconciliation'} ${recon.status === 'rejected' ? 'rejected' : recon.status === 'pending_review' ? 'pending review' : 'material variance'}`,
+          source: 'reconciliations',
+          detail: recon.objects?.areas?.name || 'Unassigned Area',
+          severity: isHighVariance ? 'high' : 'medium',
           href: `/reconciliations?id=${recon.id}&entityId=${selectedEntityId}`,
         });
       });
@@ -459,6 +494,10 @@ export function CommandCenterPage() {
       exceptions: exceptionsFeed.length,
     };
   }, [expectedDocuments, exceptionsFeed.length, myTasks, reconciliationStats]);
+  const myMissingDeliverables = useMemo(() => {
+    const objectIdSet = new Set(myObjectAssignments.map((obj: any) => obj.id));
+    return expectedDocuments.filter((doc) => doc.required && !doc.uploaded && doc.document?.object_id && objectIdSet.has(doc.document.object_id)).length;
+  }, [expectedDocuments, myObjectAssignments]);
 
   return (
     <FeatureLayout
@@ -524,6 +563,7 @@ export function CommandCenterPage() {
                   </CardContent>
                 </Card>
 
+              <div className="grid gap-4 md:grid-cols-5">
                 <Card>
                   <CardHeader className="pb-2">
                     <CardDescription>Close Progress (RAG)</CardDescription>
@@ -559,6 +599,8 @@ export function CommandCenterPage() {
                   <CardHeader className="pb-2">
                     <CardDescription>My Open Work</CardDescription>
                     <CardTitle>{myWorkQueue.length}</CardTitle>
+                    <CardTitle>{commandCenterMetrics.openMyWork + myObjectAssignments.length}</CardTitle>
+                    <CardTitle>{commandCenterMetrics.openMyWork}</CardTitle>
                   </CardHeader>
                 </Card>
               </div>
@@ -776,6 +818,9 @@ export function CommandCenterPage() {
                   <CardHeader>
                     <CardTitle>Exceptions Feed</CardTitle>
                     <CardDescription>Global queue: missing docs, pending/rejected reviews, incomplete PBC, and overdue tasks.</CardDescription>
+                    <CardDescription>
+                      Global queue: missing docs, pending/rejected reviews, incomplete PBC, and overdue tasks.
+                    </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-3">
                     {exceptionsFeed.length === 0 ? (
@@ -793,10 +838,78 @@ export function CommandCenterPage() {
                               <p className="mt-1 text-xs text-muted-foreground">{item.detail}</p>
                             </div>
                             <Badge variant="outline" className={item.severity === 'high' ? 'border-red-400 text-red-700' : 'border-amber-400 text-amber-700'}>
+                            <Badge
+                              variant="outline"
+                              className={
+                                item.severity === 'high'
+                                  ? 'border-red-400 text-red-700'
+                                  : 'border-amber-400 text-amber-700'
+                              }
+                            >
                               {item.severity}
                             </Badge>
                           </button>
                         ))}
+                      </>
+                    )}
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle>My Work / My Reviews</CardTitle>
+                    <CardDescription>Open preparer and reviewer queue.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {myWorkQueue.length === 0 && stuckInReview.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">
+                        Nothing assigned or pending review right now.
+                      </p>
+                    ) : (
+                      <>
+                        {myObjectAssignments.slice(0, 4).map((obj: any) => (
+                          <div
+                            key={obj.id}
+                            className="rounded-md border border-blue-300/60 bg-blue-50/40 p-2 dark:bg-blue-950/10"
+                          >
+                            <p className="text-sm font-medium">{obj.name}</p>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              Object assignment • {obj.areas?.name || 'Area'}
+                            </p>
+                          </div>
+                        ))}
+
+                        {myWorkQueue.map((task) => (
+                          <div key={task.id} className="rounded-md border p-2">
+                            <p className="text-sm font-medium">{task.title}</p>
+                            <p className="mt-1 inline-flex items-center gap-1 text-xs text-muted-foreground">
+                              <Clock3 className="h-3.5 w-3.5" />
+                              {task.due_date || 'No due date'}
+                            </p>
+                          </div>
+                        ))}
+
+                        {stuckInReview.slice(0, 3).map((recon) => (
+                          <div key={recon.id} className="rounded-md border border-amber-300/70 p-2">
+                            <p className="text-sm font-medium">
+                              {recon.objects?.name || 'Reconciliation'}
+                            </p>
+                            <p className="mt-1 inline-flex items-center gap-1 text-xs text-muted-foreground">
+                              <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
+                              Pending review
+                            </p>
+                          </div>
+                        ))}
+
+                        {myMissingDeliverables > 0 && (
+                          <div className="rounded-md border border-amber-300/70 p-2">
+                            <p className="text-sm font-medium">Required deliverables pending</p>
+                            <p className="mt-1 inline-flex items-center gap-1 text-xs text-muted-foreground">
+                              <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
+                              {myMissingDeliverables} required document(s) still missing for your objects
+                            </p>
+                          </div>
+                        )}
                       </>
                     )}
                   </CardContent>

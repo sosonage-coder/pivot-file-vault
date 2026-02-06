@@ -8,6 +8,7 @@ import { useModule } from '@/contexts/ModuleContext';
 import { useSidebarSelection } from '@/contexts/SidebarSelectionContext';
 import { ReconciliationWorkspace } from '@/components/reconciliations/ReconciliationWorkspace';
 import { ReconciliationDashboard } from '@/components/reconciliations/dashboard';
+import { ReconciliationAccountList } from '@/components/reconciliations/ReconciliationAccountList';
 import { ConsolidatedReconciliationDashboard } from '@/components/reconciliations/ConsolidatedReconciliationDashboard';
 import { CreateReconciliationModal } from '@/components/reconciliations/CreateReconciliationModal';
 import { ReconciliationImportModal } from '@/components/reconciliations/ReconciliationImportModal';
@@ -17,6 +18,12 @@ import { isConsolidatedEntity } from '@/lib/entities';
 export function ReconciliationsPage() {
   const { selectedEntity, selectedPeriod, setSelectedEntity } = useModule();
   const { selectedNode } = useSidebarSelection();
+  const { 
+    selectedReconciliationNode, 
+    setSelectedReconciliationNode,
+    selectedReconciliationId,
+    setSelectedReconciliationId,
+  } = useSidebarSelection();
   const { data: entities = [] } = useEntities();
   const [searchParams, setSearchParams] = useSearchParams();
   const [viewMode, setViewMode] = useState<ViewMode>('dashboard');
@@ -25,7 +32,7 @@ export function ReconciliationsPage() {
   const [selectedReconciliationId, setSelectedReconciliationId] = useState<string | null>(null);
   const isConsolidated = isConsolidatedEntity(selectedEntity);
 
-  // Get reconciliation ID from URL params or sidebar selection
+  // Get reconciliation ID from URL params or context
   const urlReconciliationId = searchParams.get('id');
   const urlEntityId = searchParams.get('entityId');
   const sidebarReconciliationId = (selectedNode?.metadata?.reconciliationId as string | undefined) || null;
@@ -41,18 +48,24 @@ export function ReconciliationsPage() {
   }, [entities, selectedEntity?.id, setSelectedEntity, urlEntityId]);
 
   // When a reconciliation is selected from sidebar, show detail view
+  const activeReconciliationId = urlReconciliationId || selectedReconciliationId;
+
   useEffect(() => {
-    if (sidebarReconciliationId && !urlReconciliationId) {
-      setSelectedReconciliationId(sidebarReconciliationId);
+    if (!urlEntityId || !entities.length) return;
+    if (selectedEntity?.id === urlEntityId) return;
+    const matchedEntity = entities.find(entity => entity.id === urlEntityId);
+    if (matchedEntity) {
+      setSelectedEntity(matchedEntity);
     }
-  }, [sidebarReconciliationId, urlReconciliationId]);
+  }, [entities, selectedEntity?.id, setSelectedEntity, urlEntityId]);
 
   // Reset to dashboard when entity changes
   useEffect(() => {
     setViewMode('dashboard');
     setSelectedReconciliationId(null);
+    setSelectedReconciliationNode(null);
     setSearchParams({});
-  }, [selectedEntity?.id, setSearchParams]);
+  }, [selectedEntity?.id, setSearchParams, setSelectedReconciliationNode, setSelectedReconciliationId]);
 
   if (!selectedEntity) {
     return (
@@ -88,6 +101,10 @@ export function ReconciliationsPage() {
     setSelectedReconciliationId(id);
     setSearchParams({
       id,
+  const handleSelectAccount = (reconciliationId: string) => {
+    setSelectedReconciliationId(reconciliationId);
+    setSearchParams({
+      id: reconciliationId,
       entityId: selectedEntity.id,
     });
   };
@@ -96,6 +113,7 @@ export function ReconciliationsPage() {
     setViewMode(mode);
     if (mode === 'dashboard') {
       setSelectedReconciliationId(null);
+      setSelectedReconciliationNode(null);
       setSearchParams({ entityId: selectedEntity.id });
     }
   };
@@ -103,6 +121,12 @@ export function ReconciliationsPage() {
   const handleBackToDashboard = () => {
     setSelectedReconciliationId(null);
     setSearchParams({ entityId: selectedEntity.id });
+    // Go back to folder view if a folder was selected
+    if (selectedReconciliationNode) {
+      setSearchParams({ entityId: selectedEntity.id });
+    } else {
+      setSearchParams({ entityId: selectedEntity.id });
+    }
     setViewMode('dashboard');
   };
 
@@ -119,20 +143,40 @@ export function ReconciliationsPage() {
       );
     }
 
+    // If a subcategory folder is selected, show accounts list
+    if (selectedReconciliationNode?.type === 'subcategory') {
+      return (
+        <ReconciliationAccountList
+          entityId={selectedEntity.id}
+          periodId={selectedPeriod?.id}
+          selectedFolder={selectedReconciliationNode}
+          onSelectAccount={handleSelectAccount}
+        />
+      );
+    }
+
     // Otherwise show dashboard
     return (
       <ReconciliationDashboard
         entityId={selectedEntity.id}
         periodId={selectedPeriod?.id}
-        onSelectReconciliation={handleSelectReconciliation}
+        onSelectReconciliation={handleSelectAccount}
       />
     );
+  };
+
+  const getDescription = () => {
+    // Show folder name if a folder is selected
+    if (selectedReconciliationNode) {
+      return selectedReconciliationNode.name;
+    }
+    return selectedEntity.name;
   };
 
   return (
     <FeatureLayout
       title="Reconciliations"
-      description={selectedEntity.name}
+      description={getDescription()}
       icon={<Scale className="h-5 w-5" />}
       actions={
         <div className="flex items-center gap-2">

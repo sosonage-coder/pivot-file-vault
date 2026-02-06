@@ -45,6 +45,9 @@ export function PBCRequestsPage() {
     .flatMap((node) => collectRequestsForObject(node, selectedObjectId))
     .filter(Boolean)
     .filter((request) => (auditMode ? request.status === 'Uploaded' || request.status === 'Reviewed' || request.status === 'Complete' : true))
+    .filter((request) =>
+      auditMode ? ['Uploaded', 'Reviewed', 'Complete'].includes(request.status) : true
+    )
     .filter((request) => (showExceptionsOnly ? request.status !== 'Complete' : true));
 
   const handleFulfillRequest = async (requestId: string, fileUrl: string) => {
@@ -71,6 +74,27 @@ export function PBCRequestsPage() {
 
     const headers = ['Entity', 'Period', 'Process', 'Area', 'Object', 'Request', 'Status', 'PBC Phase', 'Priority', 'Due Date'];
     const csv = [headers.join(','), ...rows.map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(','))].join('\n');
+    const headers = [
+      'Entity',
+      'Period',
+      'Process',
+      'Area',
+      'Object',
+      'Request',
+      'Status',
+      'PBC Phase',
+      'Priority',
+      'Due Date',
+    ];
+
+    const csv = [
+      headers.join(','),
+      ...rows.map((row) =>
+        row
+          .map((cell) => `"${String(cell).replace(/"/g, '""')}"`)
+          .join(',')
+      ),
+    ].join('\n');
 
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
@@ -160,6 +184,10 @@ export function PBCRequestsPage() {
               entityId={selectedEntity.id}
             />
             <WhyEmptyPanel show={!isLoadingPbc && objectRequests.length === 0} contextLabel="PBC requests" />
+            <WhyEmptyPanel
+              show={!isLoadingPbc && objectRequests.length === 0}
+              contextLabel="PBC requests"
+            />
           </>
         ) : selectedNode?.type === 'area' ? (
           <div className="flex h-full flex-col items-center justify-center p-8 text-center">

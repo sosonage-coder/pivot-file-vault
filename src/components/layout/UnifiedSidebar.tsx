@@ -44,12 +44,15 @@ import { useFeatureFolderStructure } from '@/hooks/useFeatureFolderStructure';
 import { usePendingApprovalCounts } from '@/hooks/useApprovals';
 import { useReconciliations } from '@/hooks/useReconciliations';
 import { useReconciliationTree } from '@/hooks/useReconciliationTree';
+import { usePbcTree } from '@/hooks/usePbcTree';
 import { UnifiedFolderTree } from '@/components/filegrid/UnifiedFolderTree';
 import { ReconciliationTree } from '@/components/reconciliations/ReconciliationTree';
+import { PbcSidebarTree } from '@/components/pbc/PbcSidebarTree';
 import { SimpleAddProcessModal } from '@/components/filegrid/SimpleAddProcessModal';
 import { CONSOLIDATED_ENTITY, isConsolidatedEntity } from '@/lib/entities';
 import type { FeatureId } from '@/hooks/useActiveFeature';
 import type { TreeNode } from '@/types/filegrid';
+import type { PbcTreeNode } from '@/types/pbc-tree';
 import type { ReconciliationTreeNode } from '@/hooks/useReconciliationTree';
 
 const FEATURES = [
@@ -145,11 +148,14 @@ export function UnifiedSidebar({ collapsed = false, onCollapsedChange }: Unified
 
   const activeFeature = FEATURES.find(f => location.pathname.startsWith(f.path))?.id || 'command-center';
   
-  // Show folder tree for all features that use structural navigation
-  const showFolderTree = ['documents', 'pbc', 'monthclose', 'compliance', 'checklists'].includes(activeFeature)
-    && !isConsolidated;
+  // Show folder tree for modules that use structural navigation
+  // Documents & Month Close use the Process→Area→Object structure
+  // Compliance & Checklists use their own workspace views (no folder tree)
+  const showFolderTree = ['documents', 'monthclose'].includes(activeFeature) && !isConsolidated;
+  // PBC uses its own pbc_nodes hierarchy (financial statement classification)
+  const showPbcTree = activeFeature === 'pbc' && !isConsolidated;
   const showReconciliationTree = activeFeature === 'reconciliations' && !isConsolidated;
-  const featureType = activeFeature === 'pbc' ? 'pbc' : activeFeature === 'monthclose' ? 'monthclose' : 'documents';
+  const featureType = activeFeature === 'monthclose' ? 'monthclose' : 'documents';
 
   const entitiesWithConsolidated = entities.length > 1 ? [CONSOLIDATED_ENTITY, ...entities] : entities;
 
@@ -166,6 +172,12 @@ export function UnifiedSidebar({ collapsed = false, onCollapsedChange }: Unified
     selectedPeriod?.id
   );
   const reconciliationTree = useReconciliationTree(reconciliations);
+
+  // Fetch PBC tree data (for PBC module)
+  const { tree: pbcTree, isLoading: isLoadingPbcTree } = usePbcTree({
+    entityId: showPbcTree ? selectedEntity?.id || null : null,
+    periodId: selectedPeriod?.id || null,
+  });
 
   // Get pending approval counts
   const { data: pendingCounts = {} } = usePendingApprovalCounts(selectedEntity?.id || null);
@@ -221,6 +233,21 @@ export function UnifiedSidebar({ collapsed = false, onCollapsedChange }: Unified
       };
       setSelectedNode(treeNode);
     }
+  };
+
+  // Handle PBC tree selection - convert to TreeNode format
+  const handlePbcNodeSelect = (node: PbcTreeNode) => {
+    const treeNode: TreeNode = {
+      id: node.id,
+      name: node.label,
+      type: node.node_type === 'request' ? 'object' : node.node_type as any,
+      metadata: {
+        pbcNodeId: node.id,
+        nodeType: node.node_type,
+        entity_id: node.entity_id,
+      },
+    };
+    setSelectedNode(treeNode);
   };
 
   return (
@@ -478,7 +505,63 @@ export function UnifiedSidebar({ collapsed = false, onCollapsedChange }: Unified
         </div>
       )}
 
-      {!collapsed && !showFolderTree && !showReconciliationTree && (
+      {/* PBC Tree Panel */}
+      {!collapsed && showPbcTree && (
+        <div className="flex flex-col flex-1 overflow-hidden">
+          <Collapsible
+            open={navigationOpen}
+            onOpenChange={setNavigationOpen}
+            className="flex flex-1 flex-col overflow-hidden"
+          >
+            <div className="flex items-center justify-between border-b px-2 py-1.5 text-[11px] font-medium text-muted-foreground">
+              <span>PBC Requests</span>
+              <CollapsibleTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-6 w-6">
+                  {navigationOpen ? (
+                    <ChevronDown className="h-3.5 w-3.5" />
+                  ) : (
+                    <ChevronRight className="h-3.5 w-3.5" />
+                  )}
+                </Button>
+              </CollapsibleTrigger>
+            </div>
+
+            <CollapsibleContent className="flex flex-1 flex-col overflow-hidden">
+              {/* Compact Search Row */}
+              <div className="p-1.5 border-b flex items-center gap-1.5">
+                <div className="relative flex-1">
+                  <Search className="absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    placeholder="Search..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="h-7 pl-7 text-xs"
+                  />
+                </div>
+              </div>
+
+              {/* PBC Tree */}
+              <ScrollArea className="flex-1">
+                <div className="p-2">
+                  {isLoadingPbcTree ? (
+                    <div className="flex items-center justify-center py-8">
+                      <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                    </div>
+                  ) : (
+                    <PbcSidebarTree
+                      nodes={pbcTree}
+                      selectedId={selectedNode?.id || null}
+                      onSelect={handlePbcNodeSelect}
+                    />
+                  )}
+                </div>
+              </ScrollArea>
+            </CollapsibleContent>
+          </Collapsible>
+        </div>
+      )}
+
+      {!collapsed && !showFolderTree && !showReconciliationTree && !showPbcTree && (
         <ScrollArea className="flex-1">
           <div className="p-4 text-center text-sm text-muted-foreground">
             {isConsolidated

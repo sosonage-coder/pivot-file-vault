@@ -211,7 +211,7 @@ export function EditObjectModal({ open, onOpenChange, object }: EditObjectModalP
                       />
                     </FormControl>
                     <FormDescription>
-                      Variances above this amount require an explanation and evidence before review.
+                      Variances above this amount require an explanation and evidence before review. Leave blank to use the default $1,000.
                     </FormDescription>
                   </FormItem>
                 )}

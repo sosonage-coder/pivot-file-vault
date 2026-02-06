@@ -85,6 +85,12 @@ function ragTone(percentage: number) {
   return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300';
 }
 
+function readinessLabel(score: number) {
+  if (score >= 85) return 'On track';
+  if (score >= 60) return 'At risk';
+  return 'Off track';
+}
+
 function formatCurrency(value: number) {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
@@ -408,6 +414,25 @@ export function CommandCenterPage() {
     return { areaItems, objectItems };
   }, [areas, objects, resolveRoleValue]);
 
+  const roleCoverage = useMemo(() => {
+    const countAssigned = (items: Array<{ owner: string; reviewer: string; approver: string }>) => {
+      return items.reduce(
+        (acc, item) => {
+          acc.owner += item.owner !== 'Unassigned' ? 1 : 0;
+          acc.reviewer += item.reviewer !== 'Unassigned' ? 1 : 0;
+          acc.approver += item.approver !== 'Unassigned' ? 1 : 0;
+          return acc;
+        },
+        { owner: 0, reviewer: 0, approver: 0 }
+      );
+    };
+
+    return {
+      area: { total: rolesSnapshot.areaItems.length, assigned: countAssigned(rolesSnapshot.areaItems) },
+      object: { total: rolesSnapshot.objectItems.length, assigned: countAssigned(rolesSnapshot.objectItems) },
+    };
+  }, [rolesSnapshot]);
+
   const closeReadiness = useMemo(() => {
     const requiredDeliverables = expectedDocuments.filter((doc) => doc.required).length;
     const delivered = expectedDocuments.filter((doc) => doc.required && doc.uploaded).length;
@@ -477,9 +502,13 @@ export function CommandCenterPage() {
                     <CardTitle>{closeReadiness.score}%</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <Badge className={ragTone(closeReadiness.score)}>
-                      {closeReadiness.exceptions} exceptions • {closeReadiness.overdueTasks} overdue
-                    </Badge>
+                    <Progress value={closeReadiness.score} className="h-2" />
+                    <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                      <Badge className={ragTone(closeReadiness.score)}>{readinessLabel(closeReadiness.score)}</Badge>
+                      <span>{closeReadiness.exceptions} exceptions</span>
+                      <span>•</span>
+                      <span>{closeReadiness.overdueTasks} overdue tasks</span>
+                    </div>
                   </CardContent>
                 </Card>
 
@@ -530,7 +559,9 @@ export function CommandCenterPage() {
                   </CardHeader>
                   <CardContent className="space-y-3">
                     {myWorkQueue.length === 0 ? (
-                      <p className="text-sm text-muted-foreground">No open work assigned.</p>
+                      <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
+                        No open work assigned. Create a checklist task to get started.
+                      </div>
                     ) : (
                       myWorkQueue.map((item) => (
                         <button
@@ -546,6 +577,11 @@ export function CommandCenterPage() {
                         </button>
                       ))
                     )}
+                    <div className="flex justify-end">
+                      <Button variant="ghost" size="sm" onClick={() => navigate('/checklists')}>
+                        View all work
+                      </Button>
+                    </div>
                   </CardContent>
                 </Card>
 
@@ -556,7 +592,9 @@ export function CommandCenterPage() {
                   </CardHeader>
                   <CardContent className="space-y-3">
                     {myReviewQueue.length === 0 ? (
-                      <p className="text-sm text-muted-foreground">No reviews pending.</p>
+                      <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
+                        No reviews pending. You’re all caught up.
+                      </div>
                     ) : (
                       myReviewQueue.map((item) => (
                         <button
@@ -572,6 +610,11 @@ export function CommandCenterPage() {
                         </button>
                       ))
                     )}
+                    <div className="flex justify-end">
+                      <Button variant="ghost" size="sm" onClick={() => navigate('/reconciliations')}>
+                        View review queue
+                      </Button>
+                    </div>
                   </CardContent>
                 </Card>
 
@@ -581,6 +624,20 @@ export function CommandCenterPage() {
                     <CardDescription>Default preparer, reviewer, and approver coverage.</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
+                    <div className="grid gap-2 text-xs text-muted-foreground">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge variant="outline">Areas: {roleCoverage.area.total}</Badge>
+                        <span>Preparer {roleCoverage.area.assigned.owner}/{roleCoverage.area.total}</span>
+                        <span>Reviewer {roleCoverage.area.assigned.reviewer}/{roleCoverage.area.total}</span>
+                        <span>Approver {roleCoverage.area.assigned.approver}/{roleCoverage.area.total}</span>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge variant="outline">Objects: {roleCoverage.object.total}</Badge>
+                        <span>Preparer {roleCoverage.object.assigned.owner}/{roleCoverage.object.total}</span>
+                        <span>Reviewer {roleCoverage.object.assigned.reviewer}/{roleCoverage.object.total}</span>
+                        <span>Approver {roleCoverage.object.assigned.approver}/{roleCoverage.object.total}</span>
+                      </div>
+                    </div>
                     <div className="space-y-2">
                       <p className="text-xs font-semibold uppercase text-muted-foreground">Areas</p>
                       {rolesSnapshot.areaItems.length === 0 ? (
